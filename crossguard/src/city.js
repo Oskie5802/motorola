@@ -653,9 +653,26 @@ export class City {
     return false;
   }
   isOnRoad(x, z) {
-    // road if not on sidewalk and within city bounds - approximate
+    // Only consider actual road surface (within roadWidth/2 of a road center line)
     if (x < this.bounds.min || x > this.bounds.max || z < this.bounds.min || z > this.bounds.max) return false;
-    return !this.isOnSidewalk(x, z);
+    const roadHalf = 4; // roadWidth / 2
+    for (const seg of this.roadSegments) {
+      if (seg.axis === 'h') {
+        // Horizontal road: check if within Z band and X range
+        if (Math.abs(z - seg.z1) <= roadHalf && x >= seg.x1 && x <= seg.x2) return true;
+      } else {
+        // Vertical road: check if within X band and Z range
+        if (Math.abs(x - seg.x1) <= roadHalf && z >= seg.z1 && z <= seg.z2) return true;
+      }
+    }
+    return false;
+  }
+  // Returns true if player is on any safe ground (sidewalk or grass - anything not road/crossing)
+  isOnSafeGround(x, z) {
+    if (this.isOnSidewalk(x, z)) return true;
+    // Grass: within bounds, not on road, not on crossing
+    if (x < this.bounds.min || x > this.bounds.max || z < this.bounds.min || z > this.bounds.max) return false;
+    return !this.isOnRoad(x, z) && !this.isOnCrossing(x, z);
   }
   isOnCrossing(x, z) {
     for (const c of this.crossings) {

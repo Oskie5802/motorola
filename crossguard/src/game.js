@@ -144,7 +144,7 @@ export class GameLogic {
     // === Position checks ===
     const pos = this.player.pos;
     const moving = this.player.moving;
-    const onSidewalk = this.city.isOnSidewalk(pos.x, pos.z);
+    const onSidewalk = this.city.isOnSafeGround(pos.x, pos.z);
     const onCrossing = this.city.isOnCrossing(pos.x, pos.z);
     const onRoad = this.city.isOnRoad(pos.x, pos.z) && !onCrossing;
 
@@ -182,8 +182,8 @@ export class GameLogic {
     }
     if (!onCrossing && this._wasOnCrossing && this._lastCrossing) {
       // Exited a crossing
-      const exitedTo = this.city.isOnSidewalk(pos.x, pos.z);
-      if (exitedTo && this._lastCrossingLightState === 'green') {
+      const exitedToSafe = this.city.isOnSafeGround(pos.x, pos.z);
+      if (exitedToSafe && this._lastCrossingLightState === 'green') {
         this.addScore(SCORE.CROSS_GREEN, '✓ Bezpieczne przejście', 'good');
         this.successfulCrossings++;
       }
