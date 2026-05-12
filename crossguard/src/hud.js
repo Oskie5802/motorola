@@ -72,9 +72,9 @@ export class HUD {
     this.crossPromptEl.classList.remove('hidden');
     const colorMap = { red: '#e63946', green: '#00b074', amber: '#ffb800' };
     const textMap = {
-      red: 'Czekaj — sygnał czerwony',
-      green: 'Idź — sygnał zielony',
-      amber: 'Uwaga — sygnał żółty',
+      red: 'Czekaj - sygnał czerwony',
+      green: 'Idź - sygnał zielony',
+      amber: 'Uwaga - sygnał żółty',
     };
     this.crossLightIcon.style.color = colorMap[state];
     this.crossPromptText.textContent = textMap[state];

@@ -1,6 +1,6 @@
-# CrossGuard — Symulator Pieszego
+# CrossGuard - Symulator Pieszego
 
-Edukacyjna gra 3D w przeglądarce — Motorola Solutions Science Cup 2026.
+Edukacyjna gra 3D w przeglądarce - Motorola Solutions Science Cup 2026.
 
 Implementacja pełnego prototypu na bazie Game Design Document v1.0:
 
@@ -8,7 +8,7 @@ Implementacja pełnego prototypu na bazie Game Design Document v1.0:
 * 5 dzielnic o rosnącej trudności (mieszkalna → szkolna → centrum → przemysłowa → autostrada)
 * AI ruchu drogowego: samochody, autobusy, TIR-y, tramwaje, pojazdy uprzywilejowane
 * Sygnalizacja świetlna pieszych i samochodów (zsynchronizowane skrzyżowania)
-* System punktacji Safety Score z ocenami A–F + odznaką *Certified Safe Citizen*
+* System punktacji Safety Score z ocenami A-F + odznaką *Certified Safe Citizen*
 * HUD inspirowany Motorola Command Center: mini-mapa, panel Assist AI, radio APX P25, alerty LPR
 * Kamery Avigilon (fizyczne obiekty + zaznaczenia na mini-mapie)
 * Dynamiczne eventy: pojazd na czerwonym, awarie sygnalizacji, syrena, korki, alerty LPR
@@ -64,7 +64,7 @@ crossguard/
 ## Stos technologiczny
 
 - **Three.js** r170 (CDN, ES modules + importmap)
-- Vanilla JS (zgodnie z planem awaryjnym z GDD — bez build-stepu, szybsze odpalenie)
+- Vanilla JS (zgodnie z planem awaryjnym z GDD - bez build-stepu, szybsze odpalenie)
 - WebAudio API zamiast Howler.js (zero zewnętrznych pakietów)
 - Canvas2D dla mini-mapy
 

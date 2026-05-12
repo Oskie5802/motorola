@@ -1,4 +1,4 @@
-// === Audio: lightweight WebAudio synth — no external assets required ===
+// === Audio: lightweight WebAudio synth - no external assets required ===
 
 export class AudioSystem {
   constructor() {

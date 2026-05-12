@@ -204,7 +204,7 @@ export class City {
   }
 
   // Render a zebra crossing.
-  //   pedAxis: 'x' or 'z' — direction the pedestrian walks (perpendicular to vehicles)
+  //   pedAxis: 'x' or 'z' - direction the pedestrian walks (perpendicular to vehicles)
   //   roadW: road width (= length of each stripe, spans across the road in walk direction)
   //   footprint: width of crossing along the vehicle direction
   // Real zebras: stripes are LONG in pedestrian walking direction (you walk across each bar),
@@ -230,7 +230,7 @@ export class City {
       s.position.set(...pos);
       this.scene.add(s);
     }
-    // Pedestrian stop-line just before the zebra (subtle yellow) — helps players locate it
+    // Pedestrian stop-line just before the zebra (subtle yellow) - helps players locate it
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xfff066 });
     if (pedAxis === 'x') {
       // Markers at ends of zebra on sidewalk side
@@ -509,7 +509,7 @@ export class City {
     return false;
   }
   isOnRoad(x, z) {
-    // road if not on sidewalk and within city bounds — approximate
+    // road if not on sidewalk and within city bounds - approximate
     if (x < this.bounds.min || x > this.bounds.max || z < this.bounds.min || z > this.bounds.max) return false;
     return !this.isOnSidewalk(x, z);
   }

@@ -231,7 +231,7 @@ function showResults(result) {
   $('rViolations').textContent = result.violations;
   $('rZone').textContent = result.zone.name;
   $('rStatus').textContent = result.reason === 'success' ? 'CEL OSIĄGNIĘTY' :
-                             result.reason === 'timeout' ? 'CZAS MINĄŁ' : '—';
+                             result.reason === 'timeout' ? 'CZAS MINĄŁ' : '-';
   $('resultsHeader').textContent =
     result.reason === 'success' ? 'RAPORT MISJI · SUKCES' : 'RAPORT MISJI · CZAS MINĄŁ';
   $('lessonBox').innerHTML = `

@@ -76,7 +76,7 @@ export const ZONES = [
   {
     id: 'highway',
     name: 'AUTOSTRADA MIEJSKA',
-    desc: 'Misja finałowa — ewakuacja',
+    desc: 'Misja finałowa - ewakuacja',
     gridSize: 5,
     blockSize: 34,
     vehicles: 18,
@@ -139,23 +139,23 @@ export const PALETTE = {
 
 // Localized assist tips (rotate)
 export const ASSIST_TIPS = [
-  'Pamiętaj — zawsze korzystaj z przejść dla pieszych.',
+  'Pamiętaj - zawsze korzystaj z przejść dla pieszych.',
   'Zatrzymaj się przy krawężniku przed wejściem na pasy.',
   'Spójrz w lewo, prawo, jeszcze raz w lewo.',
   'Czerwone światło? Czekaj. Bezpieczeństwo jest ważniejsze niż czas.',
   'Słyszysz syrenę? Ustąp pierwszeństwa pojazdom uprzywilejowanym.',
-  'Avigilon wykrył pojazd łamiący przepisy — zachowaj ostrożność.',
-  'LPR zidentyfikował pojazd na alert — bądź czujny.',
-  'Pamiętaj o widoczności — nie używaj telefonu podczas przechodzenia.',
+  'Avigilon wykrył pojazd łamiący przepisy - zachowaj ostrożność.',
+  'LPR zidentyfikował pojazd na alert - bądź czujny.',
+  'Pamiętaj o widoczności - nie używaj telefonu podczas przechodzenia.',
 ];
 
 export const RADIO_MESSAGES = [
   'Dyspozytor: Patrol 7-2, zgłoszenie kolizji na ul. Słonecznej.',
-  'Karetka 4 do bazy — kierunek szpital, ETA 4 minuty.',
+  'Karetka 4 do bazy - kierunek szpital, ETA 4 minuty.',
   'Patrol 9: namierzony pojazd z bazy LPR, zmierza w stronę centrum.',
   'Drogówka: korek na alei głównej, sygnalizacja awaryjna.',
   'Straż 2: zabezpieczamy miejsce zdarzenia, droga zamknięta.',
-  'Centrum: monitoring Avigilon — podejrzany pojazd, sektor B7.',
-  'Dyspozytor: wszystkie jednostki — zachować pełną gotowość.',
+  'Centrum: monitoring Avigilon - podejrzany pojazd, sektor B7.',
+  'Dyspozytor: wszystkie jednostki - zachować pełną gotowość.',
   'Patrol 3: kontrola prędkości, ulica Kwiatowa, pojazdy zwalniają.',
 ];

@@ -42,7 +42,7 @@ export class GameLogic {
     this._lastCrossing = null;
     this._lastCrossingLightState = null;
 
-    // Dynamic events — quieter in residential, more chaotic later
+    // Dynamic events - quieter in residential, more chaotic later
     const evMul = zone.id === 'residential' ? 2.2 : zone.id === 'school' ? 1.5 : 1.0;
     this._eventTimer = (18 + Math.random() * 18) * evMul;
     this._lprTimer   = (24 + Math.random() * 18) * evMul;
@@ -61,7 +61,7 @@ export class GameLogic {
     const goal = this.city.farSpawn(start.x, start.z, this.city.size * 0.5);
     this.goal = goal;
 
-    // Beacon marker — visible from across the city
+    // Beacon marker - visible from across the city
     const group = new THREE.Group();
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(1.2, 1.6, 24),
@@ -86,7 +86,7 @@ export class GameLogic {
     this.city.scene.add(group);
     this._goalMarker = group;
 
-    // Navigation arrow — hovers above the player, rotates toward goal
+    // Navigation arrow - hovers above the player, rotates toward goal
     const arrowGroup = new THREE.Group();
     const cone = new THREE.Mesh(
       new THREE.ConeGeometry(0.4, 1.0, 6),
@@ -245,7 +245,7 @@ export class GameLogic {
     if (this._lprTimer <= 0) {
       this._lprTimer = (28 + Math.random() * 24) * this._eventMul;
       this.hud.incLPR();
-      this.hud.alert('LPR ALERT — pojazd na obserwacji', 'warn', 2400);
+      this.hud.alert('LPR ALERT - pojazd na obserwacji', 'warn', 2400);
     }
   }
 
@@ -258,12 +258,12 @@ export class GameLogic {
         if (v) v.runsRed = true;
       },
       () => {
-        this.hud.alert('SYRENA — Pojazd uprzywilejowany', 'info');
+        this.hud.alert('SYRENA - Pojazd uprzywilejowany', 'info');
         this.audio.siren();
         this.traffic._spawnEmergency();
       },
       () => {
-        this.hud.alert('AWARIA SYGNALIZACJI — zachowaj ostrożność', 'warn');
+        this.hud.alert('AWARIA SYGNALIZACJI - zachowaj ostrożność', 'warn');
         const tl = this.city.trafficLights[Math.floor(Math.random() * this.city.trafficLights.length)];
         // Force amber for a moment
         tl.state = 'amber'; tl.timer = 0;
@@ -275,7 +275,7 @@ export class GameLogic {
       },
       () => {
         this.hud.alert('Assist AI: korek na trasie głównej', 'info');
-        this.hud.setAssist('Asystent: korek przed Tobą — rozważ obejście.');
+        this.hud.setAssist('Asystent: korek przed Tobą - rozważ obejście.');
       },
     ];
     const ev = events[Math.floor(Math.random() * events.length)];
