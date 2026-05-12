@@ -309,6 +309,51 @@ html, body {
 @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
 
+/* Floating score popups */
+.floater {
+  position: absolute;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.75);
+  animation: floatUp 1.4s ease-out forwards;
+  z-index: 6;
+  white-space: nowrap;
+}
+.floater.pos { color: #5fff9a; }
+.floater.neg { color: #ff7185; }
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.6); }
+  15%  { opacity: 1; transform: translate(-50%, -10px) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -90px) scale(0.95); }
+}
+
+/* Tutorial intro overlay */
+#tutorial {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 13, 36, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  backdrop-filter: blur(3px);
+}
+#tutorial .tut-card {
+  max-width: 560px;
+  background: linear-gradient(135deg, rgba(0, 61, 165, 0.95), rgba(0, 13, 36, 0.95));
+  border: 1px solid var(--moto-cyan);
+  border-radius: 12px;
+  padding: 28px;
+  text-align: left;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+#tutorial h2 { margin: 0 0 6px; color: var(--moto-cyan); letter-spacing: 2px; }
+#tutorial h3 { margin: 14px 0 6px; color: var(--moto-amber); font-size: 13px; letter-spacing: 1.5px; }
+#tutorial p { margin: 4px 0; line-height: 1.55; color: #d8e8ff; font-size: 13px; }
+#tutorial button { margin-top: 18px; width: 100%; }
+
 /* Crossing prompt */
 #crossPrompt {
   position: absolute;

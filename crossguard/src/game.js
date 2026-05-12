@@ -42,9 +42,11 @@ export class GameLogic {
     this._lastCrossing = null;
     this._lastCrossingLightState = null;
 
-    // Dynamic events
-    this._eventTimer = 12 + Math.random() * 12;
-    this._lprTimer = 18 + Math.random() * 12;
+    // Dynamic events — quieter in residential, more chaotic later
+    const evMul = zone.id === 'residential' ? 2.2 : zone.id === 'school' ? 1.5 : 1.0;
+    this._eventTimer = (18 + Math.random() * 18) * evMul;
+    this._lprTimer   = (24 + Math.random() * 18) * evMul;
+    this._eventMul = evMul;
 
     // Final mission
     const missionLabel = zone.id === 'highway'
@@ -55,12 +57,11 @@ export class GameLogic {
   }
 
   _setupGoal() {
-    // Pick a sidewalk spawn far from player
     const start = this.player.pos;
     const goal = this.city.farSpawn(start.x, start.z, this.city.size * 0.5);
     this.goal = goal;
 
-    // Beacon marker
+    // Beacon marker — visible from across the city
     const group = new THREE.Group();
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(1.2, 1.6, 24),
@@ -70,21 +71,38 @@ export class GameLogic {
     ring.position.y = 0.05;
     group.add(ring);
     const pillar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.18, 8, 8),
+      new THREE.CylinderGeometry(0.18, 0.18, 14, 8),
       new THREE.MeshBasicMaterial({ color: 0xffb800, transparent: true, opacity: 0.55 })
     );
-    pillar.position.y = 4;
+    pillar.position.y = 7;
     group.add(pillar);
-    // Top sphere
     const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.45, 12, 10),
+      new THREE.SphereGeometry(0.5, 12, 10),
       new THREE.MeshBasicMaterial({ color: 0xffd866 })
     );
-    sphere.position.y = 8;
+    sphere.position.y = 14;
     group.add(sphere);
     group.position.set(goal.x, 0, goal.z);
     this.city.scene.add(group);
     this._goalMarker = group;
+
+    // Navigation arrow — hovers above the player, rotates toward goal
+    const arrowGroup = new THREE.Group();
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.4, 1.0, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffb800 })
+    );
+    cone.rotation.x = Math.PI / 2; // point along +Z
+    cone.position.z = 0.3;
+    arrowGroup.add(cone);
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(0.55, 0.07, 6, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffb800, transparent: true, opacity: 0.7 })
+    );
+    ring2.rotation.x = Math.PI / 2;
+    arrowGroup.add(ring2);
+    this.city.scene.add(arrowGroup);
+    this._navArrow = arrowGroup;
   }
 
   update(dt) {
@@ -95,7 +113,32 @@ export class GameLogic {
     // Animate goal beacon
     if (this._goalMarker) {
       this._goalMarker.rotation.y += dt * 0.6;
-      this._goalMarker.children[2].position.y = 8 + Math.sin(this.elapsed * 2) * 0.4;
+      this._goalMarker.children[2].position.y = 14 + Math.sin(this.elapsed * 2) * 0.4;
+    }
+    // Update nav arrow (hovers above player, points at goal, fades close to goal)
+    if (this._navArrow) {
+      const dx = this.goal.x - this.player.pos.x;
+      const dz = this.goal.z - this.player.pos.z;
+      const d = Math.hypot(dx, dz);
+      this._navArrow.position.set(this.player.pos.x, 3.2 + Math.sin(this.elapsed * 3) * 0.15, this.player.pos.z);
+      this._navArrow.rotation.y = Math.atan2(dx, dz);
+      this._navArrow.visible = d > 4;
+    }
+    // Highlight red-light-runner vehicles with a red glow ring
+    for (const v of this.traffic.vehicles) {
+      if (v.runsRed && !v._dangerRing) {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(1.3, 1.7, 18),
+          new THREE.MeshBasicMaterial({ color: 0xff2233, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.05;
+        v.group.add(ring);
+        v._dangerRing = ring;
+      }
+      if (v._dangerRing) {
+        v._dangerRing.material.opacity = 0.45 + 0.35 * Math.sin(this.elapsed * 6);
+      }
     }
 
     // === Position checks ===
@@ -193,14 +236,14 @@ export class GameLogic {
     // === Dynamic events ===
     this._eventTimer -= dt;
     if (this._eventTimer <= 0) {
-      this._eventTimer = 20 + Math.random() * 25;
+      this._eventTimer = (24 + Math.random() * 28) * this._eventMul;
       this._triggerRandomEvent();
     }
 
     // === LPR alerts ===
     this._lprTimer -= dt;
     if (this._lprTimer <= 0) {
-      this._lprTimer = 22 + Math.random() * 20;
+      this._lprTimer = (28 + Math.random() * 24) * this._eventMul;
       this.hud.incLPR();
       this.hud.alert('LPR ALERT — pojazd na obserwacji', 'warn', 2400);
     }
@@ -247,6 +290,15 @@ export class GameLogic {
       this.hud.alert(`${text}  ${sign}${delta}`, kind);
       if (delta > 0) this.audio.good();
       else this.audio.bad();
+    }
+    // Floating number above the player so feedback is tied to the action
+    if (this.camera) {
+      this.hud.spawnFloater(
+        { x: this.player.pos.x, z: this.player.pos.z },
+        `${delta >= 0 ? '+' : ''}${delta}`,
+        delta >= 0 ? 'pos' : 'neg',
+        this.camera,
+      );
     }
   }
 

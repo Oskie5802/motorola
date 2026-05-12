@@ -143,12 +143,25 @@ function startGame(zone) {
   const traffic = new TrafficSystem(scene, city, zone);
   const hud = new HUD(city, zone);
   const game = new GameLogic({ city, player, traffic, hud, audio, zone });
+  game.camera = camera; // for floater projection
 
   // Hook completion
   game.onComplete = (result) => showResults(result);
 
   // Show HUD
   $('hud').classList.remove('hidden');
+
+  // First-run tutorial (only once, stored in progress)
+  if (!progress._seenTutorial) {
+    $('tutorial').classList.remove('hidden');
+    isPaused = true;
+    $('tutorialOk').onclick = () => {
+      $('tutorial').classList.add('hidden');
+      isPaused = false;
+      progress._seenTutorial = true;
+      saveProgress(progress);
+    };
+  }
 
   // Audio
   audio.ambient(zone.id);

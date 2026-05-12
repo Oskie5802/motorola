@@ -203,27 +203,49 @@ export class City {
     }
   }
 
-  _addZebra(cx, cz, w, d, axis) {
+  // Render a zebra crossing.
+  //   pedAxis: 'x' or 'z' — direction the pedestrian walks (perpendicular to vehicles)
+  //   roadW: road width (= length of each stripe, spans across the road in walk direction)
+  //   footprint: width of crossing along the vehicle direction
+  // Real zebras: stripes are LONG in pedestrian walking direction (you walk across each bar),
+  // and arrayed along the vehicle direction.
+  _addZebra(cx, cz, pedAxis, roadW, footprint) {
     const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const stripes = 5;
-    if (axis === 'h') {
-      // crossing across horizontal road (stripes run perpendicular to road = vertical stripes)
-      const stripeW = w / (stripes * 2 - 1);
-      for (let i = 0; i < stripes; i++) {
-        const sx = cx - w/2 + stripeW/2 + i * stripeW * 2;
-        const s = new THREE.Mesh(new THREE.PlaneGeometry(stripeW, d), stripeMat);
-        s.rotation.x = -Math.PI / 2;
-        s.position.set(sx, 0.015, cz);
-        this.scene.add(s);
+    const thick = footprint / (stripes * 2 - 1);
+    for (let i = 0; i < stripes; i++) {
+      const off = -footprint/2 + thick/2 + i * thick * 2;
+      let geo, pos;
+      if (pedAxis === 'x') {
+        // Peds walk X → vehicles travel Z → stripes long in X, arrayed in Z
+        geo = new THREE.PlaneGeometry(roadW, thick);
+        pos = [cx, 0.015, cz + off];
+      } else {
+        // Peds walk Z → vehicles travel X → stripes long in Z, arrayed in X
+        geo = new THREE.PlaneGeometry(thick, roadW);
+        pos = [cx + off, 0.015, cz];
+      }
+      const s = new THREE.Mesh(geo, stripeMat);
+      s.rotation.x = -Math.PI / 2;
+      s.position.set(...pos);
+      this.scene.add(s);
+    }
+    // Pedestrian stop-line just before the zebra (subtle yellow) — helps players locate it
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xfff066 });
+    if (pedAxis === 'x') {
+      // Markers at ends of zebra on sidewalk side
+      for (const side of [-1, 1]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, footprint), lineMat);
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(cx + side * (roadW/2 + 0.3), 0.012, cz);
+        this.scene.add(m);
       }
     } else {
-      const stripeD = d / (stripes * 2 - 1);
-      for (let i = 0; i < stripes; i++) {
-        const sz = cz - d/2 + stripeD/2 + i * stripeD * 2;
-        const s = new THREE.Mesh(new THREE.PlaneGeometry(w, stripeD), stripeMat);
-        s.rotation.x = -Math.PI / 2;
-        s.position.set(cx, 0.015, sz);
-        this.scene.add(s);
+      for (const side of [-1, 1]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(footprint, 0.4), lineMat);
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(cx, 0.012, cz + side * (roadW/2 + 0.3));
+        this.scene.add(m);
       }
     }
   }

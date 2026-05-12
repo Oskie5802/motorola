@@ -1,4 +1,5 @@
 // === HUD: mini-map, score, mission text, alerts, assist, radio, weather, day/night ===
+import * as THREE from 'three';
 import { RADIO_MESSAGES, ASSIST_TIPS } from './config.js';
 
 export class HUD {
@@ -85,6 +86,29 @@ export class HUD {
     el.textContent = text;
     this.alertsEl.appendChild(el);
     setTimeout(() => { el.remove(); }, durationMs + 350);
+  }
+
+  // Floating score number anchored to a world position (projected through camera each frame)
+  spawnFloater(worldPos, text, kind = 'pos', camera) {
+    const el = document.createElement('div');
+    el.className = `floater ${kind}`;
+    el.textContent = text;
+    document.body.appendChild(el);
+
+    const v = new THREE.Vector3(worldPos.x, 1.8, worldPos.z);
+    const start = performance.now();
+    const update = () => {
+      const t = performance.now() - start;
+      if (t > 1400) { el.remove(); return; }
+      v.set(worldPos.x, 1.8, worldPos.z);
+      v.project(camera);
+      const x = (v.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
+      el.style.left = `${x}px`;
+      el.style.top  = `${y}px`;
+      requestAnimationFrame(update);
+    };
+    update();
   }
 
   randomAssistTip() {
