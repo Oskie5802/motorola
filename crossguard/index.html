@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CrossGuard — Symulator Pieszego | Motorola Solutions</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- === MAIN MENU === -->
+  <div id="menu" class="screen">
+    <div class="menu-content">
+      <div class="logo-band"></div>
+      <h1>CROSSGUARD</h1>
+      <h2>SYMULATOR PIESZEGO</h2>
+      <p class="tagline">Edukacyjna gra 3D o bezpiecznym poruszaniu się po mieście,<br/>osadzona w ekosystemie technologii <b>Motorola Solutions Public Safety</b>.</p>
+
+      <div class="zone-select" id="zoneSelect"></div>
+
+      <button id="startBtn" class="primary-btn">▶ ROZPOCZNIJ MISJĘ</button>
+      <button id="howToBtn" class="ghost-btn">Jak grać?</button>
+
+      <div class="credit">Motorola Solutions Science Cup 2026 · ZSTiB Brzesko · v1.0</div>
+    </div>
+  </div>
+
+  <!-- === HOW TO PLAY === -->
+  <div id="howto" class="screen hidden">
+    <div class="menu-content">
+      <h1>JAK GRAĆ?</h1>
+      <div class="howto-grid">
+        <div class="howto-card">
+          <h3>STEROWANIE</h3>
+          <p><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> / <kbd>↑↓←→</kbd> — ruch</p>
+          <p><kbd>Shift</kbd> — bieg</p>
+          <p><kbd>Spacja</kbd> — zatrzymanie</p>
+          <p><kbd>Mysz</kbd> — rozglądanie się</p>
+          <p><kbd>M</kbd> — mini-mapa pełna</p>
+          <p><kbd>R</kbd> — podsłuch radia APX P25</p>
+          <p><kbd>Esc</kbd> — pauza / menu</p>
+        </div>
+        <div class="howto-card">
+          <h3>CEL</h3>
+          <p>Dotrzyj <b>bezpiecznie</b> do punktu docelowego oznaczonego na mapie.</p>
+          <p>Korzystaj z przejść dla pieszych, słuchaj sygnałów, reaguj na alerty Assist AI i kamer Avigilon.</p>
+          <p>Wysoki <b>Safety Score</b> odblokowuje kolejne dzielnice.</p>
+        </div>
+        <div class="howto-card">
+          <h3>PUNKTACJA</h3>
+          <p>+10 Przejście na zielonym świetle</p>
+          <p>+5 Korzystanie z pasów</p>
+          <p>+15 Reakcja na pojazd uprzywilejowany</p>
+          <p>+10 Stosowanie się do Assist AI</p>
+          <p>-20 Przejście na czerwonym</p>
+          <p>-15 Wejście poza przejściem</p>
+          <p>-10 Telefon podczas przechodzenia</p>
+        </div>
+      </div>
+      <button id="howtoBack" class="primary-btn">◀ POWRÓT</button>
+    </div>
+  </div>
+
+  <!-- === GAME CANVAS === -->
+  <canvas id="game"></canvas>
+
+  <!-- === HUD === -->
+  <div id="hud" class="hidden">
+    <!-- Top bar: Command Center styling -->
+    <div id="hudTopBar">
+      <div class="hud-block">
+        <span class="hud-label">MOTOROLA · COMMAND CENTER</span>
+        <span class="hud-status"><span class="dot pulse"></span> SafeCity ONLINE</span>
+      </div>
+      <div class="hud-block center">
+        <div class="hud-mission">
+          <span class="hud-label">MISJA</span>
+          <span id="missionText">—</span>
+        </div>
+      </div>
+      <div class="hud-block right">
+        <div class="hud-timer">
+          <span class="hud-label">CZAS</span>
+          <span id="timerText">00:00</span>
+        </div>
+        <div class="hud-score">
+          <span class="hud-label">SAFETY SCORE</span>
+          <span id="scoreText">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mini-map -->
+    <div id="minimap">
+      <div class="hud-label">MINI-MAPA · AVIGILON FEED</div>
+      <canvas id="minimapCanvas" width="220" height="220"></canvas>
+      <div class="minimap-legend">
+        <span><i class="dot-player"></i>Ty</span>
+        <span><i class="dot-goal"></i>Cel</span>
+        <span><i class="dot-cam"></i>Kamera</span>
+        <span><i class="dot-hazard"></i>Zagrożenie</span>
+      </div>
+    </div>
+
+    <!-- Assist AI panel -->
+    <div id="assist">
+      <div class="assist-header">
+        <span class="ai-icon">◆</span>
+        <span>ASSIST AI · MOTOROLA</span>
+      </div>
+      <div id="assistMsg">Witaj w SafeCity, Alex. Rozpocznij trasę.</div>
+    </div>
+
+    <!-- Radio panel -->
+    <div id="radio" class="hidden">
+      <div class="radio-header">
+        <span>📡 APX P25 · Kanał Dyspozytorski</span>
+      </div>
+      <div id="radioMsg">— cisza w eterze —</div>
+    </div>
+
+    <!-- Alert toasts -->
+    <div id="alerts"></div>
+
+    <!-- Crossing prompt -->
+    <div id="crossPrompt" class="hidden">
+      <span id="crossLightIcon">●</span>
+      <span id="crossPromptText">Przejście dla pieszych</span>
+    </div>
+
+    <!-- Bottom HUD: Speed, weather, zone -->
+    <div id="hudBottomBar">
+      <div class="hud-block">
+        <span class="hud-label">DZIELNICA</span>
+        <span id="zoneText">—</span>
+      </div>
+      <div class="hud-block">
+        <span class="hud-label">POGODA</span>
+        <span id="weatherText">—</span>
+      </div>
+      <div class="hud-block">
+        <span class="hud-label">PORA</span>
+        <span id="timeOfDayText">—</span>
+      </div>
+      <div class="hud-block">
+        <span class="hud-label">LPR ALERTS</span>
+        <span id="lprText">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- === MISSION COMPLETE === -->
+  <div id="results" class="screen hidden">
+    <div class="menu-content results">
+      <h1 id="resultsHeader">RAPORT MISJI</h1>
+      <div class="grade-box">
+        <div class="grade-label">OCENA TRASY</div>
+        <div id="gradeLetter">A</div>
+      </div>
+      <div class="results-grid">
+        <div><span class="hud-label">SAFETY SCORE</span><span id="rScore">0</span></div>
+        <div><span class="hud-label">CZAS</span><span id="rTime">0s</span></div>
+        <div><span class="hud-label">PRZEJŚCIA POPRAWNE</span><span id="rCross">0</span></div>
+        <div><span class="hud-label">NARUSZENIA</span><span id="rViolations">0</span></div>
+        <div><span class="hud-label">DZIELNICA</span><span id="rZone">—</span></div>
+        <div><span class="hud-label">STATUS</span><span id="rStatus">—</span></div>
+      </div>
+
+      <div id="lessonBox" class="lesson"></div>
+
+      <button id="nextBtn" class="primary-btn">▶ NASTĘPNA MISJA</button>
+      <button id="menuBtn" class="ghost-btn">◀ MENU GŁÓWNE</button>
+    </div>
+  </div>
+
+  <!-- === PAUSE === -->
+  <div id="pause" class="screen hidden">
+    <div class="menu-content">
+      <h1>PAUZA</h1>
+      <button id="resumeBtn" class="primary-btn">▶ WZNÓW</button>
+      <button id="quitBtn" class="ghost-btn">◀ DO MENU</button>
+    </div>
+  </div>
+
+  <!-- === LOADING === -->
+  <div id="loading" class="screen">
+    <div class="loader">
+      <div class="logo-band"></div>
+      <h1>CROSSGUARD</h1>
+      <p>Łączenie z SafeCity Command Center…</p>
+      <div class="bar"><div class="bar-fill"></div></div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
