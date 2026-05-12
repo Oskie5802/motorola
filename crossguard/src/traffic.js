@@ -47,47 +47,201 @@ export class TrafficSystem {
     const color = t.color ?? PALETTE.vehicle[Math.floor(Math.random() * PALETTE.vehicle.length)];
 
     const group = new THREE.Group();
-    // Body
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(t.w, t.h * 0.6, t.d),
-      new THREE.MeshLambertMaterial({ color })
-    );
-    body.position.y = t.h * 0.45;
-    body.castShadow = true;
-    group.add(body);
-    // Cabin top
-    if (t.type !== 'tram') {
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color, roughness: 0.35, metalness: 0.55,
+    });
+    const cabinMat = new THREE.MeshStandardMaterial({
+      color: 0x12161e, roughness: 0.25, metalness: 0.3,
+    });
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x6fbfe3, roughness: 0.15, metalness: 0.4,
+      transparent: true, opacity: 0.55, envMapIntensity: 1.2,
+    });
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.85 });
+    const rimMat   = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.85 });
+
+    if (t.type === 'car') {
+      // Dolne nadwozie (szersze podwozie)
+      const lower = new THREE.Mesh(
+        new THREE.BoxGeometry(t.w, t.h * 0.42, t.d, 1, 1, 4),
+        bodyMat
+      );
+      lower.position.y = t.h * 0.34;
+      lower.castShadow = true;
+      group.add(lower);
+
+      // Maska (przód niżej) i bagażnik
+      const hood = new THREE.Mesh(
+        new THREE.BoxGeometry(t.w * 0.95, t.h * 0.22, t.d * 0.32),
+        bodyMat
+      );
+      hood.position.set(0, t.h * 0.6, -t.d * 0.32);
+      group.add(hood);
+      const trunk = hood.clone();
+      trunk.position.z = t.d * 0.32;
+      group.add(trunk);
+
+      // Kabina (trapezoidalna - skalowana)
       const cabin = new THREE.Mesh(
-        new THREE.BoxGeometry(t.w * 0.9, t.h * 0.45, t.d * 0.55),
-        new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
+        new THREE.BoxGeometry(t.w * 0.85, t.h * 0.42, t.d * 0.45),
+        cabinMat
       );
-      cabin.position.set(0, t.h * 0.9, -t.d * 0.05);
+      cabin.position.set(0, t.h * 0.78, 0);
       group.add(cabin);
-    } else {
-      // Tram top with windows
-      const top = new THREE.Mesh(
-        new THREE.BoxGeometry(t.w * 0.95, t.h * 0.4, t.d * 0.95),
-        new THREE.MeshLambertMaterial({ color: 0xaa2020 })
+
+      // Szyba przednia
+      const wsGeo = new THREE.PlaneGeometry(t.w * 0.78, t.h * 0.38);
+      const ws = new THREE.Mesh(wsGeo, glassMat);
+      ws.position.set(0, t.h * 0.78, -t.d * 0.22);
+      ws.rotation.x = -0.25;
+      group.add(ws);
+      const wsBack = ws.clone();
+      wsBack.position.z = t.d * 0.22;
+      wsBack.rotation.x = 0.25;
+      group.add(wsBack);
+      // Szyby boczne
+      const sideGeo = new THREE.PlaneGeometry(t.d * 0.42, t.h * 0.32);
+      const sideL = new THREE.Mesh(sideGeo, glassMat);
+      sideL.position.set(-t.w * 0.43, t.h * 0.8, 0);
+      sideL.rotation.y = -Math.PI / 2;
+      group.add(sideL);
+      const sideR = sideL.clone();
+      sideR.position.x = t.w * 0.43;
+      sideR.rotation.y = Math.PI / 2;
+      group.add(sideR);
+
+      // Dach - subtelny pasek
+      const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(t.w * 0.7, 0.05, t.d * 0.4),
+        new THREE.MeshStandardMaterial({ color: color, roughness: 0.4, metalness: 0.55 })
       );
-      top.position.y = t.h * 0.95;
+      roof.position.set(0, t.h * 1.0, 0);
+      group.add(roof);
+    } else if (t.type === 'bus' || t.type === 'truck') {
+      // Korpus
+      const lower = new THREE.Mesh(
+        new THREE.BoxGeometry(t.w, t.h * 0.6, t.d),
+        bodyMat
+      );
+      lower.position.y = t.h * 0.45;
+      lower.castShadow = true;
+      group.add(lower);
+      // Kabina/dach
+      const cabin = new THREE.Mesh(
+        new THREE.BoxGeometry(t.w * 0.95, t.h * 0.4, t.d * 0.55),
+        new THREE.MeshStandardMaterial({ color: 0x1a1f28, roughness: 0.4 })
+      );
+      cabin.position.set(0, t.h * 0.95, t.type === 'truck' ? -t.d * 0.18 : -t.d * 0.05);
+      group.add(cabin);
+      // Pasy okien
+      for (let i = 0; i < (t.type === 'bus' ? 5 : 2); i++) {
+        const wn = new THREE.Mesh(
+          new THREE.PlaneGeometry(t.d * 0.13, t.h * 0.3),
+          glassMat
+        );
+        wn.position.set(-t.w * 0.501, t.h * 0.65, -t.d * 0.35 + (i + 0.5) * (t.d * 0.7 / Math.max(1, (t.type==='bus'?5:2))));
+        wn.rotation.y = -Math.PI / 2;
+        group.add(wn);
+        const wnR = wn.clone();
+        wnR.position.x = t.w * 0.501;
+        wnR.rotation.y = Math.PI / 2;
+        group.add(wnR);
+      }
+      // Szyba przednia (kabina)
+      const fws = new THREE.Mesh(
+        new THREE.PlaneGeometry(t.w * 0.85, t.h * 0.35),
+        glassMat
+      );
+      fws.position.set(0, t.h * 0.95, -t.d * 0.5);
+      group.add(fws);
+    } else if (t.type === 'tram') {
+      const lower = new THREE.Mesh(
+        new THREE.BoxGeometry(t.w, t.h * 0.5, t.d),
+        bodyMat
+      );
+      lower.position.y = t.h * 0.4;
+      lower.castShadow = true;
+      group.add(lower);
+      const top = new THREE.Mesh(
+        new THREE.BoxGeometry(t.w * 0.95, t.h * 0.45, t.d * 0.95),
+        new THREE.MeshStandardMaterial({ color: 0xaa2020, roughness: 0.4 })
+      );
+      top.position.y = t.h * 0.88;
       group.add(top);
+      // Długie szyby
+      for (let i = 0; i < 6; i++) {
+        const wn = new THREE.Mesh(new THREE.PlaneGeometry(t.d * 0.12, t.h * 0.3), glassMat);
+        wn.position.set(-t.w * 0.501, t.h * 0.85, -t.d * 0.42 + (i + 0.5) * (t.d * 0.85 / 6));
+        wn.rotation.y = -Math.PI / 2;
+        group.add(wn);
+        const wnR = wn.clone();
+        wnR.position.x = t.w * 0.501;
+        wnR.rotation.y = Math.PI / 2;
+        group.add(wnR);
+      }
+      // Pantograf
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, 0.8),
+        new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8 })
+      );
+      pole.position.y = t.h * 1.2;
+      group.add(pole);
     }
-    // Headlights
-    const lightMat = new THREE.MeshBasicMaterial({ color: 0xfff6d2 });
-    const hL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.08), lightMat);
-    hL.position.set(-t.w * 0.3, t.h * 0.4, -t.d / 2);
+
+    // === Koła (wszystkie pojazdy) ===
+    if (t.type !== 'tram') {
+      const wheelR = Math.min(0.36, t.h * 0.3);
+      const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, 0.22, 14);
+      const rimGeo = new THREE.CylinderGeometry(wheelR * 0.55, wheelR * 0.55, 0.24, 10);
+      const axles = (t.type === 'car') ? [-t.d * 0.32, t.d * 0.32] : [-t.d * 0.36, t.d * 0.36];
+      for (const az of axles) {
+        for (const ax of [-t.w * 0.5, t.w * 0.5]) {
+          const w = new THREE.Mesh(wheelGeo, wheelMat);
+          w.rotation.z = Math.PI / 2;
+          w.position.set(ax, wheelR, az);
+          w.castShadow = true;
+          group.add(w);
+          const rim = new THREE.Mesh(rimGeo, rimMat);
+          rim.rotation.z = Math.PI / 2;
+          rim.position.set(ax * 1.01, wheelR, az);
+          group.add(rim);
+        }
+      }
+    } else {
+      // Tram - dwie pary niskich kół
+      for (const az of [-t.d * 0.35, t.d * 0.35]) {
+        const w = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.28, 0.28, t.w * 1.05, 12),
+          wheelMat
+        );
+        w.rotation.z = Math.PI / 2;
+        w.position.set(0, 0.28, az);
+        group.add(w);
+      }
+    }
+
+    // Reflektory
+    const lightMat = new THREE.MeshStandardMaterial({
+      color: 0xfff6d2, emissive: 0xfff2c8, emissiveIntensity: 1.4
+    });
+    const hL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), lightMat);
+    hL.scale.set(1.2, 0.7, 0.5);
+    hL.position.set(-t.w * 0.32, t.h * 0.45, -t.d / 2 - 0.02);
     group.add(hL);
     const hR = hL.clone();
-    hR.position.x = t.w * 0.3;
+    hR.position.x = t.w * 0.32;
     group.add(hR);
-    // Tail lights
-    const tMat = new THREE.MeshBasicMaterial({ color: 0xaa0000 });
-    const tL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.06), tMat);
-    tL.position.set(-t.w * 0.3, t.h * 0.4, t.d / 2);
+    // Tylne światła
+    const tMat = new THREE.MeshStandardMaterial({
+      color: 0xff2a2a, emissive: 0xff2030, emissiveIntensity: 0.9
+    });
+    const tL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.06), tMat);
+    tL.position.set(-t.w * 0.32, t.h * 0.45, t.d / 2 + 0.02);
     group.add(tL);
     const tR = tL.clone();
-    tR.position.x = t.w * 0.3;
+    tR.position.x = t.w * 0.32;
     group.add(tR);
+
     this.scene.add(group);
 
     // Choose a road segment & lane direction
@@ -111,7 +265,7 @@ export class TrafficSystem {
       axis = 'v';
     }
     group.position.set(x, 0, z);
-    group.rotation.y = Math.atan2(vx, vz);
+    group.rotation.y = Math.atan2(vx, vz) + Math.PI;
 
     return {
       group,
@@ -129,22 +283,88 @@ export class TrafficSystem {
   }
 
   _spawnPeds(n) {
+    const shirtColors = [0xd34c4c, 0x4cd366, 0xd3c44c, 0x6f4cd3, 0x4cb5d3, 0xd34cb5,
+                         0xe8772c, 0x2e8f6b, 0x9c3b6f, 0x36507c];
+    const skinTones = [0xf6c8a0, 0xe2b48a, 0xc99772, 0xa6764e, 0x8b5a3c];
+    const hairColors = [0x1a1108, 0x3c2210, 0x6b4423, 0xa67442, 0xd9b271, 0x2c2c2c];
+    const pantsColors = [0x1a2540, 0x2a2f38, 0x3a3b48, 0x554938, 0x202833];
+
     for (let i = 0; i < n; i++) {
       const p = this.city.randomSidewalkPoint();
       const group = new THREE.Group();
-      const shirtColors = [0xd34c4c, 0x4cd366, 0xd3c44c, 0x6f4cd3, 0x4cb5d3, 0xd34cb5];
+      const heightScale = 0.85 + Math.random() * 0.3;
       const c = shirtColors[Math.floor(Math.random() * shirtColors.length)];
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.75, 0.25),
-        new THREE.MeshLambertMaterial({ color: c }));
-      torso.position.y = 0.95;
+      const skinC = skinTones[Math.floor(Math.random() * skinTones.length)];
+      const hairC = hairColors[Math.floor(Math.random() * hairColors.length)];
+      const pantsC = pantsColors[Math.floor(Math.random() * pantsColors.length)];
+
+      const shirtMat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
+      const skinMat  = new THREE.MeshStandardMaterial({ color: skinC, roughness: 0.8 });
+      const hairMat  = new THREE.MeshStandardMaterial({ color: hairC, roughness: 0.6 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: pantsC, roughness: 0.85 });
+      const shoesMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 });
+
+      // Tors
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.28, 1, 2, 1), shirtMat);
+      torso.position.y = 1.0;
       torso.castShadow = true;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8),
-        new THREE.MeshLambertMaterial({ color: 0xfcd5a0 }));
-      head.position.y = 1.55;
-      const legs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.55, 0.25),
-        new THREE.MeshLambertMaterial({ color: 0x2a2f38 }));
-      legs.position.y = 0.32;
-      group.add(torso, head, legs);
+      group.add(torso);
+      // Szyja
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 10), skinMat);
+      neck.position.y = 1.42;
+      group.add(neck);
+      // Głowa
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.20, 14, 12), skinMat);
+      head.position.y = 1.6;
+      head.scale.set(1, 1.08, 0.95);
+      head.castShadow = true;
+      group.add(head);
+      // Włosy (półsfera)
+      if (Math.random() > 0.15) {
+        const hair = new THREE.Mesh(
+          new THREE.SphereGeometry(0.21, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2.1),
+          hairMat
+        );
+        hair.position.y = 1.64;
+        group.add(hair);
+      }
+      // Ramiona (cylindry)
+      const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.6, 10), shirtMat);
+      armL.position.set(-0.32, 1.05, 0);
+      armL.castShadow = true;
+      group.add(armL);
+      const armR = armL.clone(); armR.position.x = 0.32;
+      group.add(armR);
+      // Dłonie
+      const handL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), skinMat);
+      handL.position.set(-0.32, 0.74, 0);
+      group.add(handL);
+      const handR = handL.clone(); handR.position.x = 0.32;
+      group.add(handR);
+      // Nogi
+      const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.65, 10), pantsMat);
+      legL.position.set(-0.12, 0.34, 0);
+      legL.castShadow = true;
+      group.add(legL);
+      const legR = legL.clone(); legR.position.x = 0.12;
+      group.add(legR);
+      // Buty
+      const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), shoesMat);
+      shoeL.position.set(-0.12, 0.05, 0.04);
+      group.add(shoeL);
+      const shoeR = shoeL.clone(); shoeR.position.x = 0.12;
+      group.add(shoeR);
+
+      // miękki cień
+      const sh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.38, 18),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 })
+      );
+      sh.rotation.x = -Math.PI / 2;
+      sh.position.y = 0.02;
+      group.add(sh);
+
+      group.scale.setScalar(heightScale);
       group.position.set(p.x, 0, p.z);
       this.scene.add(group);
 
@@ -153,6 +373,8 @@ export class TrafficSystem {
         pos: { x: p.x, z: p.z },
         target: this.city.randomSidewalkPoint(),
         speed: 1.2 + Math.random() * 0.6,
+        phase: Math.random() * 10,
+        armL, armR, legL, legR,
       });
     }
   }
@@ -180,7 +402,13 @@ export class TrafficSystem {
       } else {
         p.target = this.city.randomSidewalkPoint();
       }
-      p.group.position.set(p.pos.x, 0, p.pos.z);
+      p.phase += dt * 6;
+      const swing = Math.sin(p.phase) * 0.5;
+      if (p.armL) p.armL.rotation.x = swing;
+      if (p.armR) p.armR.rotation.x = -swing;
+      if (p.legL) p.legL.rotation.x = -swing * 0.7;
+      if (p.legR) p.legR.rotation.x = swing * 0.7;
+      p.group.position.set(p.pos.x, Math.abs(Math.sin(p.phase * 2)) * 0.04, p.pos.z);
       p.group.rotation.y = Math.atan2(dx, dz);
     }
 
@@ -269,7 +497,7 @@ export class TrafficSystem {
     }
 
     v.group.position.set(v.pos.x, 0, v.pos.z);
-    v.group.rotation.y = Math.atan2(v.vx, v.vz);
+    v.group.rotation.y = Math.atan2(v.vx, v.vz) + Math.PI;
 
     // Emergency siren visual
     if (v.isEmergency && v.siren) {
@@ -286,9 +514,12 @@ export class TrafficSystem {
     v.runsRed = true;
 
     // Repaint body
-    const body = v.group.children[0];
-    body.material = new THREE.MeshLambertMaterial({
-      color: Math.random() < 0.5 ? 0xffffff : 0xdd2c2c,
+    const newCol = Math.random() < 0.5 ? 0xffffff : 0xdd2c2c;
+    const newMat = new THREE.MeshStandardMaterial({ color: newCol, roughness: 0.3, metalness: 0.6 });
+    v.group.children.forEach(ch => {
+      if (ch.material && ch.material.color && ch.geometry && ch.geometry.type === 'BoxGeometry') {
+        ch.material = newMat;
+      }
     });
 
     // Siren bar on top

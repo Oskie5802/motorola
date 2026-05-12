@@ -9,9 +9,22 @@ export class Environment {
     this.isNight = zone.timeOfDay === 'night';
     this.isMorning = zone.timeOfDay === 'morning';
 
-    // Sky color
+    // Sky color z gradientem (canvas)
     const skyColor = this.isNight ? 0x07142e : (this.isMorning ? 0xffd9a8 : 0x87ceeb);
-    scene.background = new THREE.Color(skyColor);
+    const topColor = this.isNight ? '#020616' : (this.isMorning ? '#ff9a5a' : '#3aa3e0');
+    const botColor = this.isNight ? '#1a2548' : (this.isMorning ? '#ffe9c4' : '#cfe9ff');
+    const cnv = document.createElement('canvas');
+    cnv.width = 2; cnv.height = 256;
+    const ctx = cnv.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, topColor);
+    grad.addColorStop(0.6, botColor);
+    grad.addColorStop(1, botColor);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 2, 256);
+    const skyTex = new THREE.CanvasTexture(cnv);
+    skyTex.colorSpace = THREE.SRGBColorSpace;
+    scene.background = skyTex;
 
     // Fog
     if (zone.weather === 'fog') {
@@ -24,19 +37,29 @@ export class Environment {
 
     // Lights
     const ambient = new THREE.HemisphereLight(
-      this.isNight ? 0x4a5d8a : 0xfff5e8,
-      this.isNight ? 0x0a142e : 0x6d7a8a,
-      this.isNight ? 0.35 : 0.85
+      this.isNight ? 0x6a7db0 : 0xfff5e8,
+      this.isNight ? 0x0a142e : 0x556070,
+      this.isNight ? 0.45 : 0.7
     );
     scene.add(ambient);
+    // Delikatne wypełnienie z przeciwnej strony
+    const fill = new THREE.DirectionalLight(
+      this.isNight ? 0x6080c0 : 0xb0c6e0,
+      this.isNight ? 0.2 : 0.35
+    );
+    fill.position.set(-40, 50, -30);
+    scene.add(fill);
 
     this.sun = new THREE.DirectionalLight(
-      this.isNight ? 0xa8c0ff : (this.isMorning ? 0xffd09a : 0xffffff),
-      this.isNight ? 0.25 : 0.95
+      this.isNight ? 0xa8c0ff : (this.isMorning ? 0xffd09a : 0xfff8ec),
+      this.isNight ? 0.3 : 1.15
     );
     this.sun.position.set(60, 100, 40);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.bias = -0.0005;
+    this.sun.shadow.normalBias = 0.04;
+    this.sun.shadow.radius = 2.5;
     const d = 100;
     this.sun.shadow.camera.left = -d;
     this.sun.shadow.camera.right = d;

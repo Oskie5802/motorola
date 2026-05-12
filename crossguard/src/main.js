@@ -1,5 +1,6 @@
 // === CrossGuard main bootstrap: menu → game → results ===
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { ZONES, gradeFor } from './config.js';
 import { City } from './city.js';
 import { Player } from './player.js';
@@ -118,14 +119,22 @@ $('menuBtn').onclick = () => {
 function startGame(zone) {
   // Scene
   const canvas = $('game');
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
 
   const scene = new THREE.Scene();
+
+  // Environment map dla ładnych refleksów na pojazdach i szybach
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const envTex = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+  scene.environment = envTex;
 
   // Camera
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
