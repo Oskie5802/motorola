@@ -915,8 +915,8 @@ export class City {
             metalness: 0.2,
         });
         for (const p of positions) {
-            const px = p.x + 2.8,
-                pz = p.z + 2.8;
+            const px = p.x + 5.5,
+                pz = p.z + 5.5;
             const pole = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.08, 0.1, 4.8, 8),
                 poleMat,
