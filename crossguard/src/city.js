@@ -249,28 +249,54 @@ export class City {
 
   _addLaneLines(cx, cz, w, d, axis) {
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const bs = this.blockSize;
+    const g = this.gridSize;
+    const half = (g * bs) / 2;
+    // Exclusion radius around each intersection center (covers intersection box + crossings + dash length margin)
+    const excludeR = 8.5; // crossOff(5.5) + crossWidth/2(1.5) + dashLen/2(1) + margin(0.5)
+
+    // Collect all road grid coordinates (perpendicular roads cross at these positions)
+    const roadPositions = [];
+    for (let k = 0; k <= g; k++) {
+      roadPositions.push(k * bs - half);
+    }
+
+    // Check if a dash position along the road is near any perpendicular road crossing
+    const isNearCrossing = (pos) => {
+      for (const rp of roadPositions) {
+        if (Math.abs(pos - rp) < excludeR) return true;
+      }
+      return false;
+    };
+
     if (axis === "h") {
       const dashLen = 2,
         gap = 2;
       for (let x = -w / 2 + 1; x < w / 2; x += dashLen + gap) {
+        const worldX = cx + x;
+        // Skip dashes near intersections (where vertical roads cross this horizontal road)
+        if (isNearCrossing(worldX)) continue;
         const line = new THREE.Mesh(
           new THREE.PlaneGeometry(dashLen, 0.25),
           lineMat,
         );
         line.rotation.x = -Math.PI / 2;
-        line.position.set(cx + x, 0.01, cz);
+        line.position.set(worldX, 0.01, cz);
         this.scene.add(line);
       }
     } else {
       const dashLen = 2,
         gap = 2;
       for (let z = -d / 2 + 1; z < d / 2; z += dashLen + gap) {
+        const worldZ = cz + z;
+        // Skip dashes near intersections (where horizontal roads cross this vertical road)
+        if (isNearCrossing(worldZ)) continue;
         const line = new THREE.Mesh(
           new THREE.PlaneGeometry(0.25, dashLen),
           lineMat,
         );
         line.rotation.x = -Math.PI / 2;
-        line.position.set(cx, 0.01, cz + z);
+        line.position.set(cx, 0.01, worldZ);
         this.scene.add(line);
       }
     }
