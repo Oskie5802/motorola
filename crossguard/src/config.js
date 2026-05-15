@@ -130,7 +130,7 @@ export const PALETTE = {
   road:   0x2b2f38,
   curb:   0x6a7280,
   sidewalk: 0xb0b4bc,
-  grass:  0x4d8a4d,
+  grass:  0xB5654A,  // terracotta brick (chodnik)
   sky:    0x87ceeb,
   nightSky: 0x0a1838,
   building: [0x6b7d99, 0x8aa0bf, 0xa9bbd3, 0x7e90a8, 0x5d6c85, 0x9bb0cc],

@@ -138,59 +138,80 @@ export class City {
     }
 
     // === Intersections + crossings + lights ===
-    // Layout per intersection:
-    //   - 4 zebra crossings, one on each road arm, fully on road just past the
-    //     intersection box (entirely between the intersection edge and the sidewalk edge).
-    //   - 4 traffic-light poles, one at each sidewalk corner, each rotated to face
-    //     the intersection center. Diagonally opposite poles share the same phase:
-    //       SE + NW → controls NS vehicles
-    //       SW + NE → controls EW vehicles
-    //   - Each crosswalk is linked to the nearest pole on its controlling axis,
-    //     so the pedestrian signal the player can see corresponds to that crosswalk.
-    const crossOff = roadWidth/2 + 1.5;            // 5.5: centers cross between intersection edge (4) and sidewalk edge (7)
-    const crossWidth = 3.0;                         // fits in the 3m road–sidewalk gap (z ∈ [4, 7])
-    const intersectionSidewalkSize = bs - roadWidth - 6; // mirrors innerSize used per block
-    const poleInset = bs/2 - intersectionSidewalkSize/2 + 0.6;  // pole sits just inside the sidewalk corner facing the intersection
+    // Combined signal poles: car signal (3 lamps) on top, pedestrian signal (2 lamps) below,
+    // both on the same pole. Placed on the RIGHT side of each crossing (Polish traffic convention).
+    const crossOff = roadWidth/2 + 1.5;
+    const crossWidth = 3.0;
 
     for (let i = 1; i < g; i++) {
       for (let j = 1; j < g; j++) {
         const x = i * bs - half;
         const z = j * bs - half;
+        const intKey = `${i}_${j}`;
         this.intersections.push({ x, z });
 
-        // Poles at the 4 sidewalk corners, each oriented so its lamp face looks at the intersection.
-        // Pairs by diagonal so the two visible signals at a stopped driver's location agree.
-        const poleSE = this._addTrafficLight(x + poleInset, z - poleInset, 'ns', Math.atan2(-1,  1));
-        const poleNW = this._addTrafficLight(x - poleInset, z + poleInset, 'ns', Math.atan2( 1, -1));
-        const poleSW = this._addTrafficLight(x - poleInset, z - poleInset, 'ew', Math.atan2( 1,  1));
-        const poleNE = this._addTrafficLight(x + poleInset, z + poleInset, 'ew', Math.atan2(-1, -1));
+        // Create 2 logical light states per intersection (NS controls N-S vehicles, EW controls E-W)
+        const nsLight = this._createLightState('ns', intKey);
+        const ewLight = this._createLightState('ew', intKey);
 
-        // North/south arms: crossings on the vertical road, peds walk E-W (X axis).
-        // Linked to NS pole on the same side of the intersection.
-        for (const dz of [-crossOff, +crossOff]) {
-          this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
-          const lightObj = dz < 0 ? poleSE : poleNW;
+        // North arm crossing (z - crossOff): peds walk X direction
+        {
+          const cz = z - crossOff;
+          this._addZebra(x, cz, 'x', roadWidth, crossWidth);
+          // Right side poles: ped at left edge facing +X → right side is -Z; ped at right edge facing -X → right side is +Z
+          const ps1 = this._addCombinedSignal(x - roadWidth/2 - 0.8, cz - 1.2, -Math.PI / 2, nsLight);
+          const ps2 = this._addCombinedSignal(x + roadWidth/2 + 0.8, cz + 1.2, Math.PI / 2, nsLight);
           this.crossings.push({
-            x, z: z + dz, axis: 'h', light: lightObj,
-            x1: x - roadWidth/2, z1: z + dz - crossWidth/2,
-            x2: x + roadWidth/2, z2: z + dz + crossWidth/2,
+            x, z: cz, axis: 'h', light: nsLight,
+            x1: x - roadWidth/2, z1: cz - crossWidth/2,
+            x2: x + roadWidth/2, z2: cz + crossWidth/2,
+            pedSignals: [ps1, ps2],
           });
         }
-        // East/west arms: crossings on the horizontal road, peds walk N-S (Z axis).
-        // Linked to EW pole on the same side.
-        for (const dx of [-crossOff, +crossOff]) {
-          this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
-          const lightObj = dx < 0 ? poleSW : poleNE;
+        // South arm crossing (z + crossOff): peds walk X direction
+        {
+          const cz = z + crossOff;
+          this._addZebra(x, cz, 'x', roadWidth, crossWidth);
+          const ps1 = this._addCombinedSignal(x - roadWidth/2 - 0.8, cz - 1.2, -Math.PI / 2, nsLight);
+          const ps2 = this._addCombinedSignal(x + roadWidth/2 + 0.8, cz + 1.2, Math.PI / 2, nsLight);
           this.crossings.push({
-            x: x + dx, z, axis: 'v', light: lightObj,
-            x1: x + dx - crossWidth/2, z1: z - roadWidth/2,
-            x2: x + dx + crossWidth/2, z2: z + roadWidth/2,
+            x, z: cz, axis: 'h', light: nsLight,
+            x1: x - roadWidth/2, z1: cz - crossWidth/2,
+            x2: x + roadWidth/2, z2: cz + crossWidth/2,
+            pedSignals: [ps1, ps2],
+          });
+        }
+        // West arm crossing (x - crossOff): peds walk Z direction
+        {
+          const cx = x - crossOff;
+          this._addZebra(cx, z, 'z', roadWidth, crossWidth);
+          // Ped at top edge facing +Z → right side is +X; ped at bottom edge facing -Z → right side is -X
+          const ps1 = this._addCombinedSignal(cx + 1.2, z - roadWidth/2 - 0.8, Math.PI, ewLight);
+          const ps2 = this._addCombinedSignal(cx - 1.2, z + roadWidth/2 + 0.8, 0, ewLight);
+          this.crossings.push({
+            x: cx, z, axis: 'v', light: ewLight,
+            x1: cx - crossWidth/2, z1: z - roadWidth/2,
+            x2: cx + crossWidth/2, z2: z + roadWidth/2,
+            pedSignals: [ps1, ps2],
+          });
+        }
+        // East arm crossing (x + crossOff): peds walk Z direction
+        {
+          const cx = x + crossOff;
+          this._addZebra(cx, z, 'z', roadWidth, crossWidth);
+          const ps1 = this._addCombinedSignal(cx + 1.2, z - roadWidth/2 - 0.8, Math.PI, ewLight);
+          const ps2 = this._addCombinedSignal(cx - 1.2, z + roadWidth/2 + 0.8, 0, ewLight);
+          this.crossings.push({
+            x: cx, z, axis: 'v', light: ewLight,
+            x1: cx - crossWidth/2, z1: z - roadWidth/2,
+            x2: cx + crossWidth/2, z2: z + roadWidth/2,
+            pedSignals: [ps1, ps2],
           });
         }
       }
     }
 
-    // Link N-S and E-W lights so they oppose each other (per intersection)
+    // Link N-S and E-W lights so they oppose each other
     this._linkTrafficLights();
 
     // === Cameras (Avigilon) ===
@@ -229,12 +250,6 @@ export class City {
     }
   }
 
-  // Render a zebra crossing.
-  //   pedAxis: 'x' or 'z' - direction the pedestrian walks (perpendicular to vehicles)
-  //   roadW: road width (= length of each stripe, spans across the road in walk direction)
-  //   footprint: width of crossing along the vehicle direction
-  // Real zebras: stripes are LONG in pedestrian walking direction (you walk across each bar),
-  // and arrayed along the vehicle direction.
   _addZebra(cx, cz, pedAxis, roadW, footprint) {
     const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const stripes = 5;
@@ -243,11 +258,9 @@ export class City {
       const off = -footprint/2 + thick/2 + i * thick * 2;
       let geo, pos;
       if (pedAxis === 'x') {
-        // Peds walk X → vehicles travel Z → stripes long in X, arrayed in Z
         geo = new THREE.PlaneGeometry(roadW, thick);
         pos = [cx, 0.015, cz + off];
       } else {
-        // Peds walk Z → vehicles travel X → stripes long in Z, arrayed in X
         geo = new THREE.PlaneGeometry(thick, roadW);
         pos = [cx + off, 0.015, cz];
       }
@@ -256,10 +269,8 @@ export class City {
       s.position.set(...pos);
       this.scene.add(s);
     }
-    // Pedestrian stop-line just before the zebra (subtle yellow) - helps players locate it
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xfff066 });
     if (pedAxis === 'x') {
-      // Markers at ends of zebra on sidewalk side
       for (const side of [-1, 1]) {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, footprint), lineMat);
         m.rotation.x = -Math.PI / 2;
@@ -276,77 +287,111 @@ export class City {
     }
   }
 
-  _addTrafficLight(x, z, axis, rotationY = 0) {
-    const group = new THREE.Group();
-    // Pole
-    const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 4.2),
-      new THREE.MeshLambertMaterial({ color: 0x222a33 })
-    );
-    pole.position.y = 2.1;
-    pole.castShadow = true;
-    group.add(pole);
-    // Housing
-    const housing = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 1.6, 0.5),
-      new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
-    );
-    housing.position.y = 4.0;
-    group.add(housing);
-
-    // 3 lamps
-    const redMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0x220000, emissiveIntensity: 0.4 });
-    const ambMat = new THREE.MeshStandardMaterial({ color: 0x553f00, emissive: 0x221800, emissiveIntensity: 0.4 });
-    const grnMat = new THREE.MeshStandardMaterial({ color: 0x005522, emissive: 0x002211, emissiveIntensity: 0.4 });
-    const red = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), redMat);
-    red.position.set(0, 4.55, 0.26);
-    const amb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), ambMat);
-    amb.position.set(0, 4.05, 0.26);
-    const grn = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), grnMat);
-    grn.position.set(0, 3.55, 0.26);
-    group.add(red, amb, grn);
-
-    group.position.set(x, 0, z);
-    group.rotation.y = rotationY;
-    this.scene.add(group);
-
+  // Create a logical light state (no visual — visuals are on combined signal poles)
+  _createLightState(axis, intKey) {
     const lightObj = {
-      group, axis,
-      state: 'red',           // red | green | amber
+      axis,
+      state: 'red',
       timer: Math.random() * 6,
       cycleRed: 6.0,
       cycleGreen: 5.0,
       cycleAmber: 1.2,
-      redMat, ambMat, grnMat,
-      pos: { x, z },
-      pairedWith: null,
+      // Materials for car signal are on the combined signal poles, stored in .visuals[]
+      redMat: null, ambMat: null, grnMat: null,
+      pos: { x: 0, z: 0 },
+      intKey,
+      visuals: [], // [{redMat, ambMat, grnMat}] from each combined signal pole
     };
     this.trafficLights.push(lightObj);
     return lightObj;
   }
 
-  _linkTrafficLights() {
-    // Group lights by intersection (within ~10 units)
-    const groups = [];
-    for (const tl of this.trafficLights) {
-      // Threshold must cover the diagonal between opposite corner poles (~2 × poleInset ≈ 15)
-      // while staying well below blockSize so adjacent intersections aren't merged.
-      let g = groups.find(grp =>
-        Math.abs(grp.cx - tl.pos.x) < 18 && Math.abs(grp.cz - tl.pos.z) < 18
-      );
-      if (!g) { g = { cx: tl.pos.x, cz: tl.pos.z, items: [] }; groups.push(g); }
-      g.items.push(tl);
+  // Combined signal pole: car signal (3 lamps) on top, ped signal (2 lamps) below
+  _addCombinedSignal(x, z, rotY, lightState) {
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x333a44 });
+    const group = new THREE.Group();
+
+    // Main pole
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.10, 0.10, 5.5, 8),
+      poleMat
+    );
+    pole.position.y = 2.75;
+    pole.castShadow = true;
+    group.add(pole);
+
+    // === Car signal housing (top) ===
+    const carHousing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 1.6, 0.45),
+      new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
+    );
+    carHousing.position.set(0, 5.3, 0);
+    group.add(carHousing);
+
+    // Car signal lamps
+    const carRedMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0x220000, emissiveIntensity: 0.4 });
+    const carAmbMat = new THREE.MeshStandardMaterial({ color: 0x553f00, emissive: 0x221800, emissiveIntensity: 0.4 });
+    const carGrnMat = new THREE.MeshStandardMaterial({ color: 0x005522, emissive: 0x002211, emissiveIntensity: 0.4 });
+    const carRed = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), carRedMat);
+    carRed.position.set(0, 5.85, 0.24);
+    const carAmb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), carAmbMat);
+    carAmb.position.set(0, 5.35, 0.24);
+    const carGrn = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), carGrnMat);
+    carGrn.position.set(0, 4.85, 0.24);
+    group.add(carRed, carAmb, carGrn);
+
+    // === Ped signal housing (below car signal, on same pole) ===
+    const pedHousing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.9, 0.35),
+      new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
+    );
+    pedHousing.position.set(0, 3.6, 0);
+    group.add(pedHousing);
+
+    // Ped signal lamps (red on top = don't walk, green on bottom = walk)
+    const pedRedMat = new THREE.MeshStandardMaterial({ color: 0xff2233, emissive: 0xff2233, emissiveIntensity: 1.8 });
+    const pedRed = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 8), pedRedMat);
+    pedRed.position.set(0, 3.85, 0.18);
+    group.add(pedRed);
+
+    const pedGrnMat = new THREE.MeshStandardMaterial({ color: 0x003311, emissive: 0x001808, emissiveIntensity: 0.2 });
+    const pedGrn = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 8), pedGrnMat);
+    pedGrn.position.set(0, 3.35, 0.18);
+    group.add(pedGrn);
+
+    group.position.set(x, 0, z);
+    group.rotation.y = rotY;
+    this.scene.add(group);
+
+    // Register visual materials on the light state so _applyLightVisual can update them
+    lightState.visuals.push({ redMat: carRedMat, ambMat: carAmbMat, grnMat: carGrnMat });
+    // Use first visual's materials as the canonical ones for compatibility
+    if (!lightState.redMat) {
+      lightState.redMat = carRedMat;
+      lightState.ambMat = carAmbMat;
+      lightState.grnMat = carGrnMat;
     }
-    // Sync NS and EW
-    for (const g of groups) {
-      const ns = g.items.filter(t => t.axis === 'ns');
-      const ew = g.items.filter(t => t.axis === 'ew');
-      // Initial offset: ns green when ew red
+    lightState.pos = { x, z };
+
+    return { group, redMat: pedRedMat, grnMat: pedGrnMat };
+  }
+
+  _linkTrafficLights() {
+    const groups = {};
+    for (const tl of this.trafficLights) {
+      if (!groups[tl.intKey]) groups[tl.intKey] = [];
+      groups[tl.intKey].push(tl);
+    }
+    for (const key of Object.keys(groups)) {
+      const items = groups[key];
+      const ns = items.filter(t => t.axis === 'ns');
+      const ew = items.filter(t => t.axis === 'ew');
       ns.forEach(t => { t.state = 'green'; t.timer = 0; });
       ew.forEach(t => { t.state = 'red';   t.timer = 0; });
       this._applyLightVisual(ns);
       this._applyLightVisual(ew);
     }
+    this._updatePedSignals();
   }
 
   _applyLightVisual(list) {
@@ -355,17 +400,52 @@ export class City {
         mat.color.setHex(on ? onCol : offCol);
         if (mat.emissive) {
           mat.emissive.setHex(on ? onCol : (offCol >> 2));
-          mat.emissiveIntensity = on ? 1.8 : 0.25;
+          mat.emissiveIntensity = on ? 2.2 : 0.2;
         }
       };
-      setLamp(t.redMat, t.state === 'red',   0xff2233, 0x550000);
-      setLamp(t.ambMat, t.state === 'amber', 0xffaa00, 0x553f00);
-      setLamp(t.grnMat, t.state === 'green', 0x33ee55, 0x005522);
+      // Update all visual poles linked to this light state
+      for (const v of (t.visuals || [t])) {
+        setLamp(v.redMat, t.state === 'red',   0xff2233, 0x550000);
+        setLamp(v.ambMat, t.state === 'amber', 0xffaa00, 0x553f00);
+        setLamp(v.grnMat, t.state === 'green', 0x33ee55, 0x005522);
+      }
+    }
+  }
+
+  _updatePedSignals() {
+    for (const c of this.crossings) {
+      if (!c.pedSignals) continue;
+      const light = c.light;
+      const carState = light.state;
+      const pedGreen = carState === 'red';
+      // Flashing green: last 3 seconds of car red cycle, ped green blinks
+      const timeLeft = light.cycleRed - light.timer;
+      const flashing = pedGreen && timeLeft <= 3.0 && timeLeft > 0;
+      const flashOff = flashing && (Math.floor(light.timer * 4) % 2 === 0);
+
+      for (const ps of c.pedSignals) {
+        if (pedGreen && !flashOff) {
+          // Ped green ON
+          ps.redMat.color.setHex(0x330808);
+          ps.redMat.emissive.setHex(0x110404);
+          ps.redMat.emissiveIntensity = 0.15;
+          ps.grnMat.color.setHex(0x33ee55);
+          ps.grnMat.emissive.setHex(0x33ee55);
+          ps.grnMat.emissiveIntensity = 2.0;
+        } else {
+          // Ped red ON (or flash-off moment)
+          ps.redMat.color.setHex(0xff2233);
+          ps.redMat.emissive.setHex(0xff2233);
+          ps.redMat.emissiveIntensity = 2.0;
+          ps.grnMat.color.setHex(0x003311);
+          ps.grnMat.emissive.setHex(0x001808);
+          ps.grnMat.emissiveIntensity = 0.15;
+        }
+      }
     }
   }
 
   updateTrafficLights(dt) {
-    // Track intersections & switch in pairs
     for (const tl of this.trafficLights) {
       tl.timer += dt;
       let nextState = tl.state;
@@ -377,6 +457,7 @@ export class City {
         this._applyLightVisual([tl]);
       }
     }
+    this._updatePedSignals();
   }
 
   _buildBuildings(cx, cz, area) {
@@ -613,7 +694,8 @@ export class City {
       color: 0xddddcc, roughness: 0.3, metalness: 0.2
     });
     for (const p of positions) {
-      const px = p.x + 2.8, pz = p.z + 2.8;
+      // Offset lamps to sidewalk area (road half-width is 4, so 6 puts them on the chodnik)
+      const px = p.x + 6.0, pz = p.z + 6.0;
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 4.8, 8), poleMat);
       pole.position.set(px, 2.4, pz);
       pole.castShadow = true;
