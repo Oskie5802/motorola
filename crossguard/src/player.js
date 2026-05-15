@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
-const MODEL_SCALE = 0.010; // Kenney FBX units → game world scale (~1.8m tall)
+const MODEL_SCALE = 0.006; // Kenney FBX units → game world scale (fits building door height)
 
 export class Player {
   constructor(scene, startPos, characterData) {
@@ -164,7 +164,7 @@ export class Player {
     const sy = Math.sin(this.cameraYaw);
     const cy = Math.cos(this.cameraYaw);
     const fwdX = -sy, fwdZ = -cy;
-    const rgtX =  cy, rgtZ = -sy;
+    const rgtX = cy, rgtZ = -sy;
     const wx = (-dz) * fwdX + dx * rgtX;
     const wz = (-dz) * fwdZ + dx * rgtZ;
 
