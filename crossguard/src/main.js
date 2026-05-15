@@ -36,17 +36,22 @@ let cachedCharacter = null; // Kenney animated character, loaded once
 function renderZoneSelect() {
   const container = $('zoneSelect');
   container.innerHTML = '';
-  for (const z of ZONES) {
-    const totalScore = Object.values(progress).reduce((s, v) => s + (v.score || 0), 0);
+  const totalScore = Object.values(progress).reduce((s, v) => s + (v.score || 0), 0);
+  for (let i = 0; i < ZONES.length; i++) {
+    const z = ZONES[i];
     const locked = totalScore < z.requiredScore;
     const best = progress[z.id]?.bestScore;
     const card = document.createElement('div');
     card.className = 'zone-card' + (z.id === selectedZoneId ? ' selected' : '') + (locked ? ' locked' : '');
+    const num = String(i + 1).padStart(2, '0');
     card.innerHTML = `
-      ${locked ? `<div class="zlock">🔒 ${z.requiredScore} pkt</div>` : ''}
-      <div class="zname">${z.name}</div>
-      <div class="zdesc">${z.desc}</div>
-      ${best !== undefined ? `<div class="zbest">Najlepszy: ${best} pkt (${gradeFor(best).letter})</div>` : ''}
+      <div class="znum">${num}</div>
+      <div class="zinfo">
+        <div class="zname">${z.name}</div>
+        <div class="zdesc">${z.desc}</div>
+        ${best !== undefined ? `<div class="zbest">BEST: ${best} PKT &nbsp;·&nbsp; ${gradeFor(best).letter}</div>` : ''}
+      </div>
+      ${locked ? `<div class="zlock">🔒 ${z.requiredScore}</div>` : `<div class="zunlocked">◆</div>`}
     `;
     if (!locked) {
       card.onclick = () => {

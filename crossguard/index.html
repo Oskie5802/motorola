@@ -18,18 +18,50 @@
 
 <body>
   <!-- === MAIN MENU === -->
-  <div id="menu" class="screen">
-    <div class="menu-content">
-      <div class="logo-band"></div>
-      <h1>CROSSGUARD</h1>
-      <h2>SYMULATOR PIESZEGO</h2>
-      <p class="tagline">Edukacyjna gra 3D o bezpiecznym poruszaniu się po mieście,<br />osadzona w ekosystemie
-        technologii <b>Motorola Solutions Public Safety</b>.</p>
+  <div id="menu" class="screen menu-screen">
+    <!-- Ambient glow layers -->
+    <div class="mbg-glow" aria-hidden="true"></div>
+    <div class="mbg-scan" aria-hidden="true"></div>
 
-      <div class="zone-select" id="zoneSelect"></div>
+    <!-- Corner brackets -->
+    <div class="hud-corner tl" aria-hidden="true"></div>
+    <div class="hud-corner tr" aria-hidden="true"></div>
+    <div class="hud-corner bl" aria-hidden="true"></div>
+    <div class="hud-corner br" aria-hidden="true"></div>
 
-      <button id="startBtn" class="primary-btn">▶ ROZPOCZNIJ MISJĘ</button>
-      <button id="howToBtn" class="ghost-btn">Jak grać?</button>
+    <!-- Top status strip -->
+    <div class="menu-topbar">
+      <div class="menu-topbar-l">
+        <span class="live-dot"></span>MOTOROLA SOLUTIONS · SAFECITY COMMAND CENTER
+      </div>
+      <div class="menu-topbar-r">SYSTEM ONLINE · 2026</div>
+    </div>
+
+    <!-- Split layout -->
+    <div class="menu-layout">
+      <!-- Brand / CTA column -->
+      <div class="menu-brand">
+        <div class="brand-eyebrow">EDUKACYJNY SYMULATOR PIESZEGO</div>
+        <div class="menu-logo">
+          <span class="logo-cross">CROSS</span><span class="logo-guard">GUARD</span>
+        </div>
+        <div class="menu-rule"></div>
+        <p class="menu-tagline">Inteligentne miasto.<br>Realne zagrożenia.<br>Twoje decyzje ratują życie.</p>
+        <div class="menu-ctas">
+          <button id="startBtn" class="primary-btn">▶&nbsp;&nbsp;ROZPOCZNIJ MISJĘ</button>
+          <button id="howToBtn" class="ghost-btn">JAK GRAĆ?</button>
+        </div>
+        <div class="brand-credit">MOTOROLA SOLUTIONS SCIENCE CUP 2026</div>
+      </div>
+
+      <!-- Zone selection column -->
+      <div class="menu-zones-col">
+        <div class="zones-col-hdr">
+          <span class="zones-col-title">WYBIERZ STREFĘ OPERACYJNĄ</span>
+          <span class="zones-col-count">5 STREF</span>
+        </div>
+        <div class="zone-select" id="zoneSelect"></div>
+      </div>
     </div>
   </div>
 
@@ -209,11 +241,15 @@
 
 
   <!-- === LOADING === -->
-  <div id="loading" class="screen">
+  <div id="loading" class="screen loading-screen">
+    <div class="hud-corner tl" aria-hidden="true"></div>
+    <div class="hud-corner tr" aria-hidden="true"></div>
+    <div class="hud-corner bl" aria-hidden="true"></div>
+    <div class="hud-corner br" aria-hidden="true"></div>
     <div class="loader">
-      <div class="logo-band"></div>
-      <h1>CROSSGUARD</h1>
-      <p>Łączenie z SafeCity Command Center…</p>
+      <div class="loader-eyebrow">MOTOROLA SOLUTIONS</div>
+      <div class="loader-title">CROSS<span>GUARD</span></div>
+      <p class="loader-status">Łączenie z SafeCity Command Center…</p>
       <div class="bar">
         <div class="bar-fill"></div>
       </div>
