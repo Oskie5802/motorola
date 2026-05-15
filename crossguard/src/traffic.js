@@ -10,7 +10,6 @@ export class TrafficSystem {
     this.vehicles = [];
     this.peds = [];
     this.emergency = []; // active emergency vehicle instances
-    this.emergencyTimer = 8 + Math.random() * 12;
 
     this._spawnVehicles(zone.vehicles);
     this._spawnPeds(zone.pedestrians);
@@ -412,14 +411,6 @@ export class TrafficSystem {
       p.group.rotation.y = Math.atan2(dx, dz);
     }
 
-    // Emergency vehicle spawns
-    this.emergencyTimer -= dt;
-    if (this.emergencyTimer <= 0) {
-      this.emergencyTimer = 18 + Math.random() * 30;
-      if (Math.random() < this.zone.sirenChance * 6) {
-        this._spawnEmergency();
-      }
-    }
   }
 
   _updateVehicle(v, dt, playerPos, signals) {

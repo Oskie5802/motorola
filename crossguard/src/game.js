@@ -259,6 +259,18 @@ export class GameLogic {
     // === Emergency vehicle proximity (react = good, fail = penalty) ===
     for (const ev of this.traffic.emergency) {
       const d = Math.hypot(ev.pos.x - pos.x, ev.pos.z - pos.z);
+
+      // Siren sound + alert when approaching
+      if (d < 22 && !ev._sirenAlerted) {
+        ev._sirenAlerted = true;
+        this.audio.siren();
+        this.hud.alert('🚨 Pojazd uprzywilejowany w pobliżu!', 'warn');
+      }
+      // Reset alert flag when vehicle moves away so next approach re-triggers
+      if (d > 30) {
+        ev._sirenAlerted = false;
+      }
+
       if (d < 15 && !ev._reacted) {
         if (onSidewalk) {
           ev._reacted = true;
@@ -363,7 +375,7 @@ export class GameLogic {
     for (const ev of this.traffic.emergency) {
       if (ev._reacted) continue;
       const d = Math.hypot(ev.pos.x - pos.x, ev.pos.z - pos.z);
-      if (d < 30 && d > 8) {
+      if (d < 22 && d > 5) {
         const dir = ev.vx > 0 ? 'wschodu' : ev.vx < 0 ? 'zachodu' : ev.vz > 0 ? 'północy' : 'południa';
         const text = `🚑 Pojazd uprzywilejowany od ${dir}! Zejdź na chodnik.`;
         this.hud.setAssist(text);
@@ -425,8 +437,6 @@ export class GameLogic {
         if (v) v.runsRed = true;
       },
       () => {
-        this.hud.alert('SYRENA - Pojazd uprzywilejowany', 'info');
-        this.audio.siren();
         this.traffic._spawnEmergency();
       },
       () => {
