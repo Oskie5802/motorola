@@ -100,36 +100,38 @@ export async function loadCharacterModel() {
   console.log('[CharLoader] All model bone names:', exactBones);
 
   // Load animation clips from separate FBX files
-  const animFiles = ['idle', 'walk', 'run', 'jump'];
+  const animFiles = ['idle', 'run', 'jump'];
   const animations = {};
   for (const name of animFiles) {
     try {
       const animFbx = await loadFBX(CHAR_BASE + 'Animations/' + name + '.fbx');
       if (animFbx.animations && animFbx.animations.length > 0) {
-        const clip = animFbx.animations[0];
+        // Pick the longest clip — FBX files often contain a bind-pose clip first
+        const clip = animFbx.animations.reduce((best, c) => c.duration > best.duration ? c : best, animFbx.animations[0]);
         clip.name = name;
 
         // Retarget: remap track node names to actual bone names in the model.
-        // If no match found we leave the track as-is (mixer silently ignores it —
-        // better than remapping it to the wrong object).
+        // Handles: plain "BoneName", "mixamorig:BoneName", "Armature|BoneName", "Armature|mixamorig:BoneName"
         let remapped = 0, skipped = 0;
         for (const track of clip.tracks) {
           const dotIdx = track.name.indexOf('.');
           if (dotIdx < 0) continue;
-          const nodeName = track.name.substring(0, dotIdx);
+          let nodeName = track.name.substring(0, dotIdx);
           const prop = track.name.substring(dotIdx);
+
+          // Strip armature/object prefix separated by '|' (Blender FBX export)
+          const pipeIdx = nodeName.lastIndexOf('|');
+          if (pipeIdx >= 0) nodeName = nodeName.substring(pipeIdx + 1);
+
           if (boneNameMap.has(nodeName)) {
             const actualName = boneNameMap.get(nodeName);
-            if (actualName !== nodeName) {
-              track.name = actualName + prop;
-              remapped++;
-            }
+            track.name = actualName + prop;
+            remapped++;
           } else {
-            console.warn(`[CharLoader] unmatched track: "${track.name}"`);
             skipped++;
           }
         }
-        console.log(`[CharLoader] "${name}": ${clip.tracks.length} tracks, ${remapped} remapped, ${skipped} unmatched`);
+        console.log(`[CharLoader] "${name}": ${clip.tracks.length} tracks, ${remapped} bound, ${skipped} unmatched`);
 
         animations[name] = clip;
       } else {

@@ -55,22 +55,39 @@ export class AudioSystem {
   honk() {
     this.blip(330, 0.18, 0.18, 'square');
   }
-  siren() {
-    if (!this.enabled) return;
+  sirenStart() {
+    if (!this.enabled || this._sirenOsc) return;
     this._init();
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
     o.type = 'sine';
-    g.gain.value = 0.06;
+    g.gain.value = 0.07;
     o.connect(g).connect(this.ctx.destination);
     o.start();
-    const t = this.ctx.currentTime;
-    for (let i = 0; i < 6; i++) {
-      o.frequency.setValueAtTime(620, t + i * 0.4);
-      o.frequency.linearRampToValueAtTime(1000, t + i * 0.4 + 0.2);
-    }
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);
-    o.stop(t + 2.5);
+    this._sirenOsc = o;
+    this._sirenGain = g;
+    // Continuous two-tone wail loop using setInterval to reschedule frequency ramps
+    const schedule = () => {
+      if (!this._sirenOsc) return;
+      const t = this.ctx.currentTime;
+      o.frequency.cancelScheduledValues(t);
+      o.frequency.setValueAtTime(620, t);
+      o.frequency.linearRampToValueAtTime(1000, t + 0.4);
+      o.frequency.linearRampToValueAtTime(620, t + 0.8);
+      this._sirenTimer = setTimeout(schedule, 700);
+    };
+    schedule();
+  }
+
+  sirenStop() {
+    if (!this._sirenOsc) return;
+    clearTimeout(this._sirenTimer);
+    try {
+      this._sirenGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.15);
+      this._sirenOsc.stop(this.ctx.currentTime + 0.15);
+    } catch {}
+    this._sirenOsc = null;
+    this._sirenGain = null;
   }
 
   ambient(zone) {

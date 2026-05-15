@@ -257,16 +257,18 @@ export class GameLogic {
     }
 
     // === Emergency vehicle proximity (react = good, fail = penalty) ===
+    // Track whether any emergency vehicle is close enough for siren
+    let anyEmergencyNear = false;
     for (const ev of this.traffic.emergency) {
       const d = Math.hypot(ev.pos.x - pos.x, ev.pos.z - pos.z);
 
-      // Siren sound + alert when approaching
-      if (d < 22 && !ev._sirenAlerted) {
-        ev._sirenAlerted = true;
-        this.audio.siren();
-        this.hud.alert('🚨 Pojazd uprzywilejowany w pobliżu!', 'warn');
+      if (d < 22) {
+        anyEmergencyNear = true;
+        if (!ev._sirenAlerted) {
+          ev._sirenAlerted = true;
+          this.hud.alert('🚨 Pojazd uprzywilejowany w pobliżu!', 'warn');
+        }
       }
-      // Reset alert flag when vehicle moves away so next approach re-triggers
       if (d > 30) {
         ev._sirenAlerted = false;
       }
@@ -281,6 +283,12 @@ export class GameLogic {
           this.violations++;
         }
       }
+    }
+    // Start or stop continuous siren based on proximity
+    if (anyEmergencyNear) {
+      this.audio.sirenStart();
+    } else {
+      this.audio.sirenStop();
     }
 
     // === Goal reached ===
@@ -521,6 +529,7 @@ export class GameLogic {
 
   _finish(reason) {
     this.state = 'done';
+    this.audio.sirenStop();
     this.hud.showCrossPrompt(null);
     const grade = gradeFor(this.score);
     const result = {

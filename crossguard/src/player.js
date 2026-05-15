@@ -74,19 +74,14 @@ export class Player {
     this.group.add(model);
     this._model = model;
 
-    // SkeletonUtils.clone can leave skeleton.bones[] pointing at the ORIGINAL
-    // model's bones instead of the cloned ones. The mixer animates the CLONE's
-    // bones (found by name traversal), so the SkinnedMesh must also reference them.
-    // Fix: rebuild skeleton.bones[] from bones actually present in this clone.
-    const cloneBones = new Map();
-    model.traverse(child => { if (child.isBone) cloneBones.set(child.name, child); });
-    model.traverse(child => {
-      if (!child.isSkinnedMesh) return;
-      child.skeleton.bones = child.skeleton.bones.map(b => cloneBones.get(b?.name) ?? b);
-    });
+    // Find the SkinnedMesh inside the clone - use it as mixer root so
+    // PropertyBinding resolves bones via skeleton.getBoneByName() instead of
+    // recursive name-search (which fails on complex IK rigs like Kenney's).
+    let skinnedMesh = null;
+    model.traverse(child => { if (child.isSkinnedMesh && !skinnedMesh) skinnedMesh = child; });
 
-    // Setup AnimationMixer
-    this.mixer = new THREE.AnimationMixer(model);
+    // Setup AnimationMixer on SkinnedMesh (has .skeleton) or fall back to model group
+    this.mixer = new THREE.AnimationMixer(skinnedMesh || model);
     const anims = characterData.animations;
 
     // Register available animation clips
@@ -116,13 +111,12 @@ export class Player {
   }
 
   _setupLocomotionBlend() {
-    // Play idle and run (and walk if available) simultaneously – blend by weight
     const idle = this.actions['idle'];
     const walk = this.actions['walk'];
     const run  = this.actions['run'];
-    if (idle) { idle.weight = 1; idle.play(); }
-    if (walk) { walk.weight = 0; walk.play(); }
-    if (run)  { run.weight  = 0; run.play();  }
+    if (idle) { idle.reset(); idle.setEffectiveWeight(1); idle.play(); }
+    if (walk) { walk.reset(); walk.setEffectiveWeight(0); walk.play(); }
+    if (run)  { run.reset();  run.setEffectiveWeight(0);  run.play();  }
     this._blendFraction = 0;
   }
 
@@ -133,27 +127,25 @@ export class Player {
     const run  = this.actions['run'];
 
     if (walk) {
-      // 3-way blend: idle ↔ walk ↔ run
       if (fraction <= 0.5) {
-        const t = fraction * 2; // 0..1
-        if (idle) idle.weight = 1 - t;
-        walk.weight = t;
-        if (run)  run.weight  = 0;
-        if (walk) walk.timeScale = 0.8 + t * 0.4;
+        const t = fraction * 2;
+        if (idle) idle.setEffectiveWeight(1 - t);
+        walk.setEffectiveWeight(t);
+        if (run)  run.setEffectiveWeight(0);
+        walk.setEffectiveTimeScale(0.8 + t * 0.4);
       } else {
-        const t = (fraction - 0.5) * 2; // 0..1
-        if (idle) idle.weight = 0;
-        walk.weight = 1 - t;
-        if (run)  run.weight  = t;
-        if (run)  run.timeScale = 0.9 + t * 0.5;
+        const t = (fraction - 0.5) * 2;
+        if (idle) idle.setEffectiveWeight(0);
+        walk.setEffectiveWeight(1 - t);
+        if (run)  run.setEffectiveWeight(t);
+        if (run)  run.setEffectiveTimeScale(0.9 + t * 0.5);
       }
     } else {
       // 2-way blend: idle ↔ run (no walk.fbx)
-      if (idle) idle.weight = 1 - fraction;
+      if (idle) idle.setEffectiveWeight(1 - fraction);
       if (run) {
-        run.weight    = fraction;
-        // At fraction 0.5 (walk speed): slow run; at 1.0 (sprint): full run
-        run.timeScale = 0.55 + fraction * 0.75;
+        run.setEffectiveWeight(fraction);
+        run.setEffectiveTimeScale(0.55 + fraction * 0.75);
       }
     }
   }
