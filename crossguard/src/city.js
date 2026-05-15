@@ -162,14 +162,17 @@ export class City {
                 // Buildings inside block (1-4 buildings, low-poly)
                 this._buildBuildings(cx, cz, buildArea);
 
-                // Spawn points (corners of sidewalk)
+                // Spawn points (corners of sidewalk) — skip any inside a building
                 const off = sidewalkSize / 2 - 1.5;
-                this.spawnPoints.push(
+                for (const pt of [
                     { x: cx - off, z: cz - off },
                     { x: cx + off, z: cz - off },
                     { x: cx - off, z: cz + off },
                     { x: cx + off, z: cz + off },
-                );
+                ]) {
+                    if (!this.collidesBuilding(pt.x, pt.z, 0.6))
+                        this.spawnPoints.push(pt);
+                }
             }
         }
 

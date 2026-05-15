@@ -219,7 +219,7 @@ export class Player {
     }, { passive: false });
   }
 
-  update(dt, city) {
+  update(dt, city, traffic) {
     if (!this.keys) return;
     const running = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
     const stopping = this.keys['Space'];
@@ -245,8 +245,9 @@ export class Player {
     const newX = this.pos.x + mvX;
     const newZ = this.pos.z + mvZ;
 
-    if (!city.collidesBuilding(newX, this.pos.z)) this.pos.x = newX;
-    if (!city.collidesBuilding(this.pos.x, newZ)) this.pos.z = newZ;
+    const collidesVehicle = (x, z) => traffic && !!traffic.vehicleHitting({ x, z });
+    if (!city.collidesBuilding(newX, this.pos.z) && !collidesVehicle(newX, this.pos.z)) this.pos.x = newX;
+    if (!city.collidesBuilding(this.pos.x, newZ) && !collidesVehicle(this.pos.x, newZ)) this.pos.z = newZ;
 
     const b = city.bounds;
     this.pos.x = Math.max(b.min - 4, Math.min(b.max + 4, this.pos.x));

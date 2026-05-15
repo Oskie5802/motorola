@@ -208,7 +208,7 @@ async function startGame(zone) {
     if (!isPaused && game.state === 'playing') {
       city.updateTrafficLights(dt);
       traffic.update(dt, player.pos, null);
-      player.update(dt, city);
+      player.update(dt, city, traffic);
       env.update(dt, player.pos);
       game.update(dt);
       hud.update(dt, player, traffic, game.goal);
