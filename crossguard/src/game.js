@@ -41,6 +41,7 @@ export class GameLogic {
     this._wasOnCrossing = false;
     this._lastCrossing = null;
     this._lastCrossingLightState = null;
+    this._completedCrossings = new Set(); // crossing keys already scored
 
     // Dynamic events - quieter in residential, more chaotic later
     const evMul = zone.id === 'residential' ? 2.2 : zone.id === 'school' ? 1.5 : 1.0;
@@ -162,13 +163,17 @@ export class GameLogic {
     }
 
     // === Score rules: detect crossing entry/exit ===
+    const _crossingKey = (c) => `${c.x1},${c.z1},${c.x2},${c.z2}`;
     if (onCrossing && !this._wasOnCrossing) {
       // Entered a crossing
       this._lastCrossing = onCrossing;
+      const cKey = _crossingKey(onCrossing);
+      const alreadyDone = this._completedCrossings.has(cKey);
       const tl = onCrossing.light;
       const pedState = tl.state === 'green' ? 'red' : tl.state === 'red' ? 'green' : 'amber';
       this._lastCrossingLightState = pedState;
-      if (pedState === 'green') {
+      this._lastCrossingAlreadyDone = alreadyDone;
+      if (pedState === 'green' && !alreadyDone) {
         this.addScore(SCORE.USE_CROSSING, 'Korzystasz z przejścia');
         if (this.player.onPhone) {
           this.addScore(SCORE.PHONE_CROSS, '⚠ Telefon na przejściu', 'warn');
@@ -183,9 +188,10 @@ export class GameLogic {
     if (!onCrossing && this._wasOnCrossing && this._lastCrossing) {
       // Exited a crossing
       const exitedToSafe = this.city.isOnSafeGround(pos.x, pos.z);
-      if (exitedToSafe && this._lastCrossingLightState === 'green') {
+      if (exitedToSafe && this._lastCrossingLightState === 'green' && !this._lastCrossingAlreadyDone) {
         this.addScore(SCORE.CROSS_GREEN, '✓ Bezpieczne przejście', 'good');
         this.successfulCrossings++;
+        this._completedCrossings.add(_crossingKey(this._lastCrossing));
       }
       this._lastCrossing = null;
     }
