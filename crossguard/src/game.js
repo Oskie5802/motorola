@@ -41,11 +41,17 @@ export class GameLogic {
     this._wasOnCrossing = false;
     this._lastCrossing = null;
     this._lastCrossingLightState = null;
+    this._completedCrossings = new Set(); // crossing keys already scored
+
+    // Assist AI active advice tracking
+    this._activeAdvice = null; // { text, check: () => bool, expiresAt }
+    this._adviceCooldown = 0;
 
     // Dynamic events - quieter in residential, more chaotic later
     const evMul = zone.id === 'residential' ? 2.2 : zone.id === 'school' ? 1.5 : 1.0;
     this._eventTimer = (18 + Math.random() * 18) * evMul;
     this._lprTimer   = (24 + Math.random() * 18) * evMul;
+    this._cameraAlertTimer = 6 + Math.random() * 8;
     this._eventMul = evMul;
 
     // Final mission
@@ -139,6 +145,20 @@ export class GameLogic {
       if (v._dangerRing) {
         v._dangerRing.material.opacity = 0.45 + 0.35 * Math.sin(this.elapsed * 6);
       }
+      // LPR-flagged: cyan glow ring
+      if (v._lprFlagged && !v._lprRing) {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(1.5, 1.9, 18),
+          new THREE.MeshBasicMaterial({ color: 0x00e5ff, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.08;
+        v.group.add(ring);
+        v._lprRing = ring;
+      }
+      if (v._lprRing) {
+        v._lprRing.material.opacity = 0.35 + 0.3 * Math.sin(this.elapsed * 4);
+      }
     }
 
     // === Position checks ===
@@ -147,6 +167,10 @@ export class GameLogic {
     const onSidewalk = this.city.isOnSafeGround(pos.x, pos.z);
     const onCrossing = this.city.isOnCrossing(pos.x, pos.z);
     const onRoad = this.city.isOnRoad(pos.x, pos.z) && !onCrossing;
+
+    // === Distance to goal ===
+    const gd = Math.hypot(this.goal.x - pos.x, this.goal.z - pos.z);
+    this.hud.setDist(gd);
 
     // === Crossing prompt ===
     if (onCrossing) {
@@ -162,13 +186,17 @@ export class GameLogic {
     }
 
     // === Score rules: detect crossing entry/exit ===
+    const _crossingKey = (c) => `${c.x1},${c.z1},${c.x2},${c.z2}`;
     if (onCrossing && !this._wasOnCrossing) {
       // Entered a crossing
       this._lastCrossing = onCrossing;
+      const cKey = _crossingKey(onCrossing);
+      const alreadyDone = this._completedCrossings.has(cKey);
       const tl = onCrossing.light;
       const pedState = tl.state === 'green' ? 'red' : tl.state === 'red' ? 'green' : 'amber';
       this._lastCrossingLightState = pedState;
-      if (pedState === 'green') {
+      this._lastCrossingAlreadyDone = alreadyDone;
+      if (pedState === 'green' && !alreadyDone) {
         this.addScore(SCORE.USE_CROSSING, 'Korzystasz z przejścia');
         if (this.player.onPhone) {
           this.addScore(SCORE.PHONE_CROSS, '⚠ Telefon na przejściu', 'warn');
@@ -183,13 +211,31 @@ export class GameLogic {
     if (!onCrossing && this._wasOnCrossing && this._lastCrossing) {
       // Exited a crossing
       const exitedToSafe = this.city.isOnSafeGround(pos.x, pos.z);
-      if (exitedToSafe && this._lastCrossingLightState === 'green') {
+      if (exitedToSafe && this._lastCrossingLightState === 'green' && !this._lastCrossingAlreadyDone) {
         this.addScore(SCORE.CROSS_GREEN, '✓ Bezpieczne przejście', 'good');
         this.successfulCrossings++;
+        this._completedCrossings.add(_crossingKey(this._lastCrossing));
       }
       this._lastCrossing = null;
     }
     this._wasOnCrossing = !!onCrossing;
+
+    // === Assist AI advice evaluation ===
+    if (this._activeAdvice && this.elapsed > this._activeAdvice.expiresAt) {
+      // Advice expired - check if player followed it
+      if (this._activeAdvice.check()) {
+        this.addScore(SCORE.FOLLOW_ASSIST, '✓ Posłuchałeś Assist AI!', 'good');
+      } else {
+        this.addScore(SCORE.IGNORE_ASSIST, '⚠ Zignorowałeś radę Assist AI', 'bad');
+      }
+      this._activeAdvice = null;
+    }
+
+    // === Assist AI: generate contextual advice ===
+    this._adviceCooldown -= dt;
+    if (!this._activeAdvice && this._adviceCooldown <= 0) {
+      this._generateAdvice();
+    }
 
     // === Jaywalking penalty (entering road outside crossing) ===
     if (onRoad && this.elapsed - this._lastJaywalkAt > 3.0) {
@@ -210,17 +256,22 @@ export class GameLogic {
       this.player.pos.z -= (hit.vz) * 2;
     }
 
-    // === Emergency vehicle proximity (react = good) ===
+    // === Emergency vehicle proximity (react = good, fail = penalty) ===
     for (const ev of this.traffic.emergency) {
       const d = Math.hypot(ev.pos.x - pos.x, ev.pos.z - pos.z);
-      if (d < 15 && !ev._reacted && onSidewalk) {
-        ev._reacted = true;
-        this.addScore(SCORE.REACT_EMERGENCY, '✓ Ustąpiłeś służbom!', 'good');
+      if (d < 15 && !ev._reacted) {
+        if (onSidewalk) {
+          ev._reacted = true;
+          this.addScore(SCORE.REACT_EMERGENCY, '✓ Ustąpiłeś służbom!', 'good');
+        } else if (!onSidewalk && !ev._penalized) {
+          ev._penalized = true;
+          this.addScore(-10, '⚠ Nie ustąpiłeś pojazdowi uprzywilejowanemu!', 'bad');
+          this.violations++;
+        }
       }
     }
 
     // === Goal reached ===
-    const gd = Math.hypot(this.goal.x - pos.x, this.goal.z - pos.z);
     if (gd < 2.5) {
       this.addScore(SCORE.REACH_GOAL, '🏁 Cel osiągnięty!', 'good');
       this._finish('success');
@@ -233,6 +284,12 @@ export class GameLogic {
       return;
     }
 
+    // === Radio event consumption ===
+    const radioEv = this.hud.consumeRadioEvent();
+    if (radioEv && radioEv.event) {
+      radioEv.event(this);
+    }
+
     // === Dynamic events ===
     this._eventTimer -= dt;
     if (this._eventTimer <= 0) {
@@ -240,13 +297,123 @@ export class GameLogic {
       this._triggerRandomEvent();
     }
 
+    // === Avigilon camera detection ===
+    this._cameraAlertTimer -= dt;
+    if (this._cameraAlertTimer <= 0) {
+      this._cameraAlertTimer = 8 + Math.random() * 12;
+      for (const cam of this.city.cameras) {
+        const camToPlayer = Math.hypot(cam.x - pos.x, cam.z - pos.z);
+        if (camToPlayer < 30) {
+          // Camera near player scans for red-light runners
+          for (const v of this.traffic.vehicles) {
+            if (v.runsRed && !v.isEmergency && !v._avigilonFlagged) {
+              const camToVeh = Math.hypot(cam.x - v.pos.x, cam.z - v.pos.z);
+              if (camToVeh < 25) {
+                v._avigilonFlagged = true;
+                this.hud.alert('📷 AVIGILON: pojazd łamie przepisy wykryty!', 'warn');
+                this.audio.warn();
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
     // === LPR alerts ===
     this._lprTimer -= dt;
     if (this._lprTimer <= 0) {
       this._lprTimer = (28 + Math.random() * 24) * this._eventMul;
-      this.hud.incLPR();
-      this.hud.alert('LPR ALERT - pojazd na obserwacji', 'warn', 2400);
+      // LPR actually flags a vehicle
+      const candidates = this.traffic.vehicles.filter(v => !v.isEmergency && !v._lprFlagged);
+      if (candidates.length > 0) {
+        const v = candidates[Math.floor(Math.random() * candidates.length)];
+        v._lprFlagged = true;
+        this.hud.incLPR();
+        this.hud.alert('LPR: pojazd na obserwacji namierzony!', 'warn', 2400);
+      }
     }
+  }
+
+  _generateAdvice() {
+    const pos = this.player.pos;
+    const onSidewalk = this.city.isOnSafeGround(pos.x, pos.z);
+    const onCrossing = this.city.isOnCrossing(pos.x, pos.z);
+
+    // Priority 1: Red-light runner nearby → warn to wait
+    for (const v of this.traffic.vehicles) {
+      if (v.runsRed && !v.isEmergency) {
+        const d = Math.hypot(v.pos.x - pos.x, v.pos.z - pos.z);
+        if (d < 25 && d > 5) {
+          const dir = v.vx > 0 ? 'wschód' : v.vx < 0 ? 'zachód' : v.vz > 0 ? 'północ' : 'południe';
+          const text = `⚠ Pojazd z ${dir} ignoruje światło! Czekaj na chodniku.`;
+          this.hud.setAssist(text);
+          this._activeAdvice = {
+            text,
+            check: () => this.city.isOnSafeGround(this.player.pos.x, this.player.pos.z),
+            expiresAt: this.elapsed + 8,
+          };
+          this._adviceCooldown = 12;
+          return;
+        }
+      }
+    }
+
+    // Priority 2: Emergency vehicle approaching → warn to step aside
+    for (const ev of this.traffic.emergency) {
+      if (ev._reacted) continue;
+      const d = Math.hypot(ev.pos.x - pos.x, ev.pos.z - pos.z);
+      if (d < 30 && d > 8) {
+        const dir = ev.vx > 0 ? 'wschodu' : ev.vx < 0 ? 'zachodu' : ev.vz > 0 ? 'północy' : 'południa';
+        const text = `🚑 Pojazd uprzywilejowany od ${dir}! Zejdź na chodnik.`;
+        this.hud.setAssist(text);
+        this._activeAdvice = {
+          text,
+          check: () => this.city.isOnSafeGround(this.player.pos.x, this.player.pos.z),
+          expiresAt: this.elapsed + 10,
+        };
+        this._adviceCooldown = 14;
+        return;
+      }
+    }
+
+    // Priority 3: Near crossing with red light → warn to wait
+    if (onCrossing || onSidewalk) {
+      for (const c of this.city.crossings) {
+        const d = Math.hypot((c.x1+c.x2)/2 - pos.x, (c.z1+c.z2)/2 - pos.z);
+        if (d < 8) {
+          const pedState = c.light.state === 'green' ? 'red' : c.light.state === 'red' ? 'green' : 'amber';
+          if (pedState === 'red') {
+            const text = '🔴 Czerwone światło dla pieszych - czekaj!';
+            this.hud.setAssist(text);
+            this._activeAdvice = {
+              text,
+              check: () => !this.city.isOnCrossing(this.player.pos.x, this.player.pos.z),
+              expiresAt: this.elapsed + 6,
+            };
+            this._adviceCooldown = 10;
+            return;
+          }
+        }
+      }
+    }
+
+    // Priority 4: Player on road → warn to use crossing
+    const onRoad = this.city.isOnRoad(pos.x, pos.z) && !onCrossing;
+    if (onRoad) {
+      const text = '⛔ Jesteś na jezdni! Znajdź przejście dla pieszych.';
+      this.hud.setAssist(text);
+      this._activeAdvice = {
+        text,
+        check: () => this.city.isOnSafeGround(this.player.pos.x, this.player.pos.z) || this.city.isOnCrossing(this.player.pos.x, this.player.pos.z),
+        expiresAt: this.elapsed + 5,
+      };
+      this._adviceCooldown = 8;
+      return;
+    }
+
+    // Fallback: rotate tips but no scoring
+    this._adviceCooldown = 10 + Math.random() * 6;
   }
 
   _triggerRandomEvent() {
@@ -274,17 +441,57 @@ export class GameLogic {
         this.hud.incLPR();
       },
       () => {
-        this.hud.alert('Assist AI: korek na trasie głównej', 'info');
-        this.hud.setAssist('Asystent: korek przed Tobą - rozważ obejście.');
+        // Roadworks: block a sidewalk near player, force detour
+        this._spawnRoadworks();
       },
     ];
     const ev = events[Math.floor(Math.random() * events.length)];
     ev();
   }
 
+  _spawnRoadworks() {
+    const pos = this.player.pos;
+    // Find a sidewalk segment near the player
+    const nearby = this.city.sidewalks.filter(s => {
+      const cx = (s.x1 + s.x2) / 2, cz = (s.z1 + s.z2) / 2;
+      const d = Math.hypot(cx - pos.x, cz - pos.z);
+      return d > 10 && d < 50; // not too close, not too far
+    });
+    if (nearby.length === 0) return;
+
+    const s = nearby[Math.floor(Math.random() * nearby.length)];
+    const cx = (s.x1 + s.x2) / 2, cz = (s.z1 + s.z2) / 2;
+
+    // Place cones + obstacle
+    const coneMat = new THREE.MeshLambertMaterial({ color: 0xff6a00 });
+    for (let c = -1; c <= 1; c++) {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.9, 8), coneMat);
+      cone.position.set(cx + c * 0.8, 0.45, cz);
+      cone.castShadow = true;
+      this.city.scene.add(cone);
+    }
+    // Barrier
+    const bar = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 0.8, 0.15),
+      new THREE.MeshLambertMaterial({ color: 0xffcc00 })
+    );
+    bar.position.set(cx, 0.4, cz);
+    this.city.scene.add(bar);
+
+    // Add collision box
+    this.city.obstacles.push({ x1: cx - 1.8, z1: cz - 1.0, x2: cx + 1.8, z2: cz + 1.0 });
+
+    this.hud.alert('🚧 Roboty drogowe - chodnik zamknięty! Szukaj objazu!', 'warn');
+    this.audio.warn();
+  }
+
   addScore(delta, text, kind = 'info') {
     this.score += delta;
     this.hud.setScore(this.score);
+    // Progression: unlock radio at 30 points
+    if (this.score >= 30 && !this.hud.radioUnlocked) {
+      this.hud.unlockRadio();
+    }
     if (text) {
       const sign = delta >= 0 ? '+' : '';
       this.hud.alert(`${text}  ${sign}${delta}`, kind);

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html><head><title>FBX Debug</title>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}
+</script>
+</head><body>
+<pre id="out" style="font-size:12px;white-space:pre-wrap;"></pre>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+const out = document.getElementById('out');
+function log(msg) { out.textContent += msg + '\n'; }
+
+const loader = new FBXLoader();
+const BASE = 'assets/kenney_animated-characters-protagonists/';
+
+function loadFBX(url) {
+  return new Promise((res, rej) => loader.load(url, res, undefined, rej));
+}
+
+try {
+  log('=== Loading Model ===');
+  const model = await loadFBX(BASE + 'Model/characterMedium.fbx');
+  log('Model name: "' + model.name + '"');
+  log('Model type: ' + model.type);
+  log('Model children: ' + model.children.length);
+  log('Model own animations: ' + (model.animations?.length || 0));
+  
+  const bones = [];
+  const allNames = [];
+  model.traverse(c => {
+    allNames.push(c.name + ' (' + c.type + ')');
+    if (c.isBone) bones.push(c.name);
+  });
+  log('\nAll model nodes (' + allNames.length + '):');
+  allNames.forEach(n => log('  ' + n));
+  log('\nBones (' + bones.length + '):');
+  bones.forEach(n => log('  ' + n));
+
+  for (const animName of ['idle', 'run', 'jump']) {
+    log('\n=== Loading Animation: ' + animName + ' ===');
+    try {
+      const animFbx = await loadFBX(BASE + 'Animations/' + animName + '.fbx');
+      log('Anim root name: "' + animFbx.name + '"');
+      log('Anim children: ' + animFbx.children.length);
+      
+      const animNodes = [];
+      animFbx.traverse(c => animNodes.push(c.name + ' (' + c.type + ')'));
+      log('Anim nodes (' + animNodes.length + '):');
+      animNodes.forEach(n => log('  ' + n));
+      
+      log('Animation clips: ' + (animFbx.animations?.length || 0));
+      if (animFbx.animations) {
+        for (const clip of animFbx.animations) {
+          log('  Clip: "' + clip.name + '" duration=' + clip.duration.toFixed(2) + 's tracks=' + clip.tracks.length);
+          for (const track of clip.tracks) {
+            log('    Track: ' + track.name + ' (keys=' + track.times.length + ')');
+          }
+        }
+      }
+    } catch(e) {
+      log('ERROR: ' + e.message);
+    }
+  }
+  
+  log('\n=== DONE ===');
+} catch(e) {
+  log('FATAL: ' + e.message + '\n' + e.stack);
+}
+</script>
+</body></html>

@@ -9,6 +9,7 @@ import { HUD } from './hud.js';
 import { AudioSystem } from './audio.js';
 import { Environment } from './environment.js';
 import { GameLogic } from './game.js';
+import { loadBuildingModels, loadCharacterModel } from './modelLoader.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -28,6 +29,8 @@ let progress = loadProgress();
 // === State ===
 let selectedZoneId = ZONES[0].id;
 let currentSession = null; // { renderer, scene, camera, ... }
+let cachedModels = null;   // OBJ building models, loaded once
+let cachedCharacter = null; // Kenney animated character, loaded once
 
 // === Menu construction ===
 function renderZoneSelect() {
@@ -70,6 +73,27 @@ $('startBtn').onclick = () => {
   $('menu').classList.add('hidden');
   startGame(ZONES.find(z => z.id === selectedZoneId));
 };
+
+async function ensureModels() {
+  if (cachedModels && cachedCharacter) return cachedModels;
+  const bar = document.querySelector('.bar-fill');
+  if (bar) bar.style.width = '0%';
+  $('loading').classList.remove('hidden');
+  const [models, character] = await Promise.all([
+    cachedModels || loadBuildingModels((p) => {
+      if (bar) bar.style.width = (p * 80).toFixed(0) + '%';
+    }),
+    cachedCharacter || loadCharacterModel().catch((e) => {
+      console.warn('Character model failed to load, using fallback:', e);
+      return null;
+    }),
+  ]);
+  cachedModels = models;
+  cachedCharacter = character;
+  if (bar) bar.style.width = '100%';
+  $('loading').classList.add('hidden');
+  return cachedModels;
+}
 $('howToBtn').onclick = () => {
   $('menu').classList.add('hidden');
   $('howto').classList.remove('hidden');
@@ -116,7 +140,9 @@ $('menuBtn').onclick = () => {
 };
 
 // === Game start ===
-function startGame(zone) {
+async function startGame(zone) {
+  const models = await ensureModels();
+
   // Scene
   const canvas = $('game');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -141,12 +167,12 @@ function startGame(zone) {
   camera.position.set(0, 14, 14);
 
   const env = new Environment(scene, zone);
-  const city = new City(scene, zone, env.isNight);
+  const city = new City(scene, zone, env.isNight, models);
   city.scene = scene; // for goal marker access
 
   // Player at random sidewalk spawn
   const spawn = city.spawnPoints[Math.floor(Math.random() * city.spawnPoints.length)];
-  const player = new Player(scene, spawn);
+  const player = new Player(scene, spawn, cachedCharacter);
   player.setupInput(canvas);
 
   const traffic = new TrafficSystem(scene, city, zone);
@@ -192,7 +218,7 @@ function startGame(zone) {
     if (!isPaused && game.state === 'playing') {
       city.updateTrafficLights(dt);
       traffic.update(dt, player.pos, null);
-      player.update(dt, city);
+      player.update(dt, city, traffic);
       env.update(dt, player.pos);
       game.update(dt);
       hud.update(dt, player, traffic, game.goal);

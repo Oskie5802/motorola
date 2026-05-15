@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,6 +15,7 @@
     }
   </script>
 </head>
+
 <body>
   <!-- === MAIN MENU === -->
   <div id="menu" class="screen">
@@ -21,7 +23,8 @@
       <div class="logo-band"></div>
       <h1>CROSSGUARD</h1>
       <h2>SYMULATOR PIESZEGO</h2>
-      <p class="tagline">Edukacyjna gra 3D o bezpiecznym poruszaniu się po mieście,<br/>osadzona w ekosystemie technologii <b>Motorola Solutions Public Safety</b>.</p>
+      <p class="tagline">Edukacyjna gra 3D o bezpiecznym poruszaniu się po mieście,<br />osadzona w ekosystemie
+        technologii <b>Motorola Solutions Public Safety</b>.</p>
 
       <div class="zone-select" id="zoneSelect"></div>
 
@@ -75,14 +78,15 @@
   <div id="hud" class="hidden">
     <!-- Top bar: Command Center styling -->
     <div id="hudTopBar">
-      <div class="hud-block">
-        <span class="hud-label">MOTOROLA · COMMAND CENTER</span>
-        <span class="hud-status"><span class="dot pulse"></span> SafeCity ONLINE</span>
-      </div>
+      <div class="hud-block" style="visibility:hidden;pointer-events:none"></div>
       <div class="hud-block center">
         <div class="hud-mission">
           <span class="hud-label">MISJA</span>
           <span id="missionText">-</span>
+        </div>
+        <div class="hud-dist">
+          <span class="hud-label">DO CELU</span>
+          <span id="distText">-</span>
         </div>
       </div>
       <div class="hud-block right">
@@ -129,31 +133,28 @@
     <!-- Alert toasts -->
     <div id="alerts"></div>
 
+    <!-- Phone distraction overlay -->
+    <div id="phoneOverlay" class="hidden">
+      <div class="phone-screen">
+        <div class="phone-header">📱 Wiadomości</div>
+        <div class="phone-msg">Hej, jesteś w drodze? 😊</div>
+        <div class="phone-msg">Kiedy będziesz?</div>
+        <div class="phone-msg">Zdjęcie z wczoraj 🔥</div>
+        <div class="phone-hint">[P] odłóż telefon</div>
+      </div>
+    </div>
+
     <!-- Crossing prompt -->
     <div id="crossPrompt" class="hidden">
       <span id="crossLightIcon">●</span>
       <span id="crossPromptText">Przejście dla pieszych</span>
     </div>
 
-    <!-- Bottom HUD: Speed, weather, zone -->
-    <div id="hudBottomBar">
-      <div class="hud-block">
-        <span class="hud-label">DZIELNICA</span>
-        <span id="zoneText">-</span>
-      </div>
-      <div class="hud-block">
-        <span class="hud-label">POGODA</span>
-        <span id="weatherText">-</span>
-      </div>
-      <div class="hud-block">
-        <span class="hud-label">PORA</span>
-        <span id="timeOfDayText">-</span>
-      </div>
-      <div class="hud-block">
-        <span class="hud-label">LPR ALERTS</span>
-        <span id="lprText">0</span>
-      </div>
-    </div>
+    <!-- hidden anchors for hud.js references -->
+    <span id="zoneText" style="display:none"></span>
+    <span id="weatherText" style="display:none"></span>
+    <span id="timeOfDayText" style="display:none"></span>
+    <span id="lprText" style="display:none"></span>
   </div>
 
   <!-- === MISSION COMPLETE === -->
@@ -193,18 +194,21 @@
   <div id="tutorial" class="hidden">
     <div class="tut-card">
       <h2>WITAJ W SAFECITY, ALEX</h2>
-      <p>Jesteś nowym mieszkańcem inteligentnego miasta chronionego przez ekosystem <b>Motorola Solutions Public Safety</b>. Aby zdobyć status <b>Certified Safe Citizen</b>, musisz bezpiecznie pokonać trasę.</p>
+      <p>Jesteś nowym mieszkańcem inteligentnego miasta chronionego przez ekosystem <b>Motorola Solutions Public
+          Safety</b>. Aby zdobyć status <b>Certified Safe Citizen</b>, musisz bezpiecznie pokonać trasę.</p>
       <h3>JAK GRAĆ</h3>
       <p>◆ <b>WASD</b> - chodź. <b>Shift</b> - biegnij. <b>Mysz</b> (LMB+drag) obraca kamerę.</p>
-      <p>◆ Idź w stronę <span style="color:#ffb800">złotej kolumny</span> - to twój cel. Strzałka nad Tobą wskazuje kierunek.</p>
+      <p>◆ Idź w stronę <span style="color:#ffb800">złotej kolumny</span> - to twój cel. Strzałka nad Tobą wskazuje
+        kierunek.</p>
       <p>◆ Przechodź <b>tylko po pasach</b> i tylko na <b>zielonym</b> świetle (panel pod ekranem).</p>
       <p>◆ Słuchaj <b>Assist AI</b> (lewy panel) i obserwuj <b>mini-mapę Avigilon</b> (prawy panel).</p>
       <h3>UWAGA</h3>
-      <p>Nie wszystkie pojazdy przestrzegają przepisów - <span style="color:#ff7185">czerwona poświata</span> = pojazd zagrażający. System LPR wykryje je za Ciebie.</p>
+      <p>Nie wszystkie pojazdy przestrzegają przepisów - <span style="color:#ff7185">czerwona poświata</span> = pojazd
+        zagrażający. System LPR wykryje je za Ciebie.</p>
       <button id="tutorialOk" class="primary-btn">ROZUMIEM - START</button>
     </div>
   </div>
-  
+
 
   <!-- === LOADING === -->
   <div id="loading" class="screen">
@@ -212,10 +216,13 @@
       <div class="logo-band"></div>
       <h1>CROSSGUARD</h1>
       <p>Łączenie z SafeCity Command Center…</p>
-      <div class="bar"><div class="bar-fill"></div></div>
+      <div class="bar">
+        <div class="bar-fill"></div>
+      </div>
     </div>
   </div>
 
   <script type="module" src="src/main.js"></script>
 </body>
+
 </html>
