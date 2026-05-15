@@ -13,6 +13,7 @@ export class Player {
     this.mixer = null;
     this.actions = {};
     this._currentAction = null;
+    this._blendFraction = 0;
 
     // --- Build character from loaded FBX data ---
     if (characterData && characterData.model) {
@@ -53,7 +54,6 @@ export class Player {
   }
 
   _buildFromModel(characterData) {
-    // SkeletonUtils.clone properly handles SkinnedMesh + Skeleton bindings
     const model = SkeletonUtils.clone(characterData.model);
     model.scale.set(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
 
@@ -74,6 +74,17 @@ export class Player {
     this.group.add(model);
     this._model = model;
 
+    // SkeletonUtils.clone can leave skeleton.bones[] pointing at the ORIGINAL
+    // model's bones instead of the cloned ones. The mixer animates the CLONE's
+    // bones (found by name traversal), so the SkinnedMesh must also reference them.
+    // Fix: rebuild skeleton.bones[] from bones actually present in this clone.
+    const cloneBones = new Map();
+    model.traverse(child => { if (child.isBone) cloneBones.set(child.name, child); });
+    model.traverse(child => {
+      if (!child.isSkinnedMesh) return;
+      child.skeleton.bones = child.skeleton.bones.map(b => cloneBones.get(b?.name) ?? b);
+    });
+
     // Setup AnimationMixer
     this.mixer = new THREE.AnimationMixer(model);
     const anims = characterData.animations;
@@ -82,14 +93,10 @@ export class Player {
     for (const [name, clip] of Object.entries(anims)) {
       const action = this.mixer.clipAction(clip);
       this.actions[name] = action;
-
-      if (name === 'run') {
-        action.timeScale = 1.2;
-      }
     }
 
-    // Start with idle
-    this._playAction('idle');
+    // Start locomotion blend (idle + run blended by speed)
+    this._setupLocomotionBlend();
   }
 
   _buildFallback() {
@@ -108,17 +115,56 @@ export class Player {
     this.group.add(head);
   }
 
+  _setupLocomotionBlend() {
+    // Play idle and run (and walk if available) simultaneously – blend by weight
+    const idle = this.actions['idle'];
+    const walk = this.actions['walk'];
+    const run  = this.actions['run'];
+    if (idle) { idle.weight = 1; idle.play(); }
+    if (walk) { walk.weight = 0; walk.play(); }
+    if (run)  { run.weight  = 0; run.play();  }
+    this._blendFraction = 0;
+  }
+
+  // fraction: 0 = idle, 0.5 = walk, 1 = run
+  _setLocomotionBlend(fraction) {
+    const idle = this.actions['idle'];
+    const walk = this.actions['walk'];
+    const run  = this.actions['run'];
+
+    if (walk) {
+      // 3-way blend: idle ↔ walk ↔ run
+      if (fraction <= 0.5) {
+        const t = fraction * 2; // 0..1
+        if (idle) idle.weight = 1 - t;
+        walk.weight = t;
+        if (run)  run.weight  = 0;
+        if (walk) walk.timeScale = 0.8 + t * 0.4;
+      } else {
+        const t = (fraction - 0.5) * 2; // 0..1
+        if (idle) idle.weight = 0;
+        walk.weight = 1 - t;
+        if (run)  run.weight  = t;
+        if (run)  run.timeScale = 0.9 + t * 0.5;
+      }
+    } else {
+      // 2-way blend: idle ↔ run (no walk.fbx)
+      if (idle) idle.weight = 1 - fraction;
+      if (run) {
+        run.weight    = fraction;
+        // At fraction 0.5 (walk speed): slow run; at 1.0 (sprint): full run
+        run.timeScale = 0.55 + fraction * 0.75;
+      }
+    }
+  }
+
   _playAction(name) {
     if (!this.mixer || !this.actions[name]) return;
     if (this._currentAction === name) return;
-
     const prev = this.actions[this._currentAction];
     const next = this.actions[name];
-
-    if (prev) {
-      prev.fadeOut(0.25);
-    }
-    next.reset().fadeIn(0.25).play();
+    if (prev) prev.fadeOut(0.2);
+    next.reset().fadeIn(0.2).play();
     this._currentAction = name;
   }
 
@@ -191,17 +237,11 @@ export class Player {
 
     this.moving = len > 0 && speed > 0;
 
-    // Animation state machine
+    // Locomotion blend: 0=idle, 0.5=walk, 1=run
     if (this.mixer) {
-      if (this.moving && running) {
-        this._playAction('run');
-        if (this.actions['run']) this.actions['run'].timeScale = 1.4;
-      } else if (this.moving) {
-        this._playAction('run');
-        if (this.actions['run']) this.actions['run'].timeScale = 0.85;
-      } else {
-        this._playAction('idle');
-      }
+      const targetFraction = !this.moving ? 0 : running ? 1.0 : 0.5;
+      this._blendFraction = THREE.MathUtils.lerp(this._blendFraction, targetFraction, Math.min(1, dt * 7));
+      this._setLocomotionBlend(this._blendFraction);
       this.mixer.update(dt);
     }
 

@@ -83,38 +83,53 @@ export async function loadCharacterModel() {
     }
   });
 
-  // Collect all node names from the model for animation retargeting
-  const modelNodeNames = new Set();
-  model.traverse(child => modelNodeNames.add(child.name));
-  console.log('[CharLoader] Model root name:', model.name);
-  console.log('[CharLoader] Model node names:', [...modelNodeNames]);
+  // Build a bone name lookup map with multiple naming conventions
+  // so we can retarget animation tracks regardless of prefix differences.
+  // Maps: normalized-key → actual bone name in model
+  const boneNameMap = new Map();
+  model.traverse(child => {
+    if (!child.isBone) return;
+    const n = child.name;
+    boneNameMap.set(n, n);                                    // exact
+    boneNameMap.set(n.replace(/^mixamorig[_:]/, ''), n);     // strip prefix
+    boneNameMap.set('mixamorig:' + n, n);                    // add colon prefix
+    boneNameMap.set('mixamorig_' + n, n);                    // add underscore prefix
+  });
+
+  const exactBones = [...boneNameMap.keys()].filter(k => boneNameMap.get(k) === k);
+  console.log('[CharLoader] All model bone names:', exactBones);
 
   // Load animation clips from separate FBX files
-  const animFiles = ['idle', 'run', 'jump'];
+  const animFiles = ['idle', 'walk', 'run', 'jump'];
   const animations = {};
   for (const name of animFiles) {
     try {
       const animFbx = await loadFBX(CHAR_BASE + 'Animations/' + name + '.fbx');
-      console.log(`[CharLoader] Anim "${name}" loaded, animations count:`, animFbx.animations?.length);
       if (animFbx.animations && animFbx.animations.length > 0) {
         const clip = animFbx.animations[0];
         clip.name = name;
-        console.log(`[CharLoader] Clip "${name}" tracks (${clip.tracks.length}):`,
-          clip.tracks.slice(0, 5).map(t => t.name));
 
-        // Retarget: ensure animation track node names match the model hierarchy.
-        // Bone names match (same Kenney skeleton), but root object name may differ.
+        // Retarget: remap track node names to actual bone names in the model.
+        // If no match found we leave the track as-is (mixer silently ignores it —
+        // better than remapping it to the wrong object).
+        let remapped = 0, skipped = 0;
         for (const track of clip.tracks) {
           const dotIdx = track.name.indexOf('.');
           if (dotIdx < 0) continue;
           const nodeName = track.name.substring(0, dotIdx);
-          const rest = track.name.substring(dotIdx);
-          if (!modelNodeNames.has(nodeName)) {
-            const oldName = track.name;
-            track.name = model.name + rest;
-            console.log(`[CharLoader] Retarget: "${oldName}" → "${track.name}"`);
+          const prop = track.name.substring(dotIdx);
+          if (boneNameMap.has(nodeName)) {
+            const actualName = boneNameMap.get(nodeName);
+            if (actualName !== nodeName) {
+              track.name = actualName + prop;
+              remapped++;
+            }
+          } else {
+            console.warn(`[CharLoader] unmatched track: "${track.name}"`);
+            skipped++;
           }
         }
+        console.log(`[CharLoader] "${name}": ${clip.tracks.length} tracks, ${remapped} remapped, ${skipped} unmatched`);
 
         animations[name] = clip;
       } else {
@@ -125,6 +140,6 @@ export async function loadCharacterModel() {
     }
   }
 
-  console.log('[CharLoader] Final animations:', Object.keys(animations));
+  console.log('[CharLoader] Loaded animations:', Object.keys(animations));
   return { model, animations };
 }
