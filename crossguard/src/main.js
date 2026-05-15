@@ -63,13 +63,42 @@ function renderZoneSelect() {
   }
 }
 
+// === Loading screen helpers ===
+function hideLoading() {
+  return new Promise(resolve => {
+    const el = $('loading');
+    el.classList.add('loading-exit');
+    setTimeout(() => {
+      el.classList.add('hidden');
+      el.classList.remove('loading-exit');
+      resolve();
+    }, 500);
+  });
+}
+
+function showLoading() {
+  const el = $('loading');
+  el.classList.remove('hidden', 'loading-exit', 'loading-visible');
+  el.classList.add('loading-bare');
+  // Double rAF forces transition to pick up the opacity:0 start
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.classList.add('loading-visible');
+  }));
+}
+
 // === Loading screen → menu ===
 window.addEventListener('load', () => {
+  // Mark bar fill as animated (initial load)
+  const barFill = document.querySelector('.bar-fill');
+  if (barFill) barFill.classList.add('anim');
+
   setTimeout(() => {
-    $('loading').classList.add('hidden');
+    // Prepare menu while loading still visible
     renderZoneSelect();
     $('menu').classList.remove('hidden');
-  }, 900);
+    // Now burn the loading screen away — menu crossfades in beneath
+    hideLoading();
+  }, 1100);
 });
 
 // === Menu events ===
@@ -82,8 +111,8 @@ $('startBtn').onclick = () => {
 async function ensureModels() {
   if (cachedModels && cachedCharacter) return cachedModels;
   const bar = document.querySelector('.bar-fill');
-  if (bar) bar.style.width = '0%';
-  $('loading').classList.remove('hidden');
+  if (bar) { bar.style.width = '0%'; bar.classList.remove('anim'); }
+  showLoading();
   const [models, character] = await Promise.all([
     cachedModels || loadBuildingModels((p) => {
       if (bar) bar.style.width = (p * 80).toFixed(0) + '%';
@@ -96,7 +125,7 @@ async function ensureModels() {
   cachedModels = models;
   cachedCharacter = character;
   if (bar) bar.style.width = '100%';
-  $('loading').classList.add('hidden');
+  await hideLoading();
   return cachedModels;
 }
 $('howToBtn').onclick = () => {
