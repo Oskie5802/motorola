@@ -248,7 +248,7 @@ export class City {
   }
 
   _addLaneLines(cx, cz, w, d, axis) {
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xfff066 });
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     if (axis === "h") {
       const dashLen = 2,
         gap = 2;
@@ -304,23 +304,6 @@ export class City {
       s.rotation.x = -Math.PI / 2;
       s.position.set(...pos);
       this.scene.add(s);
-    }
-    // Pedestrian stop-lines on each side of the crossing (subtle yellow)
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xfff066 });
-    if (pedAxis === 'x') {
-      for (const side of [-1, 1]) {
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(totalSpan, 0.4), lineMat);
-        m.rotation.x = -Math.PI / 2;
-        m.position.set(cx, 0.012, cz + side * (footprint / 2 + 0.3));
-        this.scene.add(m);
-      }
-    } else {
-      for (const side of [-1, 1]) {
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, totalSpan), lineMat);
-        m.rotation.x = -Math.PI / 2;
-        m.position.set(cx + side * (footprint / 2 + 0.3), 0.012, cz);
-        this.scene.add(m);
-      }
     }
   }
 
