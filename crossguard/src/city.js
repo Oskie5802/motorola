@@ -240,8 +240,7 @@ export class City {
       this._addRoadworks();
     }
 
-    // === Street lamps (every other block, more dense at night) ===
-    this._addLamps();
+
 
     // === Boundary box ===
     this.bounds = { min: -half, max: half };
@@ -821,53 +820,7 @@ export class City {
   }
 
   _addLamps() {
-    const positions = [];
-    const g = this.gridSize, bs = this.blockSize;
-    const half = (g * bs) / 2;
-    for (let i = 0; i <= g; i++) {
-      for (let j = 0; j <= g; j++) {
-        if ((i + j) % 2 === 0) continue;
-        positions.push({ x: i * bs - half, z: j * bs - half });
-      }
-    }
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0x222831, roughness: 0.6, metalness: 0.5 });
-    const bulbMatNight = new THREE.MeshStandardMaterial({
-      color: 0xfff1c2, emissive: 0xffd47a, emissiveIntensity: 2.5
-    });
-    const bulbMatDay = new THREE.MeshStandardMaterial({
-      color: 0xddddcc, roughness: 0.3, metalness: 0.2
-    });
-    for (const p of positions) {
-      const px = p.x + 2.8, pz = p.z + 2.8;
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 4.8, 8), poleMat);
-      pole.position.set(px, 2.4, pz);
-      pole.castShadow = true;
-      this.scene.add(pole);
-      // ramię wysięgnikowe
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.9, 8), poleMat);
-      arm.rotation.z = Math.PI / 2;
-      arm.position.set(px + 0.45, 4.7, pz);
-      this.scene.add(arm);
-      // klosz
-      const housing = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 0.12, 0.32),
-        poleMat
-      );
-      housing.position.set(px + 0.85, 4.65, pz);
-      this.scene.add(housing);
-      const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.18, 12, 8),
-        this.isNight ? bulbMatNight : bulbMatDay
-      );
-      head.scale.set(1.2, 0.5, 0.9);
-      head.position.set(px + 0.85, 4.55, pz);
-      this.scene.add(head);
-      if (this.isNight) {
-        const pl = new THREE.PointLight(0xffd28a, 0.9, 16, 1.6);
-        pl.position.set(px + 0.85, 4.45, pz);
-        this.scene.add(pl);
-      }
-    }
+    // Street lamps removed
   }
 
   // === Helpers used by gameplay ===
