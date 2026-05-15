@@ -122,7 +122,7 @@ export class City {
         // so zebra crossings fit entirely on the road, not on the curb.
         const innerSize = bs - roadWidth - 6;
         const sidewalkSize = innerSize;
-        const buildArea = innerSize - 6;
+        const buildArea = innerSize - 2;
 
         // Sidewalk slab
         const sw = new THREE.Mesh(
@@ -469,10 +469,20 @@ export class City {
       const nativeSize = template.userData.size;
       if (!nativeSize || nativeSize.y < 0.01) continue;
 
-      const actualW = nativeSize.x * MODEL_SCALE;
-      const actualD = nativeSize.z * MODEL_SCALE;
+      let actualW = nativeSize.x * MODEL_SCALE;
+      let actualD = nativeSize.z * MODEL_SCALE;
 
-      // Clamp offset so model stays inside the block; if model is larger than block, center it.
+      // Scale down if the model is too large for the block
+      const maxDim = area;
+      let fitScale = MODEL_SCALE;
+      if (actualW > maxDim || actualD > maxDim) {
+        const scaleFactor = Math.min(maxDim / actualW, maxDim / actualD);
+        fitScale = MODEL_SCALE * scaleFactor;
+        actualW *= scaleFactor;
+        actualD *= scaleFactor;
+      }
+
+      // Clamp offset so model stays inside the block
       const maxOffX = Math.max(0, (area - actualW) / 2);
       const maxOffZ = Math.max(0, (area - actualD) / 2);
 
@@ -504,7 +514,7 @@ export class City {
       if (!fits) continue;
 
       const obj = template.clone(true);
-      obj.scale.set(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+      obj.scale.set(fitScale, fitScale, fitScale);
       obj.position.set(cx + offX, 0.12, cz + offZ);
       obj.rotation.y = Math.floor(Math.random() * 4) * (Math.PI / 2);
 
