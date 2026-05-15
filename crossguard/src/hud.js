@@ -1,6 +1,6 @@
 // === HUD: mini-map, score, mission text, alerts, assist, radio, weather, day/night ===
 import * as THREE from 'three';
-import { RADIO_MESSAGES, ASSIST_TIPS } from './config.js';
+import { RADIO_EVENTS, RADIO_FLAVOR, ASSIST_TIPS } from './config.js';
 
 export class HUD {
   constructor(city, zone) {
@@ -10,6 +10,7 @@ export class HUD {
     this.scoreEl = document.getElementById('scoreText');
     this.timerEl = document.getElementById('timerText');
     this.missionEl = document.getElementById('missionText');
+    this.distEl = document.getElementById('distText');
     this.zoneEl = document.getElementById('zoneText');
     this.weatherEl = document.getElementById('weatherText');
     this.timeEl = document.getElementById('timeOfDayText');
@@ -37,9 +38,11 @@ export class HUD {
     this.assistRotateTimer = 0;
     this.radioTimer = 4;
     this.radioVisible = false;
+    this._lastRadioEvent = null; // { text, event } from RADIO_EVENTS
+    this.radioUnlocked = false; // unlocked via progression
 
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyR') {
+      if (e.code === 'KeyR' && this.radioUnlocked) {
         this.radioVisible = !this.radioVisible;
         this.radioBox.classList.toggle('hidden', !this.radioVisible);
       }
@@ -47,6 +50,7 @@ export class HUD {
   }
 
   setMission(text) { this.missionEl.textContent = text; }
+  setDist(m) { this.distEl.textContent = m < 1000 ? `${Math.round(m)}m` : `${(m/1000).toFixed(1)}km`; }
   setScore(n) { this.scoreEl.textContent = String(Math.round(n)); }
   setTimer(seconds) {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -115,7 +119,28 @@ export class HUD {
     this.setAssist(ASSIST_TIPS[Math.floor(Math.random() * ASSIST_TIPS.length)]);
   }
   randomRadio() {
-    this.setRadio(RADIO_MESSAGES[Math.floor(Math.random() * RADIO_MESSAGES.length)]);
+    // 60% chance of gameplay-relevant event, 40% flavor
+    if (Math.random() < 0.6 && RADIO_EVENTS.length > 0) {
+      const ev = RADIO_EVENTS[Math.floor(Math.random() * RADIO_EVENTS.length)];
+      this._lastRadioEvent = ev;
+      this.setRadio(ev.text);
+    } else {
+      this._lastRadioEvent = null;
+      this.setRadio(RADIO_FLAVOR[Math.floor(Math.random() * RADIO_FLAVOR.length)]);
+    }
+  }
+  consumeRadioEvent() {
+    const ev = this._lastRadioEvent;
+    this._lastRadioEvent = null;
+    return ev;
+  }
+
+  unlockRadio() {
+    if (this.radioUnlocked) return;
+    this.radioUnlocked = true;
+    this.radioBox.classList.remove('hidden');
+    this.setRadio('📡 Kanał dyspozytorski odblokowany!');
+    this.alert('🔓 Radio APX P25 odblokowane! [R] aby podsłuchiwać', 'good', 4000);
   }
 
   update(dt, player, traffic, goalPos) {
@@ -172,8 +197,16 @@ export class HUD {
     // Vehicles
     for (const v of traffic.vehicles) {
       const { mx, my } = toMap(v.pos.x, v.pos.z);
-      ctx.fillStyle = v.isEmergency ? '#ff2233' : '#789bcb';
+      ctx.fillStyle = v.isEmergency ? '#ff2233' : v._lprFlagged ? '#00e5ff' : '#789bcb';
       ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
+      // LPR-flagged: cyan ring
+      if (v._lprFlagged) {
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(mx, my, 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
     // Emergency: pulsing larger ring

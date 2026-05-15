@@ -184,7 +184,7 @@ html, body {
   gap: 20px;
 }
 #hudTopBar .hud-block { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-#hudTopBar .hud-block.center { text-align: center; align-items: center; flex: 1; }
+#hudTopBar .hud-block.center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; align-items: center; }
 #hudTopBar .hud-block.right { align-items: flex-end; flex-direction: row; gap: 24px; }
 #hudTopBar .hud-block.right > div { display: flex; flex-direction: column; align-items: flex-end; }
 .hud-status { color: var(--moto-green); font-size: 12px; font-weight: 600; letter-spacing: 1px; }
@@ -454,6 +454,43 @@ kbd {
   animation: load 1.2s ease forwards;
 }
 @keyframes load { from { width: 0%; } to { width: 100%; } }
+
+/* Phone distraction overlay */
+#phoneOverlay {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  z-index: 60;
+  pointer-events: none;
+}
+.phone-screen {
+  width: 180px;
+  background: rgba(20, 20, 30, 0.92);
+  border: 2px solid #444;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+}
+.phone-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--moto-cyan);
+  margin-bottom: 8px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 6px;
+}
+.phone-msg {
+  font-size: 11px;
+  color: #ccc;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.phone-hint {
+  font-size: 10px;
+  color: var(--moto-amber);
+  margin-top: 8px;
+  text-align: center;
+}
 
 /* Responsive */
 @media (max-width: 720px) {

@@ -149,13 +149,51 @@ export const ASSIST_TIPS = [
   'Pamiętaj o widoczności - nie używaj telefonu podczas przechodzenia.',
 ];
 
-export const RADIO_MESSAGES = [
-  'Dyspozytor: Patrol 7-2, zgłoszenie kolizji na ul. Słonecznej.',
-  'Karetka 4 do bazy - kierunek szpital, ETA 4 minuty.',
-  'Patrol 9: namierzony pojazd z bazy LPR, zmierza w stronę centrum.',
-  'Drogówka: korek na alei głównej, sygnalizacja awaryjna.',
-  'Straż 2: zabezpieczamy miejsce zdarzenia, droga zamknięta.',
-  'Centrum: monitoring Avigilon - podejrzany pojazd, sektor B7.',
+// Radio messages that trigger real gameplay events
+// Format: { text, event } where event is a function called on GameLogic
+export const RADIO_EVENTS = [
+  {
+    text: 'Dyspozytor: zgłoszenie kolizji - pojazd ignoruje światło!',
+    event: (game) => {
+      const v = game.traffic.vehicles.find(v => !v.runsRed && !v.isEmergency);
+      if (v) v.runsRed = true;
+      game.audio.warn();
+    },
+  },
+  {
+    text: 'Karetka w trasie - pojazd uprzywilejowany na trasie!',
+    event: (game) => {
+      game.traffic._spawnEmergency();
+      game.audio.siren();
+    },
+  },
+  {
+    text: 'LPR: skradziony pojazd namierzony w Twoim sektorze!',
+    event: (game) => {
+      game.hud.incLPR();
+      const v = game.traffic.vehicles.find(v => !v.runsRed && !v.isEmergency);
+      if (v) v.runsRed = true;
+    },
+  },
+  {
+    text: 'Drogówka: awaria sygnalizacji - ostrożność na przejściach!',
+    event: (game) => {
+      const tl = game.city.trafficLights[Math.floor(Math.random() * game.city.trafficLights.length)];
+      tl.state = 'amber'; tl.timer = 0;
+      game.city._applyLightVisual([tl]);
+    },
+  },
+  {
+    text: 'Centrum: Avigilon wykrył zagrożenie - zachowaj czujność!',
+    event: (game) => {
+      game.audio.warn();
+    },
+  },
+];
+
+// Fallback flavor messages (no gameplay effect)
+export const RADIO_FLAVOR = [
+  'Patrol 3: kontrola prędkości, pojazdy zwalniają.',
+  'Straż 2: zabezpieczamy miejsce zdarzenia.',
   'Dyspozytor: wszystkie jednostki - zachować pełną gotowość.',
-  'Patrol 3: kontrola prędkości, ulica Kwiatowa, pojazdy zwalniają.',
 ];

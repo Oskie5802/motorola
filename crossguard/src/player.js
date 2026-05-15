@@ -198,7 +198,10 @@ export class Player {
     this.keys = {};
     window.addEventListener('keydown', (e) => {
       this.keys[e.code] = true;
-      if (e.code === 'KeyP') this.onPhone = !this.onPhone;
+      if (e.code === 'KeyP') {
+        this.onPhone = !this.onPhone;
+        document.getElementById('phoneOverlay').classList.toggle('hidden', !this.onPhone);
+      }
     });
     window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
 
