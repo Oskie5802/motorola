@@ -485,7 +485,8 @@ export class TrafficSystem {
           continue;
         }
         // At road edge — vehicle RED = pedestrian GREEN, safe to cross
-        const canCross = wp.light && wp.light.state === 'red';
+        // But not during flashing green (last 3s warning — don't start crossing)
+        const canCross = wp.light && wp.light.state === 'red' && !wp.light._pedFlashing;
         if (!canCross) {
           // Stand still with gentle idle sway
           p.phase += dt * 1.5;

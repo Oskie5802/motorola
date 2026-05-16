@@ -490,24 +490,46 @@ export class City {
   }
 
   updateTrafficLights(dt) {
-    // Update vehicle signals
+    const FLASH_DURATION = 3.0;  // seconds of flashing green before ped turns red
+    const FLASH_INTERVAL = 0.35; // on/off period
+
+    // Update vehicle signals and mark pedestrian-flash window
     for (const tl of this.trafficLights) {
       tl.timer += dt;
       let nextState = tl.state;
       if (tl.state === 'green' && tl.timer >= tl.cycleGreen) { nextState = 'amber'; tl.timer = 0; }
       else if (tl.state === 'amber' && tl.timer >= tl.cycleAmber) { nextState = 'red'; tl.timer = 0; }
-      else if (tl.state === 'red' && tl.timer >= tl.cycleRed) { nextState = 'green'; tl.timer = 0; }
+      else if (tl.state === 'red'   && tl.timer >= tl.cycleRed)   { nextState = 'green'; tl.timer = 0; }
       if (nextState !== tl.state) {
         tl.state = nextState;
         this._applyLightVisual([tl]);
       }
+      // Pedestrian flash window: last FLASH_DURATION seconds of the vehicle red phase
+      tl._pedFlashing = tl.state === 'red' && (tl.cycleRed - tl.timer) <= FLASH_DURATION;
     }
-    // Update pedestrian signals: green when linked vehicle is red, red otherwise
+
+    // Update pedestrian signals with flashing support
     for (const pl of this.pedestrianLights) {
-      const newState = pl.linkedVehicle.state === 'red' ? 'green' : 'red';
-      if (newState !== pl.state) {
-        pl.state = newState;
-        this._applyPedLightVisual(pl);
+      const veh = pl.linkedVehicle;
+      if (veh.state !== 'red') {
+        // Vehicle green/amber → ped red
+        pl._flashTimer = 0;
+        if (pl.state !== 'red') { pl.state = 'red'; this._applyPedLightVisual(pl); }
+      } else if (veh._pedFlashing) {
+        // Last N seconds of ped green → flash
+        pl.state = 'flashing';
+        pl._flashTimer = (pl._flashTimer || 0) + dt;
+        const on = Math.floor(pl._flashTimer / FLASH_INTERVAL) % 2 === 0;
+        pl.grnMat.color.setHex(on ? 0x33ee55 : 0x004018);
+        pl.grnMat.emissive.setHex(on ? 0x22dd44 : 0x001008);
+        pl.grnMat.emissiveIntensity = on ? 1.8 : 0.12;
+        pl.redMat.color.setHex(0x550000);
+        pl.redMat.emissive.setHex(0x220000);
+        pl.redMat.emissiveIntensity = 0.25;
+      } else {
+        // Solid pedestrian green
+        pl._flashTimer = 0;
+        if (pl.state !== 'green') { pl.state = 'green'; this._applyPedLightVisual(pl); }
       }
     }
   }
