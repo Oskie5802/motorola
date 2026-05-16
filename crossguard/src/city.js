@@ -204,19 +204,24 @@ export class City {
         // Vehicles FROM EAST (drive -X, on -Z half): pole NE, lamps face +X.
         const tlForEast  = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew',  Math.PI / 2, x, z);
 
-        // --- Pedestrian signals: 2 per crossing, one at each end, lamps facing into the crossing ---
-        // North-arm crossing (z - crossOff): peds walk E–W across NS road. State follows NS-road vehicle light.
-        this._addPedestrianLight(x - roadHalf - 0.5, z - crossOff,  Math.PI / 2, tlForNorth); // W end, lamps face +X
-        this._addPedestrianLight(x + roadHalf + 0.5, z - crossOff, -Math.PI / 2, tlForNorth); // E end, lamps face -X
-        // South-arm crossing (z + crossOff)
-        this._addPedestrianLight(x - roadHalf - 0.5, z + crossOff,  Math.PI / 2, tlForSouth);
-        this._addPedestrianLight(x + roadHalf + 0.5, z + crossOff, -Math.PI / 2, tlForSouth);
-        // East-arm crossing (x + crossOff): peds walk N–S across EW road. State follows EW-road vehicle light.
-        this._addPedestrianLight(x + crossOff, z - roadHalf - 0.5, 0,       tlForEast);  // N end, lamps face +Z
-        this._addPedestrianLight(x + crossOff, z + roadHalf + 0.5, Math.PI, tlForEast);  // S end, lamps face -Z
-        // West-arm crossing (x - crossOff)
-        this._addPedestrianLight(x - crossOff, z - roadHalf - 0.5, 0,       tlForWest);
-        this._addPedestrianLight(x - crossOff, z + roadHalf + 0.5, Math.PI, tlForWest);
+        // --- Pedestrian signals: 2 per crossing, on the sidewalk corners at each end. ---
+        // pedCorner = sidewalk inner edge (where the curb meets the sidewalk slab). The two
+        // ped lights that share a corner are offset along their own crossing axis so they
+        // don't collide visually.
+        const pedCorner = roadHalf + 3;      // 7 – at the far crossing edge (sidewalk side)
+        const pedOff    = roadHalf + 0.5;    // 4.5 – just outside road edge at crossing corner
+        // North-arm crossing (peds walk E–W across NS road)
+        this._addPedestrianLight(x - pedOff, z - pedCorner,  Math.PI / 2, tlForNorth); // NW corner, lamps face +X (toward crossing)
+        this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth); // NE corner, lamps face -X
+        // South-arm crossing
+        this._addPedestrianLight(x - pedOff, z + pedCorner,  Math.PI / 2, tlForSouth); // SW corner
+        this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth); // SE corner
+        // East-arm crossing (peds walk N–S across EW road)
+        this._addPedestrianLight(x + pedCorner, z - pedOff, 0,       tlForEast); // NE corner, lamps face +Z
+        this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast); // SE corner, lamps face -Z
+        // West-arm crossing
+        this._addPedestrianLight(x - pedCorner, z - pedOff, 0,       tlForWest); // NW corner
+        this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest); // SW corner
 
         // --- Zebra crossings ---
         // North/south arms on the NS road, peds walk E–W:
