@@ -599,6 +599,24 @@ export class City {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
+          // Night lighting is very dim (ambient ~0.15); without an
+          // emissive contribution the Kenney models render almost black.
+          // Reuse the diffuse colormap as an emissive map so each building
+          // self-illuminates with its own texture colors.
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          for (const m of mats) {
+            if (!m || m.userData.__cgLit) continue;
+            if (m.map) {
+              m.emissiveMap = m.map;
+              m.emissive = new THREE.Color(0xffffff);
+              if ('emissiveIntensity' in m) m.emissiveIntensity = this.isNight ? 0.55 : 0.15;
+            } else {
+              m.emissive = new THREE.Color(m.color || 0xffffff);
+              if ('emissiveIntensity' in m) m.emissiveIntensity = this.isNight ? 0.4 : 0.1;
+            }
+            m.userData.__cgLit = true;
+            m.needsUpdate = true;
+          }
         }
       });
 

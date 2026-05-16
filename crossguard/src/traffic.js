@@ -364,13 +364,20 @@ export class TrafficSystem {
       group.add(sh);
 
       group.scale.setScalar(heightScale);
-      group.position.set(p.x, 0, p.z);
+
+      const waypoints = this._makePedWaypoints();
+      const wpIdx = Math.floor(Math.random() * waypoints.length);
+      const startWp = waypoints.length > 0 ? waypoints[wpIdx] : p;
+
+      group.position.set(startWp.x, 0, startWp.z);
       this.scene.add(group);
 
       this.peds.push({
         group,
-        pos: { x: p.x, z: p.z },
-        target: this.city.randomSidewalkPoint(),
+        pos: { x: startWp.x, z: startWp.z },
+        waypoints,
+        wpIdx: (wpIdx + 1) % Math.max(1, waypoints.length),
+        target: waypoints.length > 1 ? waypoints[(wpIdx + 1) % waypoints.length] : this.city.randomSidewalkPoint(),
         speed: 1.2 + Math.random() * 0.6,
         phase: Math.random() * 10,
         armL, armR, legL, legR,
@@ -378,29 +385,48 @@ export class TrafficSystem {
     }
   }
 
+  _makePedWaypoints() {
+    if (!this.city.sidewalks || this.city.sidewalks.length === 0) return [];
+    const block = this.city.sidewalks[Math.floor(Math.random() * this.city.sidewalks.length)];
+    const inset = 2.0;
+    const mx = (block.x1 + block.x2) / 2;
+    const mz = (block.z1 + block.z2) / 2;
+    // 8 points around the perimeter: corners + midpoints of each side, in order
+    const candidates = [
+      { x: block.x1 + inset, z: block.z1 + inset },
+      { x: mx,               z: block.z1 + inset },
+      { x: block.x2 - inset, z: block.z1 + inset },
+      { x: block.x2 - inset, z: mz               },
+      { x: block.x2 - inset, z: block.z2 - inset },
+      { x: mx,               z: block.z2 - inset },
+      { x: block.x1 + inset, z: block.z2 - inset },
+      { x: block.x1 + inset, z: mz               },
+    ];
+    return candidates.filter(w => !this.city.collidesBuilding(w.x, w.z, 0.4));
+  }
+
   update(dt, playerPos, signals) {
     // Vehicles
     for (const v of this.vehicles) {
       this._updateVehicle(v, dt, playerPos, signals);
     }
-    // NPC pedestrians: wander between sidewalk points (stay on sidewalk)
+    // NPC pedestrians: walk around their assigned sidewalk block perimeter
     for (const p of this.peds) {
       const dx = p.target.x - p.pos.x;
       const dz = p.target.z - p.pos.z;
       const d = Math.hypot(dx, dz);
-      if (d < 0.8) {
-        p.target = this.city.randomSidewalkPoint();
+      if (d < 0.6) {
+        // Advance to next waypoint along perimeter
+        if (p.waypoints && p.waypoints.length >= 2) {
+          p.wpIdx = (p.wpIdx + 1) % p.waypoints.length;
+          p.target = p.waypoints[p.wpIdx];
+        } else {
+          p.target = this.city.randomSidewalkPoint();
+        }
         continue;
       }
-      const mvX = (dx / d) * p.speed * dt;
-      const mvZ = (dz / d) * p.speed * dt;
-      const nx = p.pos.x + mvX, nz = p.pos.z + mvZ;
-      // Keep on sidewalks (best effort)
-      if (this.city.isOnSidewalk(nx, nz) && !this.city.collidesBuilding(nx, nz, 0.3)) {
-        p.pos.x = nx; p.pos.z = nz;
-      } else {
-        p.target = this.city.randomSidewalkPoint();
-      }
+      p.pos.x += (dx / d) * p.speed * dt;
+      p.pos.z += (dz / d) * p.speed * dt;
       p.phase += dt * 6;
       const swing = Math.sin(p.phase) * 0.5;
       if (p.armL) p.armL.rotation.x = swing;
