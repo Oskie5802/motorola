@@ -181,10 +181,10 @@ export class City {
     // Polish convention: vehicle signal sits on the driver's right, just BEFORE
     // the stop line/crossing. Pedestrian signals sit on both curbs at each end
     // of a crossing, lamps facing into the crossing area.
-    const crossOff = roadWidth / 2 + 1.5;               // 5.5 – crossing center from intersection
+    const crossOff  = roadWidth / 2 + 1.5;               // 5.5 – crossing center from intersection
     const crossWidth = 3.0;
-    const roadHalf = roadWidth / 2;                     // 4
-    const sigOff = crossOff + crossWidth / 2 + 0.5;  // 7.5 – signal post just past crossing on approach side
+    const roadHalf   = roadWidth / 2;                     // 4
+    const sigOff     = crossOff + crossWidth / 2 + 0.5;  // 7.5 – signal post just past crossing on approach side
 
     for (let i = 1; i < g; i++) {
       for (let j = 1; j < g; j++) {
@@ -200,27 +200,27 @@ export class City {
         // Vehicles FROM NORTH (drive +Z, on -X half): pole NW, lamps face -Z.
         const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
         // Vehicles FROM WEST (drive +X, on +Z half): pole SW, lamps face -X.
-        const tlForWest = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
+        const tlForWest  = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
         // Vehicles FROM EAST (drive -X, on -Z half): pole NE, lamps face +X.
-        const tlForEast = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', Math.PI / 2, x, z);
+        const tlForEast  = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew',  Math.PI / 2, x, z);
 
         // --- Pedestrian signals: 2 per crossing, on the sidewalk corners at each end. ---
         // pedCorner = sidewalk inner edge (where the curb meets the sidewalk slab). The two
         // ped lights that share a corner are offset along their own crossing axis so they
         // don't collide visually.
         const pedCorner = roadHalf + 3;      // 7 – at the far crossing edge (sidewalk side)
-        const pedOff = roadHalf + 0.5;    // 4.5 – just outside road edge at crossing corner
+        const pedOff    = roadHalf + 0.5;    // 4.5 – just outside road edge at crossing corner
         // North-arm crossing (peds walk E–W across NS road)
-        this._addPedestrianLight(x - pedOff, z - pedCorner, Math.PI / 2, tlForNorth); // NW corner, lamps face +X (toward crossing)
+        this._addPedestrianLight(x - pedOff, z - pedCorner,  Math.PI / 2, tlForNorth); // NW corner, lamps face +X (toward crossing)
         this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth); // NE corner, lamps face -X
         // South-arm crossing
-        this._addPedestrianLight(x - pedOff, z + pedCorner, Math.PI / 2, tlForSouth); // SW corner
+        this._addPedestrianLight(x - pedOff, z + pedCorner,  Math.PI / 2, tlForSouth); // SW corner
         this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth); // SE corner
         // East-arm crossing (peds walk N–S across EW road)
-        this._addPedestrianLight(x + pedCorner, z - pedOff, 0, tlForEast); // NE corner, lamps face +Z
+        this._addPedestrianLight(x + pedCorner, z - pedOff, 0,       tlForEast); // NE corner, lamps face +Z
         this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast); // SE corner, lamps face -Z
         // West-arm crossing
-        this._addPedestrianLight(x - pedCorner, z - pedOff, 0, tlForWest); // NW corner
+        this._addPedestrianLight(x - pedCorner, z - pedOff, 0,       tlForWest); // NW corner
         this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest); // SW corner
 
         // --- Zebra crossings ---
@@ -258,8 +258,7 @@ export class City {
       this._addRoadworks();
     }
 
-    // === Street lamps (night atmosphere) ===
-    this._addLamps();
+
 
     // === Boundary box ===
     this.bounds = { min: -half, max: half };
@@ -719,11 +718,11 @@ export class City {
 
   _addStreetFurniture(cx, cz, area) {
     const trunkMat = new THREE.MeshStandardMaterial({
-      color: this.isNight ? 0x2a1c0e : 0x5b3a1d,
+      color: 0x5b3a1d,
       roughness: 0.9,
     });
     const leafMat = new THREE.MeshStandardMaterial({
-      color: this.isNight ? 0x142820 : 0x4a8a3f,
+      color: this.zone.timeOfDay === "night" ? 0x244833 : 0x4a8a3f,
       roughness: 0.85,
     });
     const trees = 1 + Math.floor(Math.random() * 3);
@@ -907,58 +906,7 @@ export class City {
   }
 
   _addLamps() {
-    // Street lamps at intersections and along roads (visual only, no PointLights)
-    if (!this.isNight) return;
-    const bs = this.blockSize;
-    const g = this.gridSize;
-    const half = (g * bs) / 2;
-    const lampMat = new THREE.MeshLambertMaterial({ color: 0x333a44 });
-    const lampHeadMat = new THREE.MeshBasicMaterial({ color: 0xffeedd });
-
-    // Place lamps along roads at regular intervals
-    for (let i = 0; i <= g; i++) {
-      const roadCoord = i * bs - half;
-      // Lamps along horizontal roads
-      for (let seg = 0; seg < g; seg++) {
-        const segCenter = (seg + 0.5) * bs - half;
-        for (const side of [-1, 1]) {
-          const lx = segCenter;
-          const lz = roadCoord + side * 5.5;
-          this._createStreetLamp(lx, lz, lampMat, lampHeadMat);
-        }
-      }
-      // Lamps along vertical roads
-      for (let seg = 0; seg < g; seg++) {
-        const segCenter = (seg + 0.5) * bs - half;
-        for (const side of [-1, 1]) {
-          const lx = roadCoord + side * 5.5;
-          const lz = segCenter;
-          this._createStreetLamp(lx, lz, lampMat, lampHeadMat);
-        }
-      }
-    }
-  }
-
-  _createStreetLamp(x, z, poleMat, headMat) {
-    // Pole
-    const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.1, 5.5, 6),
-      poleMat
-    );
-    pole.position.set(x, 2.75, z);
-    pole.castShadow = true;
-    this.scene.add(pole);
-    // Lamp head
-    const head = new THREE.Mesh(
-      new THREE.BoxGeometry(0.6, 0.15, 0.35),
-      headMat
-    );
-    head.position.set(x, 5.5, z);
-    this.scene.add(head);
-    // Warm light cone
-    // const light = new THREE.PointLight(0xffcc88, 1.8, 18, 2);
-    // light.position.set(x, 5.3, z);
-    // this.scene.add(light);
+    // Street lamps removed
   }
 
   // === Helpers used by gameplay ===
