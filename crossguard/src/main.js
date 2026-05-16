@@ -186,7 +186,7 @@ async function startGame(zone) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
+  renderer.toneMappingExposure = zone.timeOfDay === 'night' ? 0.75 : 1.15;
 
   const scene = new THREE.Scene();
 

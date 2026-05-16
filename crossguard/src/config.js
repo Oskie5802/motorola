@@ -11,7 +11,7 @@ export const ZONES = [
     pedestrians: 8,
     cameras: 2,
     weather: 'clear',
-    timeOfDay: 'day',
+    timeOfDay: 'night',
     hazardRate: 0.05,
     vehicleSpeed: 0.18,
     redLightRunChance: 0.02,
@@ -29,7 +29,7 @@ export const ZONES = [
     pedestrians: 14,
     cameras: 3,
     weather: 'clear',
-    timeOfDay: 'morning',
+    timeOfDay: 'night',
     hazardRate: 0.08,
     vehicleSpeed: 0.14,
     redLightRunChance: 0.03,
@@ -47,7 +47,7 @@ export const ZONES = [
     pedestrians: 18,
     cameras: 5,
     weather: 'rain',
-    timeOfDay: 'day',
+    timeOfDay: 'night',
     hazardRate: 0.12,
     vehicleSpeed: 0.22,
     redLightRunChance: 0.06,
@@ -127,14 +127,16 @@ export const PALETTE = {
   green:  0x00b074,
   amber:  0xffb800,
   red:    0xe63946,
-  road:   0x2b2f38,
-  curb:   0x6a7280,
-  sidewalk: 0xb0b4bc,
-  grass:  0xB5654A,  // terracotta brick (chodnik)
+  road:   0x1a1e26,
+  curb:   0x3a3f4a,
+  sidewalk: 0x4a4e58,
+  grass:  0x2a2530,  // dark ground
   sky:    0x87ceeb,
-  nightSky: 0x0a1838,
-  building: [0x6b7d99, 0x8aa0bf, 0xa9bbd3, 0x7e90a8, 0x5d6c85, 0x9bb0cc],
+  nightSky: 0x060a18,
+  building: [0x2a3048, 0x353d5a, 0x404868, 0x2e3650, 0x252a42, 0x383f5c],
   vehicle: [0xb53030, 0x2266c2, 0xf0c44a, 0x33b56a, 0x444444, 0xcccccc, 0x884cc8],
+  // Neon accent colors for building glow effects
+  neon: [0x00ffaa, 0xff00ff, 0x00aaff, 0xff6600, 0xaa00ff, 0x00ffff, 0xff0066],
 };
 
 // Localized assist tips (rotate)

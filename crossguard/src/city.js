@@ -181,10 +181,10 @@ export class City {
     // Polish convention: vehicle signal sits on the driver's right, just BEFORE
     // the stop line/crossing. Pedestrian signals sit on both curbs at each end
     // of a crossing, lamps facing into the crossing area.
-    const crossOff  = roadWidth / 2 + 1.5;               // 5.5 – crossing center from intersection
+    const crossOff = roadWidth / 2 + 1.5;               // 5.5 – crossing center from intersection
     const crossWidth = 3.0;
-    const roadHalf   = roadWidth / 2;                     // 4
-    const sigOff     = crossOff + crossWidth / 2 + 0.5;  // 7.5 – signal post just past crossing on approach side
+    const roadHalf = roadWidth / 2;                     // 4
+    const sigOff = crossOff + crossWidth / 2 + 0.5;  // 7.5 – signal post just past crossing on approach side
 
     for (let i = 1; i < g; i++) {
       for (let j = 1; j < g; j++) {
@@ -200,27 +200,27 @@ export class City {
         // Vehicles FROM NORTH (drive +Z, on -X half): pole NW, lamps face -Z.
         const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
         // Vehicles FROM WEST (drive +X, on +Z half): pole SW, lamps face -X.
-        const tlForWest  = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
+        const tlForWest = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
         // Vehicles FROM EAST (drive -X, on -Z half): pole NE, lamps face +X.
-        const tlForEast  = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew',  Math.PI / 2, x, z);
+        const tlForEast = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', Math.PI / 2, x, z);
 
         // --- Pedestrian signals: 2 per crossing, on the sidewalk corners at each end. ---
         // pedCorner = sidewalk inner edge (where the curb meets the sidewalk slab). The two
         // ped lights that share a corner are offset along their own crossing axis so they
         // don't collide visually.
         const pedCorner = roadHalf + 3;      // 7 – at the far crossing edge (sidewalk side)
-        const pedOff    = roadHalf + 0.5;    // 4.5 – just outside road edge at crossing corner
+        const pedOff = roadHalf + 0.5;    // 4.5 – just outside road edge at crossing corner
         // North-arm crossing (peds walk E–W across NS road)
-        this._addPedestrianLight(x - pedOff, z - pedCorner,  Math.PI / 2, tlForNorth); // NW corner, lamps face +X (toward crossing)
+        this._addPedestrianLight(x - pedOff, z - pedCorner, Math.PI / 2, tlForNorth); // NW corner, lamps face +X (toward crossing)
         this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth); // NE corner, lamps face -X
         // South-arm crossing
-        this._addPedestrianLight(x - pedOff, z + pedCorner,  Math.PI / 2, tlForSouth); // SW corner
+        this._addPedestrianLight(x - pedOff, z + pedCorner, Math.PI / 2, tlForSouth); // SW corner
         this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth); // SE corner
         // East-arm crossing (peds walk N–S across EW road)
-        this._addPedestrianLight(x + pedCorner, z - pedOff, 0,       tlForEast); // NE corner, lamps face +Z
+        this._addPedestrianLight(x + pedCorner, z - pedOff, 0, tlForEast); // NE corner, lamps face +Z
         this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast); // SE corner, lamps face -Z
         // West-arm crossing
-        this._addPedestrianLight(x - pedCorner, z - pedOff, 0,       tlForWest); // NW corner
+        this._addPedestrianLight(x - pedCorner, z - pedOff, 0, tlForWest); // NW corner
         this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest); // SW corner
 
         // --- Zebra crossings ---
@@ -258,7 +258,8 @@ export class City {
       this._addRoadworks();
     }
 
-
+    // === Street lamps (night atmosphere) ===
+    this._addLamps();
 
     // === Boundary box ===
     this.bounds = { min: -half, max: half };
@@ -618,6 +619,7 @@ export class City {
 
   _buildBuildingsSimple(cx, cz, area) {
     const palette = PALETTE.building;
+    const neonPalette = PALETTE.neon || [0x00ffaa, 0xff00ff, 0x00aaff, 0xff6600, 0xaa00ff, 0x00ffff];
     const count = 1 + Math.floor(Math.random() * 3);
     const slot = area / Math.ceil(Math.sqrt(count));
     for (let i = 0; i < count; i++) {
@@ -632,7 +634,7 @@ export class City {
       const mat = new THREE.MeshStandardMaterial({
         color: col,
         roughness: 0.78,
-        metalness: 0.08,
+        metalness: 0.15,
       });
       const bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       bldg.position.set(cx + offX, h / 2 + 0.12, cz + offZ);
@@ -644,7 +646,7 @@ export class City {
       const base = new THREE.Mesh(
         new THREE.BoxGeometry(w * 1.03, 1.5, d * 1.03),
         new THREE.MeshStandardMaterial({
-          color: 0x3a4150,
+          color: 0x1a2030,
           roughness: 0.7,
         }),
       );
@@ -656,7 +658,7 @@ export class City {
       const cornice = new THREE.Mesh(
         new THREE.BoxGeometry(w * 1.05, 0.25, d * 1.05),
         new THREE.MeshStandardMaterial({
-          color: 0x2a3040,
+          color: 0x1a2035,
           roughness: 0.6,
         }),
       );
@@ -665,22 +667,60 @@ export class City {
 
       this._addWindows(bldg, w, h, d);
 
+      // === NEON ACCENT STRIPS on buildings ===
+      if (this.isNight && Math.random() > 0.25) {
+        const neonColor = neonPalette[Math.floor(Math.random() * neonPalette.length)];
+        // Horizontal neon strip at random height
+        const stripY = 1.5 + Math.random() * (h - 3);
+        const stripH = 0.12 + Math.random() * 0.1;
+        for (const side of [1, -1]) {
+          // Front and back neon strips
+          const strip = new THREE.Mesh(
+            new THREE.PlaneGeometry(w * 0.85, stripH),
+            new THREE.MeshBasicMaterial({
+              color: neonColor,
+              transparent: true,
+              opacity: 0.9,
+            })
+          );
+          strip.position.set(0, -h / 2 + stripY, side * (d / 2 + 0.02));
+          if (side < 0) strip.rotation.y = Math.PI;
+          bldg.add(strip);
+        }
+      }
+
+      // === GROUND FLOOR GLOW (shop fronts / storefronts) ===
+      if (this.isNight && Math.random() > 0.35) {
+        const shopColor = neonPalette[Math.floor(Math.random() * neonPalette.length)];
+        const shopGlow = new THREE.Mesh(
+          new THREE.PlaneGeometry(w * 0.6, 1.4),
+          new THREE.MeshBasicMaterial({
+            color: shopColor,
+            transparent: true,
+            opacity: 0.35,
+          })
+        );
+        shopGlow.position.set(cx + offX, 1.2, cz + offZ + d / 2 + 0.03);
+        this.scene.add(shopGlow);
+      }
+
       // Dach
       const roof = new THREE.Mesh(
         new THREE.BoxGeometry(w * 0.7, 0.8, d * 0.7),
         new THREE.MeshStandardMaterial({
-          color: 0x3a404c,
+          color: 0x1a2030,
           roughness: 0.7,
         }),
       );
       roof.position.set(cx + offX, h + 0.55, cz + offZ);
       this.scene.add(roof);
+
       // Klimatyzator na dachu
       if (Math.random() > 0.4) {
         const ac = new THREE.Mesh(
           new THREE.BoxGeometry(1.2, 0.6, 0.8),
           new THREE.MeshStandardMaterial({
-            color: 0x8a8e96,
+            color: 0x4a4e56,
             roughness: 0.5,
             metalness: 0.4,
           }),
@@ -692,17 +732,25 @@ export class City {
         );
         this.scene.add(ac);
       }
-      // Antena dla wyższych budynków
+
+      // Antena + blinking red light for taller buildings
       if (h > 14 && Math.random() > 0.5) {
         const ant = new THREE.Mesh(
           new THREE.CylinderGeometry(0.05, 0.05, 3),
           new THREE.MeshStandardMaterial({
-            color: 0xcc2233,
-            emissive: 0x551111,
+            color: 0x444444,
+            metalness: 0.5,
           }),
         );
         ant.position.set(cx + offX, h + 2.5, cz + offZ);
         this.scene.add(ant);
+        // Red beacon on top
+        const beacon = new THREE.Mesh(
+          new THREE.SphereGeometry(0.12, 8, 6),
+          new THREE.MeshBasicMaterial({ color: 0xff2233 }),
+        );
+        beacon.position.set(cx + offX, h + 4.0, cz + offZ);
+        this.scene.add(beacon);
       }
 
       this.buildings.push({
@@ -718,11 +766,11 @@ export class City {
 
   _addStreetFurniture(cx, cz, area) {
     const trunkMat = new THREE.MeshStandardMaterial({
-      color: 0x5b3a1d,
+      color: this.isNight ? 0x2a1c0e : 0x5b3a1d,
       roughness: 0.9,
     });
     const leafMat = new THREE.MeshStandardMaterial({
-      color: this.zone.timeOfDay === "night" ? 0x244833 : 0x4a8a3f,
+      color: this.isNight ? 0x142820 : 0x4a8a3f,
       roughness: 0.85,
     });
     const trees = 1 + Math.floor(Math.random() * 3);
@@ -793,26 +841,41 @@ export class City {
   }
 
   _addWindows(parent, w, h, d) {
-    const winMat = this.isNight
-      ? new THREE.MeshStandardMaterial({
-        color: 0xffe9a8,
-        emissive: 0xffd07a,
-        emissiveIntensity: 1.1,
-        roughness: 0.4,
-      })
-      : new THREE.MeshStandardMaterial({
-        color: 0x9bc3e6,
-        roughness: 0.15,
-        metalness: 0.7,
-        emissive: 0x1a2a3a,
-        emissiveIntensity: 0.15,
-      });
+    // At night, windows have varied glowing colors for atmospheric effect
+    const nightColors = [
+      { color: 0xffe9a8, emissive: 0xffd07a }, // warm yellow
+      { color: 0xffc878, emissive: 0xffaa44 }, // orange warm
+      { color: 0xa8c8ff, emissive: 0x6088dd }, // cool blue
+      { color: 0xddaaff, emissive: 0xbb88ee }, // purple
+      { color: 0x88ffcc, emissive: 0x44dd99 }, // green
+      { color: 0x222222, emissive: 0x000000 }, // dark (off)
+      { color: 0x222222, emissive: 0x000000 }, // dark (off) - higher chance
+    ];
+    const dayMat = new THREE.MeshStandardMaterial({
+      color: 0x9bc3e6,
+      roughness: 0.15,
+      metalness: 0.7,
+      emissive: 0x1a2a3a,
+      emissiveIntensity: 0.15,
+    });
     const rows = Math.floor(h / 2.4);
     const cols = Math.max(1, Math.floor(w / 2.0));
     const sz = 0.6;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         if (Math.random() > 0.7) continue;
+        let winMat;
+        if (this.isNight) {
+          const nc = nightColors[Math.floor(Math.random() * nightColors.length)];
+          winMat = new THREE.MeshStandardMaterial({
+            color: nc.color,
+            emissive: nc.emissive,
+            emissiveIntensity: nc.emissive === 0x000000 ? 0 : (0.8 + Math.random() * 1.2),
+            roughness: 0.4,
+          });
+        } else {
+          winMat = dayMat;
+        }
         const win = new THREE.Mesh(
           new THREE.PlaneGeometry(sz, sz),
           winMat,
@@ -906,7 +969,58 @@ export class City {
   }
 
   _addLamps() {
-    // Street lamps removed
+    // Street lamps at intersections and along roads (visual only, no PointLights)
+    if (!this.isNight) return;
+    const bs = this.blockSize;
+    const g = this.gridSize;
+    const half = (g * bs) / 2;
+    const lampMat = new THREE.MeshLambertMaterial({ color: 0x333a44 });
+    const lampHeadMat = new THREE.MeshBasicMaterial({ color: 0xffeedd });
+
+    // Place lamps along roads at regular intervals
+    for (let i = 0; i <= g; i++) {
+      const roadCoord = i * bs - half;
+      // Lamps along horizontal roads
+      for (let seg = 0; seg < g; seg++) {
+        const segCenter = (seg + 0.5) * bs - half;
+        for (const side of [-1, 1]) {
+          const lx = segCenter;
+          const lz = roadCoord + side * 5.5;
+          this._createStreetLamp(lx, lz, lampMat, lampHeadMat);
+        }
+      }
+      // Lamps along vertical roads
+      for (let seg = 0; seg < g; seg++) {
+        const segCenter = (seg + 0.5) * bs - half;
+        for (const side of [-1, 1]) {
+          const lx = roadCoord + side * 5.5;
+          const lz = segCenter;
+          this._createStreetLamp(lx, lz, lampMat, lampHeadMat);
+        }
+      }
+    }
+  }
+
+  _createStreetLamp(x, z, poleMat, headMat) {
+    // Pole
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.1, 5.5, 6),
+      poleMat
+    );
+    pole.position.set(x, 2.75, z);
+    pole.castShadow = true;
+    this.scene.add(pole);
+    // Lamp head
+    const head = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 0.15, 0.35),
+      headMat
+    );
+    head.position.set(x, 5.5, z);
+    this.scene.add(head);
+    // Warm light cone
+    // const light = new THREE.PointLight(0xffcc88, 1.8, 18, 2);
+    // light.position.set(x, 5.3, z);
+    // this.scene.add(light);
   }
 
   // === Helpers used by gameplay ===
