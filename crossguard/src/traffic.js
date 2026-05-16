@@ -365,19 +365,17 @@ export class TrafficSystem {
 
       group.scale.setScalar(heightScale);
 
-      const waypoints = this._makePedWaypoints();
-      const wpIdx = Math.floor(Math.random() * waypoints.length);
-      const startWp = waypoints.length > 0 ? waypoints[wpIdx] : p;
+      const route = this._makeNpcRoute();
+      const start = route ? route[0] : this.city.randomSidewalkPoint();
 
-      group.position.set(startWp.x, 0, startWp.z);
+      group.position.set(start.x, 0, start.z);
       this.scene.add(group);
 
       this.peds.push({
         group,
-        pos: { x: startWp.x, z: startWp.z },
-        waypoints,
-        wpIdx: (wpIdx + 1) % Math.max(1, waypoints.length),
-        target: waypoints.length > 1 ? waypoints[(wpIdx + 1) % waypoints.length] : this.city.randomSidewalkPoint(),
+        pos: { x: start.x, z: start.z },
+        route,   // array of {x,z,type:'walk'|'wait',light?}
+        wpIdx: 0,
         speed: 1.2 + Math.random() * 0.6,
         phase: Math.random() * 10,
         armL, armR, legL, legR,
@@ -385,24 +383,74 @@ export class TrafficSystem {
     }
   }
 
-  _makePedWaypoints() {
-    if (!this.city.sidewalks || this.city.sidewalks.length === 0) return [];
-    const block = this.city.sidewalks[Math.floor(Math.random() * this.city.sidewalks.length)];
-    const inset = 2.0;
-    const mx = (block.x1 + block.x2) / 2;
-    const mz = (block.z1 + block.z2) / 2;
-    // 8 points around the perimeter: corners + midpoints of each side, in order
-    const candidates = [
-      { x: block.x1 + inset, z: block.z1 + inset },
-      { x: mx,               z: block.z1 + inset },
-      { x: block.x2 - inset, z: block.z1 + inset },
-      { x: block.x2 - inset, z: mz               },
-      { x: block.x2 - inset, z: block.z2 - inset },
-      { x: mx,               z: block.z2 - inset },
-      { x: block.x1 + inset, z: block.z2 - inset },
-      { x: block.x1 + inset, z: mz               },
-    ];
-    return candidates.filter(w => !this.city.collidesBuilding(w.x, w.z, 0.4));
+  // Build a looping NPC route that circles one full intersection,
+  // crossing all 4 arms and obeying each arm's traffic light.
+  // Layout (clockwise): south arm → SW corner → west arm → NW corner →
+  //                     north arm → NE corner → east arm → SE corner → repeat
+  _makeNpcRoute() {
+    const inters = this.city.intersections;
+    const crossings = this.city.crossings;
+    if (!inters?.length || !crossings?.length) return null;
+
+    const CO = 5.5;  // crossing center from intersection (roadHalf 4 + 1.5)
+    const RE = 4.8;  // road-edge entry point (roadHalf 4 + padding 0.8)
+    const ST = 8;    // stroll distance along sidewalk before/after crossing
+
+    const find = (axis, px, pz) =>
+      crossings.find(c => c.axis === axis &&
+                          Math.abs(c.x - px) < 2 &&
+                          Math.abs(c.z - pz) < 2);
+
+    for (let t = 0; t < 20; t++) {
+      const { x: ix, z: iz } =
+        inters[Math.floor(Math.random() * inters.length)];
+
+      const S = find('h', ix, iz + CO);
+      const W = find('v', ix - CO, iz);
+      const N = find('h', ix, iz - CO);
+      const E = find('v', ix + CO, iz);
+
+      if (!S || !W || !N || !E) continue;
+
+      // Stroll points — skip if inside a building
+      const pts = [
+        { x: ix + RE + ST, z: iz + CO },   // east of south arm
+        { x: ix - CO,      z: iz + RE + ST }, // south of west arm
+        { x: ix - RE - ST, z: iz - CO },   // west of north arm
+        { x: ix + CO,      z: iz - RE - ST }, // north of east arm
+      ];
+      if (pts.some(p => this.city.collidesBuilding(p.x, p.z, 0.3))) continue;
+
+      // Pick a random starting arm so NPCs spread around the intersection
+      const startArm = Math.floor(Math.random() * 4);
+      const full = [
+        // South arm: cross east → west
+        { x: ix + RE + ST, z: iz + CO,  type: 'walk' },
+        { x: ix + RE,      z: iz + CO,  type: 'wait', light: S.light },
+        { x: ix - RE,      z: iz + CO,  type: 'walk' },
+        { x: ix - RE,      z: iz + RE,  type: 'walk' }, // SW corner
+        // West arm: cross south → north
+        { x: ix - CO,      z: iz + RE + ST, type: 'walk' },
+        { x: ix - CO,      z: iz + RE,  type: 'wait', light: W.light },
+        { x: ix - CO,      z: iz - RE,  type: 'walk' },
+        { x: ix - RE,      z: iz - RE,  type: 'walk' }, // NW corner
+        // North arm: cross west → east
+        { x: ix - RE - ST, z: iz - CO,  type: 'walk' },
+        { x: ix - RE,      z: iz - CO,  type: 'wait', light: N.light },
+        { x: ix + RE,      z: iz - CO,  type: 'walk' },
+        { x: ix + RE,      z: iz - RE,  type: 'walk' }, // NE corner
+        // East arm: cross north → south
+        { x: ix + CO,      z: iz - RE - ST, type: 'walk' },
+        { x: ix + CO,      z: iz - RE,  type: 'wait', light: E.light },
+        { x: ix + CO,      z: iz + RE,  type: 'walk' },
+        { x: ix + RE,      z: iz + RE,  type: 'walk' }, // SE corner
+      ];
+
+      // Rotate so NPCs start at different arms
+      const offset = startArm * 4;
+      return [...full.slice(offset), ...full.slice(0, offset)];
+    }
+    return null;
   }
 
   update(dt, playerPos, signals) {
@@ -410,29 +458,68 @@ export class TrafficSystem {
     for (const v of this.vehicles) {
       this._updateVehicle(v, dt, playerPos, signals);
     }
-    // NPC pedestrians: walk around their assigned sidewalk block perimeter
+    // NPC pedestrians: walk sidewalk → stop at crossing → cross on green → repeat
     for (const p of this.peds) {
-      const dx = p.target.x - p.pos.x;
-      const dz = p.target.z - p.pos.z;
-      const d = Math.hypot(dx, dz);
-      if (d < 0.6) {
-        // Advance to next waypoint along perimeter
-        if (p.waypoints && p.waypoints.length >= 2) {
-          p.wpIdx = (p.wpIdx + 1) % p.waypoints.length;
-          p.target = p.waypoints[p.wpIdx];
-        } else {
-          p.target = this.city.randomSidewalkPoint();
+      if (!p.route || p.route.length === 0) continue;
+      const wp = p.route[p.wpIdx];
+      const dx = wp.x - p.pos.x;
+      const dz = wp.z - p.pos.z;
+      const d  = Math.hypot(dx, dz);
+
+      if (wp.type === 'wait') {
+        if (d > 0.4) {
+          // Not yet at the road edge — walk there first
+          const nx = p.pos.x + (dx / d) * p.speed * dt;
+          const nz = p.pos.z + (dz / d) * p.speed * dt;
+          if (!this.city.collidesBuilding(nx, nz, 0.25)) {
+            p.pos.x = nx; p.pos.z = nz;
+          }
+          p.phase += dt * 6;
+          const sw = Math.sin(p.phase) * 0.5;
+          if (p.armL) p.armL.rotation.x = sw;
+          if (p.armR) p.armR.rotation.x = -sw;
+          if (p.legL) p.legL.rotation.x = -sw * 0.7;
+          if (p.legR) p.legR.rotation.x =  sw * 0.7;
+          p.group.position.set(p.pos.x, Math.abs(Math.sin(p.phase * 2)) * 0.04, p.pos.z);
+          p.group.rotation.y = Math.atan2(dx, dz);
+          continue;
         }
+        // At road edge — vehicle RED = pedestrian GREEN, safe to cross
+        const canCross = wp.light && wp.light.state === 'red';
+        if (!canCross) {
+          // Stand still with gentle idle sway
+          p.phase += dt * 1.5;
+          const sway = Math.sin(p.phase) * 0.08;
+          if (p.armL) p.armL.rotation.x = sway;
+          if (p.armR) p.armR.rotation.x = -sway;
+          if (p.legL) p.legL.rotation.x = 0;
+          if (p.legR) p.legR.rotation.x = 0;
+          p.group.position.set(p.pos.x, 0, p.pos.z);
+          continue;
+        }
+        p.wpIdx = (p.wpIdx + 1) % p.route.length;
         continue;
       }
-      p.pos.x += (dx / d) * p.speed * dt;
-      p.pos.z += (dz / d) * p.speed * dt;
+
+      // type === 'walk'
+      if (d < 0.4) {
+        p.wpIdx = (p.wpIdx + 1) % p.route.length;
+        continue;
+      }
+      const nx = p.pos.x + (dx / d) * p.speed * dt;
+      const nz = p.pos.z + (dz / d) * p.speed * dt;
+      const onCrossing = this.city.isOnCrossing(nx, nz);
+      if (onCrossing || !this.city.collidesBuilding(nx, nz, 0.25)) {
+        p.pos.x = nx; p.pos.z = nz;
+      } else {
+        p.wpIdx = (p.wpIdx + 1) % p.route.length;
+      }
       p.phase += dt * 6;
       const swing = Math.sin(p.phase) * 0.5;
       if (p.armL) p.armL.rotation.x = swing;
       if (p.armR) p.armR.rotation.x = -swing;
       if (p.legL) p.legL.rotation.x = -swing * 0.7;
-      if (p.legR) p.legR.rotation.x = swing * 0.7;
+      if (p.legR) p.legR.rotation.x =  swing * 0.7;
       p.group.position.set(p.pos.x, Math.abs(Math.sin(p.phase * 2)) * 0.04, p.pos.z);
       p.group.rotation.y = Math.atan2(dx, dz);
     }
