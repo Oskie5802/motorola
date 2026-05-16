@@ -178,13 +178,13 @@ export class City {
     }
 
     // === Intersections + crossings + lights ===
-    // Per intersection: 4 vehicle signals (one per approach arm, aligned to road direction)
-    // + 4 pedestrian signals (smaller, at crossing edges, facing waiting peds).
-    // Vehicle signals use axis 'ns'|'ew'; game.js inverts vehicle state for ped logic.
+    // Polish convention: vehicle signal sits on the driver's right, just BEFORE
+    // the stop line/crossing. Pedestrian signals sit on both curbs at each end
+    // of a crossing, lamps facing into the crossing area.
     const crossOff  = roadWidth / 2 + 1.5;               // 5.5 – crossing center from intersection
     const crossWidth = 3.0;
     const roadHalf   = roadWidth / 2;                     // 4
-    const sigOff     = crossOff + crossWidth / 2 + 0.5;  // 7.5 – signal post past crossing, in sidewalk
+    const sigOff     = crossOff + crossWidth / 2 + 0.5;  // 7.5 – signal post just past crossing on approach side
 
     for (let i = 1; i < g; i++) {
       for (let j = 1; j < g; j++) {
@@ -192,33 +192,37 @@ export class City {
         const z = j * bs - half;
         this.intersections.push({ x, z });
 
-        // --- Vehicle signals (one per road arm, right-hand side, facing approaching traffic) ---
-        // NS road (vehicles travel ±Z):
-        //   north-side post, faces south (+Z) toward vehicles coming from south
-        const tlNorth = this._addTrafficLight(x + roadHalf + 0.5, z - sigOff, 'ns', 0);
-        //   south-side post, faces north (−Z) toward vehicles coming from north
-        const tlSouth = this._addTrafficLight(x - roadHalf - 0.5, z + sigOff, 'ns', Math.PI);
-        // EW road (vehicles travel ±X):
-        //   east-side post, faces west (−X) toward vehicles coming from west
-        const tlEast  = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', -Math.PI / 2);
-        //   west-side post, faces east (+X) toward vehicles coming from east
-        const tlWest  = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew',  Math.PI / 2);
+        // --- Vehicle signals (one per approach arm, right-hand side, BEFORE the intersection) ---
+        // Right-hand traffic: vehicle is on the half-road closer to the curb on its right.
+        // Pole sits on that curb, lamps face the oncoming driver.
+        // Vehicles coming FROM SOUTH (drive -Z, on +X half): pole SE of intersection, lamps face +Z.
+        const tlForSouth = this._addTrafficLight(x + roadHalf + 0.5, z + sigOff, 'ns', 0, x, z);
+        // Vehicles FROM NORTH (drive +Z, on -X half): pole NW, lamps face -Z.
+        const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
+        // Vehicles FROM WEST (drive +X, on +Z half): pole SW, lamps face -X.
+        const tlForWest  = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
+        // Vehicles FROM EAST (drive -X, on -Z half): pole NE, lamps face +X.
+        const tlForEast  = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew',  Math.PI / 2, x, z);
 
-        // --- Pedestrian signals (smaller, at crossing curb, facing waiting pedestrians) ---
-        // North arm crossing (peds walk E–W across NS road):
-        this._addPedestrianLight(x + roadHalf + 0.5, z - crossOff, -Math.PI / 2, tlNorth); // east curb, faces west
-        // South arm crossing:
-        this._addPedestrianLight(x - roadHalf - 0.5, z + crossOff,  Math.PI / 2, tlSouth); // west curb, faces east
-        // East arm crossing (peds walk N–S across EW road):
-        this._addPedestrianLight(x + crossOff, z - roadHalf - 0.5, 0,            tlEast);  // north curb, faces south
-        // West arm crossing:
-        this._addPedestrianLight(x - crossOff, z + roadHalf + 0.5, Math.PI,      tlWest);  // south curb, faces north
+        // --- Pedestrian signals: 2 per crossing, one at each end, lamps facing into the crossing ---
+        // North-arm crossing (z - crossOff): peds walk E–W across NS road. State follows NS-road vehicle light.
+        this._addPedestrianLight(x - roadHalf - 0.5, z - crossOff,  Math.PI / 2, tlForNorth); // W end, lamps face +X
+        this._addPedestrianLight(x + roadHalf + 0.5, z - crossOff, -Math.PI / 2, tlForNorth); // E end, lamps face -X
+        // South-arm crossing (z + crossOff)
+        this._addPedestrianLight(x - roadHalf - 0.5, z + crossOff,  Math.PI / 2, tlForSouth);
+        this._addPedestrianLight(x + roadHalf + 0.5, z + crossOff, -Math.PI / 2, tlForSouth);
+        // East-arm crossing (x + crossOff): peds walk N–S across EW road. State follows EW-road vehicle light.
+        this._addPedestrianLight(x + crossOff, z - roadHalf - 0.5, 0,       tlForEast);  // N end, lamps face +Z
+        this._addPedestrianLight(x + crossOff, z + roadHalf + 0.5, Math.PI, tlForEast);  // S end, lamps face -Z
+        // West-arm crossing (x - crossOff)
+        this._addPedestrianLight(x - crossOff, z - roadHalf - 0.5, 0,       tlForWest);
+        this._addPedestrianLight(x - crossOff, z + roadHalf + 0.5, Math.PI, tlForWest);
 
         // --- Zebra crossings ---
         // North/south arms on the NS road, peds walk E–W:
         for (const dz of [-crossOff, +crossOff]) {
           this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
-          const lightObj = dz < 0 ? tlNorth : tlSouth;
+          const lightObj = dz < 0 ? tlForNorth : tlForSouth;
           this.crossings.push({
             x, z: z + dz, axis: 'h', light: lightObj,
             x1: x - roadWidth / 2, z1: z + dz - crossWidth / 2,
@@ -228,7 +232,7 @@ export class City {
         // East/west arms on the EW road, peds walk N–S:
         for (const dx of [-crossOff, +crossOff]) {
           this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
-          const lightObj = dx < 0 ? tlWest : tlEast;
+          const lightObj = dx < 0 ? tlForWest : tlForEast;
           this.crossings.push({
             x: x + dx, z, axis: 'v', light: lightObj,
             x1: x + dx - crossWidth / 2, z1: z - roadWidth / 2,
@@ -341,7 +345,7 @@ export class City {
     }
   }
 
-  _addTrafficLight(x, z, axis, rotationY = 0) {
+  _addTrafficLight(x, z, axis, rotationY = 0, intersectionX = x, intersectionZ = z) {
     const group = new THREE.Group();
     // Pole
     const pole = new THREE.Mesh(
@@ -384,6 +388,7 @@ export class City {
       cycleAmber: 1.2,
       redMat, ambMat, grnMat,
       pos: { x, z },
+      intersection: { x: intersectionX, z: intersectionZ },
       pairedWith: null,
     };
     this.trafficLights.push(lightObj);
@@ -436,19 +441,18 @@ export class City {
   }
 
   _linkTrafficLights() {
-    // Group lights by intersection (within ~10 units)
-    const groups = [];
+    // Group lights by intersection center (each light carries its intersection coords).
+    // Position-based grouping is unsafe with Polish-style placement because adjacent
+    // intersections' near-side signals can come within ~13 units of each other.
+    const groups = new Map();
     for (const tl of this.trafficLights) {
-      // Threshold covers the spread of the 4 arm signals (max ~15 units from first)
-      // and stays below minimum blockSize (28) so adjacent intersections aren't merged.
-      let g = groups.find(grp =>
-        Math.abs(grp.cx - tl.pos.x) < 18 && Math.abs(grp.cz - tl.pos.z) < 18
-      );
-      if (!g) { g = { cx: tl.pos.x, cz: tl.pos.z, items: [] }; groups.push(g); }
+      const key = `${tl.intersection.x.toFixed(2)},${tl.intersection.z.toFixed(2)}`;
+      let g = groups.get(key);
+      if (!g) { g = { items: [] }; groups.set(key, g); }
       g.items.push(tl);
     }
     // Sync NS and EW
-    for (const g of groups) {
+    for (const g of groups.values()) {
       const ns = g.items.filter(t => t.axis === 'ns');
       const ew = g.items.filter(t => t.axis === 'ew');
       // Initial offset: ns green when ew red
