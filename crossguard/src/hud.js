@@ -176,12 +176,15 @@ export class HUD {
     // Grid lines (roads)
     ctx.strokeStyle = '#1c3a78';
     ctx.lineWidth = 2;
-    const g = this.city.gridSize, bs = this.city.blockSize;
-    for (let i = 0; i <= g; i++) {
-      const c = i * bs + bounds.min;
+    const xs = this.city.xCoords, zs = this.city.zCoords;
+    for (let i = 0; i < xs.length; i++) {
+      const c = xs[i];
       const p1 = toMap(c, bounds.min);
       const p2 = toMap(c, bounds.max);
       ctx.beginPath(); ctx.moveTo(p1.mx, p1.my); ctx.lineTo(p2.mx, p2.my); ctx.stroke();
+    }
+    for (let j = 0; j < zs.length; j++) {
+      const c = zs[j];
       const p3 = toMap(bounds.min, c);
       const p4 = toMap(bounds.max, c);
       ctx.beginPath(); ctx.moveTo(p3.mx, p3.my); ctx.lineTo(p4.mx, p4.my); ctx.stroke();

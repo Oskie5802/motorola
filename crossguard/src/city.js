@@ -25,15 +25,43 @@ export class City {
     this.pedestrianLights = []; // [{group, state, redMat, grnMat, linkedVehicle}]
     this.models = models;
 
+    // Per-axis road grid coordinates: g+1 entries each, centered around 0.
+    // Spacing between consecutive entries varies (shorter/longer blocks)
+    // while the total city size matches gridSize * blockSize.
+    this.xCoords = this._generateGridCoords(this.gridSize, this.blockSize);
+    this.zCoords = this._generateGridCoords(this.gridSize, this.blockSize);
+
     this._build();
   }
 
-  // World coords: city centered around (0,0). Grid coords in [-(g/2)..(g/2)]
+  _generateGridCoords(g, bs) {
+    const total = g * bs;
+    const half = total / 2;
+    // Bimodal widths: each cell is either "short" (~0.55-0.80) or "long"
+    // (~1.25-1.60) of nominal. After normalisation the long/short ratio is
+    // around 2:1 — clearly visible variation in road segment length.
+    const widths = [];
+    for (let i = 0; i < g; i++) {
+      if (i % 2 === 0) widths.push(0.55 + Math.random() * 0.25);
+      else widths.push(1.25 + Math.random() * 0.35);
+    }
+    // Shuffle so the short/long pattern isn't a regular stripe.
+    for (let i = widths.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [widths[i], widths[j]] = [widths[j], widths[i]];
+    }
+    const sum = widths.reduce((a, b) => a + b, 0);
+    const scale = g / sum; // normalise so sum(widths)*bs == total
+    for (let i = 0; i < g; i++) widths[i] *= bs * scale;
+    const coords = [-half];
+    for (let i = 0; i < g; i++) coords.push(coords[i] + widths[i]);
+    coords[g] = half; // pin exact end to avoid float drift
+    return coords;
+  }
+
+  // World coords of the (i,j) grid corner (= intersection center for inner i,j).
   cellToWorld(i, j) {
-    return {
-      x: (i - this.gridSize / 2) * this.blockSize,
-      z: (j - this.gridSize / 2) * this.blockSize,
-    };
+    return { x: this.xCoords[i], z: this.zCoords[j] };
   }
 
   _build() {
@@ -41,6 +69,8 @@ export class City {
       bs = this.blockSize;
     const half = (g * bs) / 2;
     const roadWidth = 8;
+    // Set bounds early — some helpers (isOnRoad) read this during block setup.
+    this.bounds = { min: -half, max: half };
 
     // === Ground (grass base) - PLASKI, ponizej dróg ===
     const groundGeo = new THREE.PlaneGeometry(
@@ -72,10 +102,12 @@ export class City {
       roughness: 0.8,
     });
 
-    // Roads (horizontal and vertical bands)
-    for (let i = 0; i <= g; i++) {
-      const coord = i * bs - half;
-      // Horizontal road
+    const xs = this.xCoords;
+    const zs = this.zCoords;
+
+    // Horizontal roads (constant z, span full city in x)
+    for (let j = 0; j <= g; j++) {
+      const coord = zs[j];
       const hRoad = new THREE.Mesh(
         new THREE.PlaneGeometry(this.size, roadWidth),
         roadMat,
@@ -85,14 +117,13 @@ export class City {
       hRoad.receiveShadow = true;
       this.scene.add(hRoad);
       this.roadSegments.push({
-        x1: -half,
-        z1: coord,
-        x2: half,
-        z2: coord,
-        axis: "h",
+        x1: -half, z1: coord, x2: half, z2: coord, axis: "h",
       });
-
-      // Vertical road
+      this._addLaneLines(0, coord, this.size, roadWidth, "h");
+    }
+    // Vertical roads (constant x, span full city in z)
+    for (let i = 0; i <= g; i++) {
+      const coord = xs[i];
       const vRoad = new THREE.Mesh(
         new THREE.PlaneGeometry(roadWidth, this.size),
         roadMat,
@@ -102,54 +133,51 @@ export class City {
       vRoad.receiveShadow = true;
       this.scene.add(vRoad);
       this.roadSegments.push({
-        x1: coord,
-        z1: -half,
-        x2: coord,
-        z2: half,
-        axis: "v",
+        x1: coord, z1: -half, x2: coord, z2: half, axis: "v",
       });
-
-      // Lane lines (dashed yellow center)
-      this._addLaneLines(0, coord, this.size, roadWidth, "h");
       this._addLaneLines(coord, 0, roadWidth, this.size, "v");
     }
 
     // === Blocks: sidewalk frame + building cluster ===
     for (let i = 0; i < g; i++) {
       for (let j = 0; j < g; j++) {
-        const cx = (i + 0.5) * bs - half;
-        const cz = (j + 0.5) * bs - half;
+        const cellW = xs[i + 1] - xs[i];
+        const cellD = zs[j + 1] - zs[j];
+        const cx = (xs[i] + xs[i + 1]) / 2;
+        const cz = (zs[j] + zs[j + 1]) / 2;
         // Leave a wider gap (3m on each side) between road edge and sidewalk
         // so zebra crossings fit entirely on the road, not on the curb.
-        const innerSize = bs - roadWidth - 6;
-        const sidewalkSize = innerSize;
-        const buildArea = innerSize - 2;
+        const sidewalkW = cellW - roadWidth - 6;
+        const sidewalkD = cellD - roadWidth - 6;
+        const buildAreaW = sidewalkW - 2;
+        const buildAreaD = sidewalkD - 2;
 
         // Sidewalk slab
         const sw = new THREE.Mesh(
-          new THREE.BoxGeometry(sidewalkSize, 0.12, sidewalkSize),
+          new THREE.BoxGeometry(sidewalkW, 0.12, sidewalkD),
           sidewalkMat,
         );
         sw.position.set(cx, 0.06, cz);
         sw.receiveShadow = true;
         this.scene.add(sw);
         this.sidewalks.push({
-          x1: cx - sidewalkSize / 2,
-          z1: cz - sidewalkSize / 2,
-          x2: cx + sidewalkSize / 2,
-          z2: cz + sidewalkSize / 2,
+          x1: cx - sidewalkW / 2,
+          z1: cz - sidewalkD / 2,
+          x2: cx + sidewalkW / 2,
+          z2: cz + sidewalkD / 2,
         });
 
         // Curb edges
         const curbT = 0.28;
         const curbW = 0.55;
         // Place curb at the road edge (transition from road to walkable area).
-        const curbOff = bs / 2 - roadWidth / 2 - curbW / 2;
+        const curbOffX = cellW / 2 - roadWidth / 2 - curbW / 2;
+        const curbOffZ = cellD / 2 - roadWidth / 2 - curbW / 2;
         for (const [dx, dz, w, d] of [
-          [0, -curbOff, sidewalkSize, curbW],
-          [0, curbOff, sidewalkSize, curbW],
-          [-curbOff, 0, curbW, sidewalkSize],
-          [curbOff, 0, curbW, sidewalkSize],
+          [0, -curbOffZ, sidewalkW, curbW],
+          [0, curbOffZ, sidewalkW, curbW],
+          [-curbOffX, 0, curbW, sidewalkD],
+          [curbOffX, 0, curbW, sidewalkD],
         ]) {
           const c = new THREE.Mesh(
             new THREE.BoxGeometry(w, curbT, d),
@@ -160,15 +188,19 @@ export class City {
         }
 
         // Buildings inside block (1-4 buildings, low-poly)
-        this._buildBuildings(cx, cz, buildArea);
+        this._buildBuildings(cx, cz, Math.min(buildAreaW, buildAreaD));
+
+        // Trees scattered on the sidewalk slab around the buildings
+        this._addBlockTrees(cx, cz, sidewalkW, sidewalkD);
 
         // Spawn points (corners of sidewalk) — skip any inside a building
-        const off = sidewalkSize / 2 - 1.5;
+        const offX = sidewalkW / 2 - 1.5;
+        const offZ = sidewalkD / 2 - 1.5;
         for (const pt of [
-          { x: cx - off, z: cz - off },
-          { x: cx + off, z: cz - off },
-          { x: cx - off, z: cz + off },
-          { x: cx + off, z: cz + off },
+          { x: cx - offX, z: cz - offZ },
+          { x: cx + offX, z: cz - offZ },
+          { x: cx - offX, z: cz + offZ },
+          { x: cx + offX, z: cz + offZ },
         ]) {
           if (!this.collidesBuilding(pt.x, pt.z, 0.6))
             this.spawnPoints.push(pt);
@@ -187,8 +219,8 @@ export class City {
 
     for (let i = 1; i < g; i++) {
       for (let j = 1; j < g; j++) {
-        const x = i * bs - half;
-        const z = j * bs - half;
+        const x = xs[i];
+        const z = zs[j];
         this.intersections.push({ x, z });
 
         // --- Vehicle signals (one per approach arm, right-hand side, BEFORE the intersection) ---
@@ -266,17 +298,12 @@ export class City {
 
   _addLaneLines(cx, cz, w, d, axis) {
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const bs = this.blockSize;
-    const g = this.gridSize;
-    const half = (g * bs) / 2;
     // Exclusion radius around each intersection center (covers intersection box + crossings + dash length margin)
     const excludeR = 8.5; // crossOff(5.5) + crossWidth/2(1.5) + dashLen/2(1) + margin(0.5)
 
-    // Collect all road grid coordinates (perpendicular roads cross at these positions)
-    const roadPositions = [];
-    for (let k = 0; k <= g; k++) {
-      roadPositions.push(k * bs - half);
-    }
+    // Dashes on a horizontal road get interrupted at every vertical road (x = xCoords[i]);
+    // dashes on a vertical road get interrupted at every horizontal road (z = zCoords[j]).
+    const roadPositions = axis === "h" ? this.xCoords : this.zCoords;
 
     // Check if a dash position along the road is near any perpendicular road crossing
     const isNearCrossing = (pos) => {
@@ -461,12 +488,10 @@ export class City {
     // on these get a "green wave": phases aligned so cars travelling at waveSpeed
     // along the arterial hit consecutive greens. All other intersections get
     // independent random phases so the city doesn't tick in lockstep.
-    const bs = this.blockSize;
-    const halfCity = (this.gridSize * bs) / 2;
     const arterialJ = 1 + Math.floor(Math.random() * Math.max(1, this.gridSize - 1));
     const arterialI = 1 + Math.floor(Math.random() * Math.max(1, this.gridSize - 1));
-    const arterialZ = arterialJ * bs - halfCity;
-    const arterialX = arterialI * bs - halfCity;
+    const arterialZ = this.zCoords[arterialJ];
+    const arterialX = this.xCoords[arterialI];
     const waveSpeed = 11;             // m/s — target speed cars must drive to ride the wave
     const arterialGreen = 6.5;        // longer green on the arterial direction
     const arterialCross = 4.0;        // shorter green on the crossing direction
@@ -629,9 +654,13 @@ export class City {
 
   _buildBuildingsFromModels(cx, cz, area) {
     const isDowntown = this.zone.id === "downtown";
-    const MODEL_SCALE = 10;
+    const MIN_SCALE = 7;
+    const MAX_SCALE = 30; // allow significant upscale so tiny natives still fill big blocks
     const GAP = 0.5; // minimum gap between buildings
-    const count = 1 + Math.floor(Math.random() * 3);
+    // Prefer one chunky building per block; occasionally two in larger blocks.
+    const count = area > 22 && Math.random() < 0.5 ? 2 : 1;
+    // Per-building target fill: nearly fill the block when alone.
+    const targetFill = count === 1 ? 0.92 : 0.62;
 
     const placed = []; // AABBs already placed in this block
 
@@ -649,17 +678,19 @@ export class City {
       const nativeSize = template.userData.size;
       if (!nativeSize || nativeSize.y < 0.01) continue;
 
-      let actualW = nativeSize.x * MODEL_SCALE;
-      let actualD = nativeSize.z * MODEL_SCALE;
-
-      // Scale down if the model is too large for the block
-      const maxDim = area;
-      let fitScale = MODEL_SCALE;
-      if (actualW > maxDim || actualD > maxDim) {
-        const scaleFactor = Math.min(maxDim / actualW, maxDim / actualD);
-        fitScale = MODEL_SCALE * scaleFactor;
-        actualW *= scaleFactor;
-        actualD *= scaleFactor;
+      // Choose a fit scale that brings the model's larger footprint dimension
+      // to `targetFill * area`. Then clamp to [MIN_SCALE, MAX_SCALE] and a hard
+      // cap so we never exceed the block.
+      const biggerNative = Math.max(nativeSize.x, nativeSize.z);
+      let fitScale = (area * targetFill) / biggerNative;
+      fitScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, fitScale));
+      let actualW = nativeSize.x * fitScale;
+      let actualD = nativeSize.z * fitScale;
+      if (actualW > area || actualD > area) {
+        const sf = Math.min(area / actualW, area / actualD);
+        fitScale *= sf;
+        actualW *= sf;
+        actualD *= sf;
       }
 
       // Clamp offset so model stays inside the block
@@ -836,6 +867,60 @@ export class City {
     }
     // Dodaj drzewa i ławki przy chodnikach
     if (Math.random() > 0.3) this._addStreetFurniture(cx, cz, area);
+  }
+
+  _addBlockTrees(cx, cz, sidewalkW, sidewalkD) {
+    // Scatters trees on the sidewalk slab around the buildings, leaving a small
+    // inset from the slab edge so they don't hang over the curb.
+    const trunkMat = new THREE.MeshStandardMaterial({
+      color: this.isNight ? 0x2a1c0e : 0x5b3a1d,
+      roughness: 0.9,
+    });
+    const leafMat = new THREE.MeshStandardMaterial({
+      color: this.isNight ? 0x142820 : 0x4a8a3f,
+      roughness: 0.85,
+    });
+    // Tree foliage radius (~1.4m) must fit on the sidewalk slab without
+    // overhanging the curb / road / crossings. Skip blocks too narrow.
+    const treeR = 1.4;
+    const halfX = sidewalkW / 2 - treeR;
+    const halfZ = sidewalkD / 2 - treeR;
+    if (halfX < 0.5 || halfZ < 0.5) return;
+    // Target ~one tree per ~14 m² of plantable area.
+    const plantable = Math.max(0, halfX * 2) * Math.max(0, halfZ * 2);
+    const target = Math.min(10, Math.max(2, Math.round(plantable / 14)));
+    let placed = 0;
+    for (let attempt = 0; attempt < target * 6 && placed < target; attempt++) {
+      const tx = cx + (Math.random() - 0.5) * 2 * halfX;
+      const tz = cz + (Math.random() - 0.5) * 2 * halfZ;
+      if (this.collidesBuilding(tx, tz, 1.2)) continue;
+      this._spawnTree(tx, tz, trunkMat, leafMat);
+      placed++;
+    }
+  }
+
+  _spawnTree(tx, tz, trunkMat, leafMat) {
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.22, 1.6, 8),
+      trunkMat,
+    );
+    trunk.position.set(tx, 0.92, tz);
+    trunk.castShadow = true;
+    this.scene.add(trunk);
+    const r = 0.9 + Math.random() * 0.5;
+    const leaves = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(r, 1),
+      leafMat,
+    );
+    leaves.position.set(tx, 2.3, tz);
+    leaves.castShadow = true;
+    this.scene.add(leaves);
+    const leaves2 = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(r * 0.65, 1),
+      leafMat,
+    );
+    leaves2.position.set(tx + 0.4, 2.6, tz - 0.3);
+    this.scene.add(leaves2);
   }
 
   _addStreetFurniture(cx, cz, area) {
@@ -1030,31 +1115,29 @@ export class City {
   _addLamps() {
     // Street lamps at intersections and along roads (visual only, no PointLights)
     if (!this.isNight) return;
-    const bs = this.blockSize;
     const g = this.gridSize;
-    const half = (g * bs) / 2;
+    const xs = this.xCoords;
+    const zs = this.zCoords;
     const lampMat = new THREE.MeshLambertMaterial({ color: 0x333a44 });
     const lampHeadMat = new THREE.MeshBasicMaterial({ color: 0xffeedd });
 
-    // Place lamps along roads at regular intervals
-    for (let i = 0; i <= g; i++) {
-      const roadCoord = i * bs - half;
-      // Lamps along horizontal roads
+    // Lamps along each horizontal road (constant z), one per block on each side
+    for (let j = 0; j <= g; j++) {
+      const roadZ = zs[j];
       for (let seg = 0; seg < g; seg++) {
-        const segCenter = (seg + 0.5) * bs - half;
+        const segCenter = (xs[seg] + xs[seg + 1]) / 2;
         for (const side of [-1, 1]) {
-          const lx = segCenter;
-          const lz = roadCoord + side * 5.5;
-          this._createStreetLamp(lx, lz, lampMat, lampHeadMat);
+          this._createStreetLamp(segCenter, roadZ + side * 5.5, lampMat, lampHeadMat);
         }
       }
-      // Lamps along vertical roads
+    }
+    // Lamps along each vertical road (constant x)
+    for (let i = 0; i <= g; i++) {
+      const roadX = xs[i];
       for (let seg = 0; seg < g; seg++) {
-        const segCenter = (seg + 0.5) * bs - half;
+        const segCenter = (zs[seg] + zs[seg + 1]) / 2;
         for (const side of [-1, 1]) {
-          const lx = roadCoord + side * 5.5;
-          const lz = segCenter;
-          this._createStreetLamp(lx, lz, lampMat, lampHeadMat);
+          this._createStreetLamp(roadX + side * 5.5, segCenter, lampMat, lampHeadMat);
         }
       }
     }
