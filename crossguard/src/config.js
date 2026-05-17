@@ -128,7 +128,7 @@ export const PALETTE = {
   amber:  0xffb800,
   red:    0xe63946,
   road:   0x1a1e26,
-  curb:   0x3a3f4a,
+  curb:   0xb8bcc8,
   sidewalk: 0x4a4e58,
   grass:  0x2a2530,  // dark ground
   sky:    0x87ceeb,

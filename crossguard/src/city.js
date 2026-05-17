@@ -140,12 +140,11 @@ export class City {
           z2: cz + sidewalkSize / 2,
         });
 
-        // Curb edges (subtle)
-        const curbT = 0.18;
-        const curbW = 0.4;
-        // Place curb just outside the sidewalk slab so it sits in the road-side gap,
-        // not on top of the slab where it would overlap zebra-crossing stripes.
-        const curbOff = sidewalkSize / 2 + curbW / 2;
+        // Curb edges
+        const curbT = 0.28;
+        const curbW = 0.55;
+        // Place curb at the road edge (transition from road to walkable area).
+        const curbOff = bs / 2 - roadWidth / 2 - curbW / 2;
         for (const [dx, dz, w, d] of [
           [0, -curbOff, sidewalkSize, curbW],
           [0, curbOff, sidewalkSize, curbW],
