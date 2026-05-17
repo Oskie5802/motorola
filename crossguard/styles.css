@@ -1,4 +1,4 @@
-/* === CrossGuard styles - Motorola Solutions palette === */
+/* Style CrossGuard - jadymy na kolorach Motoroli */
 :root {
   --moto-blue: #003DA5;
   --moto-cyan: #00A3E0;
@@ -35,7 +35,7 @@ html, body {
 
 .hidden { display: none !important; }
 
-/* === Screens (results, pause, howto — shared box style) === */
+/* Ramki na ekrany (pauza, info) */
 .screen {
   position: fixed;
   inset: 0;
@@ -53,7 +53,7 @@ html, body {
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* Menu screen — full bleed, no box */
+/* Ekran menu startowego bez ramki */
 .menu-screen {
   background-color: #020e1c;
   background-image:
@@ -66,7 +66,7 @@ html, body {
   overflow: hidden;
 }
 
-/* Ambient glow */
+/* Miekka poswiata (ambient glow) */
 .mbg-glow {
   position: absolute;
   inset: 0;
@@ -77,7 +77,7 @@ html, body {
   z-index: 0;
 }
 
-/* Animated scan line */
+/* Zjezdzajaca linia skanera */
 .mbg-scan {
   position: absolute;
   left: 0; right: 0;
@@ -92,7 +92,7 @@ html, body {
   100% { top: 100%; }
 }
 
-/* HUD corner brackets — used in menu + loading */
+/* Kosmiczne narozniki z HUDa */
 .hud-corner {
   position: absolute;
   width: 28px; height: 28px;
@@ -104,7 +104,7 @@ html, body {
 .hud-corner.bl { bottom: 18px; left: 18px; border-bottom: 1.5px solid rgba(0,163,224,0.55); border-left: 1.5px solid rgba(0,163,224,0.55); }
 .hud-corner.br { bottom: 18px; right: 18px; border-bottom: 1.5px solid rgba(0,163,224,0.55); border-right: 1.5px solid rgba(0,163,224,0.55); }
 
-/* Top status strip */
+/* Pasek na gorze okna */
 .menu-topbar {
   position: relative;
   z-index: 3;
@@ -131,7 +131,7 @@ html, body {
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* Main split layout */
+/* Rozbicie layoutu na kolumny */
 .menu-layout {
   position: relative;
   z-index: 2;
@@ -142,7 +142,7 @@ html, body {
   min-height: 0;
 }
 
-/* Brand column */
+/* Kolumna z brandingiem i cta */
 .menu-brand {
   flex: 0 0 42%;
   display: flex;
@@ -223,7 +223,7 @@ html, body {
   color: rgba(0,163,224,0.55);
 }
 
-/* Zone selection column */
+/* Kolumna wybierania map */
 .menu-zones-col {
   flex: 1;
   display: flex;
@@ -252,7 +252,7 @@ html, body {
   color: rgba(0,163,224,0.3);
 }
 
-/* Zone cards — redesigned as tactical list items */
+/* Kafelki stref (mialy byc taktyczne) */
 .zone-select {
   display: flex;
   flex-direction: column;
@@ -291,7 +291,7 @@ html, body {
 }
 .zone-card.locked:hover { transform: none; background: rgba(0, 18, 44, 0.5); }
 
-/* Zone number */
+/* Numerek strefy */
 .znum {
   font-size: 30px;
   font-weight: 800;
@@ -306,7 +306,7 @@ html, body {
 .zone-card.selected .znum,
 .zone-card:hover .znum { color: rgba(0,163,224,0.28); }
 
-/* Zone info */
+/* Opis strefy */
 .zinfo { flex: 1; min-width: 0; }
 .zname {
   font-weight: 700;
@@ -329,7 +329,7 @@ html, body {
   text-transform: uppercase;
 }
 
-/* Lock / unlocked indicator */
+/* Klodeczka ze zablokowane */
 .zlock {
   font-size: 10px;
   color: var(--moto-amber);
@@ -344,7 +344,7 @@ html, body {
   flex-shrink: 0;
 }
 
-/* === Shared box screens (howto, results, pause) === */
+/* Boxy wspolne na podstrony */
 .menu-content {
   max-width: 900px;
   width: 92%;
@@ -370,7 +370,7 @@ html, body {
   font-weight: 500;
 }
 
-/* Buttons — used across all screens */
+/* Glowny styl buttonow */
 .primary-btn, .ghost-btn {
   font-family: var(--font);
   font-size: 12px;
@@ -396,7 +396,7 @@ html, body {
 }
 .ghost-btn:hover { border-color: var(--moto-cyan); color: var(--moto-cyan); }
 
-/* Full-width CTA buttons in brand column */
+/* Przyciski CTA na szerokosc */
 .menu-ctas .primary-btn,
 .menu-ctas .ghost-btn {
   width: 100%;
@@ -405,7 +405,7 @@ html, body {
   padding: 16px 24px;
 }
 
-/* === HUD === */
+/* Nakladka HUD */
 #hud {
   position: fixed;
   inset: 0;
@@ -460,7 +460,7 @@ html, body {
 #hudBottomBar .hud-block { text-align: center; }
 #hudBottomBar span:last-child { font-weight: 600; font-size: 14px; }
 
-/* Minimap */
+/* Minimapka (radar) */
 #minimap {
   position: absolute;
   top: 80px; right: 18px;
@@ -489,7 +489,7 @@ html, body {
 .dot-cam { background: #b16fff; }
 .dot-hazard { background: var(--moto-red); }
 
-/* Assist AI */
+/* Box z podpowiedziami asystenta */
 #assist {
   position: absolute;
   top: 80px; left: 18px;
@@ -518,7 +518,7 @@ html, body {
 }
 #assistMsg { font-size: 13px; line-height: 1.5; color: #e8f3ff; min-height: 38px; }
 
-/* Radio panel */
+/* Radyjko */
 #radio {
   position: absolute;
   bottom: 80px; left: 18px;
@@ -533,7 +533,7 @@ html, body {
 .radio-header { color: var(--moto-amber); margin-bottom: 6px; font-weight: 600; }
 #radioMsg { color: #ffd87a; line-height: 1.4; }
 
-/* Alerts */
+/* Ostrzezenia na ekranie */
 #alerts {
   position: absolute;
   top: 80px; left: 50%;
@@ -561,7 +561,7 @@ html, body {
 @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
 
-/* Floating score popups */
+/* Latajace cyferki po wpadnieciu expa */
 .floater {
   position: absolute;
   pointer-events: none;
@@ -581,7 +581,7 @@ html, body {
   100% { opacity: 0; transform: translate(-50%, -90px) scale(0.95); }
 }
 
-/* Tutorial intro overlay */
+/* Popup z pomoca na start gry */
 #tutorial {
   position: fixed;
   inset: 0;
@@ -606,7 +606,7 @@ html, body {
 #tutorial p { margin: 4px 0; line-height: 1.55; color: #d8e8ff; font-size: 13px; }
 #tutorial button { margin-top: 18px; width: 100%; }
 
-/* Crossing prompt */
+/* Podpowiedz przed zebrą */
 #crossPrompt {
   position: absolute;
   bottom: 120px; left: 50%;
@@ -620,7 +620,7 @@ html, body {
 }
 #crossLightIcon { font-size: 22px; }
 
-/* How-to */
+/* Klawiszologia */
 .howto-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -653,7 +653,7 @@ kbd {
   margin: 0 2px;
 }
 
-/* Results */
+/* Ekran wygranej/przegranej */
 .results { max-width: 700px; }
 .grade-box {
   display: inline-flex;
@@ -704,11 +704,11 @@ kbd {
     linear-gradient(rgba(0,163,224,0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0,163,224,0.03) 1px, transparent 1px);
   background-size: 44px 44px;
-  /* initial appear — instant so entry animations read clearly */
+  /* odpalamy na hita zeby przejscia nie cielo */
   animation: none;
 }
 
-/* --- Corner brackets snap in sequentially --- */
+/* --- rogi wskakuja klatka po klatce --- */
 .loading-screen .hud-corner {
   opacity: 0;
   animation: cornerSnap 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -723,7 +723,7 @@ kbd {
   to   { opacity: 1; transform: scale(1); }
 }
 
-/* --- Loader text elements --- */
+/* --- napisy podczas ladowania --- */
 .loader { text-align: center; }
 
 .loader-eyebrow {
@@ -743,7 +743,7 @@ kbd {
   line-height: 1;
   color: #ffffff;
   margin-bottom: 32px;
-  /* start clipped from right — reveals left→right */
+  /* zaczyna sciete z prawej, ujawnia od lewej (fajny efekt maski) */
   clip-path: inset(0 100% 0 0);
   animation: titleReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
 }
@@ -769,7 +769,7 @@ kbd {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* --- Progress bar --- */
+/* --- pasek nabijania % --- */
 .bar {
   width: 220px;
   height: 2px;
@@ -780,7 +780,7 @@ kbd {
   opacity: 0;
   animation: riseIn 0.4s ease 0.6s forwards;
 }
-/* Moving shimmer on top of the fill */
+/* refleks przesuwajacy sie po pasku */
 .bar::after {
   content: '';
   position: absolute;
@@ -801,7 +801,7 @@ kbd {
   transition: width 0.3s ease;
   box-shadow: 0 0 8px rgba(0,163,224,0.6);
 }
-/* Initial load animation */
+/* wlasciwa animacja wczytywania */
 .bar-fill.anim {
   animation: load 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
@@ -814,7 +814,7 @@ kbd {
   animation: exitBurn 0.5s cubic-bezier(0.4, 0, 1, 1) forwards !important;
   pointer-events: none;
 }
-/* Children vanish immediately when exit starts */
+/* wywal smieci z ekranu od razu jak zaczyna wyjezdzac */
 .loading-screen.loading-exit .loader,
 .loading-screen.loading-exit .hud-corner {
   animation: childFade 0.15s ease forwards !important;
@@ -850,7 +850,7 @@ kbd {
   clip-path: none;
 }
 
-/* Phone distraction overlay */
+/* Zamazanie ekranu jak zgapiasz sie w komorke */
 #phoneOverlay {
   position: fixed;
   bottom: 80px;
@@ -887,7 +887,7 @@ kbd {
   text-align: center;
 }
 
-/* Responsive */
+/* Media queries zeby dzialalo u mamy na telefonie */
 @media (max-width: 860px) {
   .menu-layout { flex-direction: column; }
   .menu-brand {
@@ -941,7 +941,7 @@ kbd {
   mix-blend-mode: multiply;
 }
 
-/* Brand chip top-left & hint top-right */
+/* Ikonka lewy gora i tip po prawej */
 .cn-brand, .cn-hint {
   position: absolute; top: 11vh; padding: 10px 18px;
   font-size: 11px; letter-spacing: 0.22em;
@@ -968,7 +968,7 @@ kbd {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Title card – centered name of the zone */
+/* Tytul odcinka (po srodku) */
 .cn-titlecard {
   position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
@@ -1013,7 +1013,7 @@ kbd {
   to   { opacity: 0; transform: translate(-50%, calc(-50% - 22px)); }
 }
 
-/* Shot label – bottom-left */
+/* Lewy dół ujęcia */
 .cn-label {
   position: absolute; bottom: 11vh; left: 0;
   padding: 14px 22px;
@@ -1031,7 +1031,7 @@ kbd {
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* Final credits */
+/* Napisy koncowe (choc w sumie kto by je czytal) */
 .cn-credits {
   position: absolute; inset: 0;
   background: radial-gradient(ellipse at center, rgba(0,18,40,0.85), rgba(0,0,0,0.96));
@@ -1056,20 +1056,20 @@ kbd {
   font-weight: 600; text-transform: uppercase;
 }
 
-/* Menu button for showcase mode */
+/* Przycisk wcisniecia pauzy dema */
 #cinemaBtn { margin-top: 10px; }
 
-/* === Cinematic: fade-to-black between shots === */
+/* === Tryb kinowy: czarne ciecia miedzy kamerami === */
 .cn-fade {
   position: absolute; inset: 0;
   background: #000;
   opacity: 0;
   pointer-events: none;
   z-index: 5;
-  transition: none; /* JS drives opacity directly per-frame */
+  transition: none; /* krecimy opacity z poziomu jsa (nie chcialo mi sie robic keyframe) */
 }
 
-/* === Finale mosaic: diagonal split panels === */
+/* === Finalowa mozaika: pociecie mapy skosem === */
 .cn-finale {
   position: absolute; inset: 0;
   background: radial-gradient(ellipse at center, #04162c 0%, #000 80%);
@@ -1112,7 +1112,7 @@ kbd {
   overflow: hidden;
 }
 
-/* Diagonal-clipped panels, alternating slant directions */
+/* panele pociete w skos, na przemian (magia clip-path) */
 .cn-finale-card {
   position: relative;
   overflow: hidden;
@@ -1125,7 +1125,7 @@ kbd {
   from { transform: translateY(50px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
-/* Diagonal cuts via clip-path */
+/* tniemy po diagonali uzywajac clip-path */
 .cn-finale-card:nth-child(1) { clip-path: polygon(0 0, 100% 0, calc(100% - 38px) 100%, 0 100%); margin-right: -38px; z-index: 4; }
 .cn-finale-card:nth-child(2) { clip-path: polygon(38px 0, 100% 0, calc(100% - 38px) 100%, 0 100%); margin-right: -38px; z-index: 3; }
 .cn-finale-card:nth-child(3) { clip-path: polygon(38px 0, 100% 0, calc(100% - 38px) 100%, 0 100%); margin-right: -38px; z-index: 2; }

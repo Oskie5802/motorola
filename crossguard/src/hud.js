@@ -1,4 +1,4 @@
-// === HUD: mini-map, score, mission text, alerts, assist, radio, weather, day/night ===
+// UI gry (hud)
 import * as THREE from 'three';
 import { RADIO_EVENTS, RADIO_FLAVOR, ASSIST_TIPS } from './config.js';
 
@@ -68,7 +68,7 @@ export class HUD {
   }
 
   showCrossPrompt(state) {
-    // state: 'red' | 'green' | 'amber' | null
+        // stany to red green amber albo null
     if (!state) {
       this.crossPromptEl.classList.add('hidden');
       return;
@@ -92,7 +92,7 @@ export class HUD {
     setTimeout(() => { el.remove(); }, durationMs + 350);
   }
 
-  // Floating score number anchored to a world position (projected through camera each frame)
+    // Przeliczanie pozycji 3d na 2d do latajacych punktow nad modelem
   spawnFloater(worldPos, text, kind = 'pos', camera) {
     const el = document.createElement('div');
     el.className = `floater ${kind}`;
@@ -119,7 +119,7 @@ export class HUD {
     this.setAssist(ASSIST_TIPS[Math.floor(Math.random() * ASSIST_TIPS.length)]);
   }
   randomRadio() {
-    // 60% chance of gameplay-relevant event, 40% flavor
+        // W 60 procentach event wplynie na gre, reszta to zapchajdziura w radiu
     if (Math.random() < 0.6 && RADIO_EVENTS.length > 0) {
       const ev = RADIO_EVENTS[Math.floor(Math.random() * RADIO_EVENTS.length)];
       this._lastRadioEvent = ev;
@@ -169,11 +169,11 @@ export class HUD {
       my: (z - bounds.min) * scale + 4,
     });
 
-    // Background
+        // Tło
     ctx.fillStyle = '#0a1d3f';
     ctx.fillRect(0, 0, W, H);
 
-    // Grid lines (roads)
+        // Siatka drog (grid)
     ctx.strokeStyle = '#1c3a78';
     ctx.lineWidth = 2;
     const xs = this.city.xCoords, zs = this.city.zCoords;
@@ -190,19 +190,19 @@ export class HUD {
       ctx.beginPath(); ctx.moveTo(p3.mx, p3.my); ctx.lineTo(p4.mx, p4.my); ctx.stroke();
     }
 
-    // Cameras
+        // Ikonki kamer
     ctx.fillStyle = '#b16fff';
     for (const cam of this.city.cameras) {
       const { mx, my } = toMap(cam.x, cam.z);
       ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI*2); ctx.fill();
     }
 
-    // Vehicles
+        // Aktualizacja bryk
     for (const v of traffic.vehicles) {
       const { mx, my } = toMap(v.pos.x, v.pos.z);
       ctx.fillStyle = v.isEmergency ? '#ff2233' : v._lprFlagged ? '#00e5ff' : '#789bcb';
       ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
-      // LPR-flagged: cyan ring
+            // Te oznaczone LPR maja ring w kolorze cyjan
       if (v._lprFlagged) {
         ctx.strokeStyle = '#00e5ff';
         ctx.lineWidth = 1;
@@ -212,7 +212,7 @@ export class HUD {
       }
     }
 
-    // Emergency: pulsing larger ring
+        // Karetka ma pulsujacy znacznik
     for (const e of traffic.emergency) {
       if (!traffic.vehicles.includes(e)) continue;
       const { mx, my } = toMap(e.pos.x, e.pos.z);
@@ -223,7 +223,7 @@ export class HUD {
       ctx.stroke();
     }
 
-    // Goal
+        // Gdzie isc
     if (goalPos) {
       const { mx, my } = toMap(goalPos.x, goalPos.z);
       ctx.fillStyle = '#ffb800';
@@ -231,7 +231,7 @@ export class HUD {
       ctx.moveTo(mx, my - 5); ctx.lineTo(mx + 5, my + 4); ctx.lineTo(mx - 5, my + 4);
       ctx.closePath(); ctx.fill();
 
-      // Distance line from player to goal
+            // Krecha od ciebie do celu
       const pp = toMap(player.pos.x, player.pos.z);
       ctx.strokeStyle = 'rgba(255,184,0,0.4)';
       ctx.setLineDash([3, 3]);
@@ -240,11 +240,11 @@ export class HUD {
       ctx.setLineDash([]);
     }
 
-    // Player
+        // Twoja pozycja
     const { mx, my } = toMap(player.pos.x, player.pos.z);
     ctx.fillStyle = '#00A3E0';
     ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
-    // Facing arrow
+        // Gdzie stoisz przodem
     const fx = mx + Math.sin(player.facing) * 8;
     const fy = my + Math.cos(player.facing) * 8;
     ctx.strokeStyle = '#00A3E0';

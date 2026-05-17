@@ -1,4 +1,4 @@
-// === Sky, lighting, day/night, weather (rain/fog/snow) ===
+// Pogoda, niebo, oswietlenie itp
 import * as THREE from 'three';
 import { PALETTE } from './config.js';
 
@@ -9,7 +9,7 @@ export class Environment {
     this.isNight = zone.timeOfDay === 'night';
     this.isMorning = zone.timeOfDay === 'morning';
 
-    // Sky color z gradientem (canvas) - always dark and atmospheric
+        // Gradient na niebie, zawsze w klimacie nocnym
     const skyColor = this.isNight ? 0x040810 : (this.isMorning ? 0xffd9a8 : 0x87ceeb);
     const topColor = this.isNight ? '#010308' : (this.isMorning ? '#ff9a5a' : '#3aa3e0');
     const midColor = this.isNight ? '#0a0f22' : (this.isMorning ? '#ffcca0' : '#7ac4e8');
@@ -21,7 +21,7 @@ export class Environment {
     grad.addColorStop(0, topColor);
     grad.addColorStop(0.3, midColor);
     grad.addColorStop(0.7, botColor);
-    // Subtle warm glow at horizon (city light pollution)
+        // Ciepła łuna od miasta na horyzoncie
     if (this.isNight) {
       grad.addColorStop(0.85, '#1a1028');
       grad.addColorStop(1.0, '#2a1530');
@@ -34,7 +34,7 @@ export class Environment {
     skyTex.colorSpace = THREE.SRGBColorSpace;
     scene.background = skyTex;
 
-    // Fog - darker and more atmospheric at night
+        // Mgła
     if (zone.weather === 'fog') {
       scene.fog = new THREE.FogExp2(this.isNight ? 0x0a0e1a : 0xb8c4d8, this.isNight ? 0.018 : 0.015);
     } else if (zone.weather === 'rain') {
@@ -43,7 +43,7 @@ export class Environment {
       scene.fog = new THREE.Fog(skyColor, this.isNight ? 30 : 40, this.isNight ? 160 : 220);
     }
 
-    // Lights - much dimmer ambient for night, moody and atmospheric
+        // Ambient light dla nocy (mocno przyciemniony)
     const ambient = new THREE.HemisphereLight(
       this.isNight ? 0x1a2244 : 0xfff5e8,
       this.isNight ? 0x050810 : 0x556070,
@@ -51,7 +51,7 @@ export class Environment {
     );
     scene.add(ambient);
 
-    // Subtle colored fill light (simulates city neon bounce)
+        // Lekkie kolorowe swiatlo symulujace odbicia neonow
     const fill = new THREE.DirectionalLight(
       this.isNight ? 0x3040a0 : 0xb0c6e0,
       this.isNight ? 0.08 : 0.35
@@ -59,7 +59,7 @@ export class Environment {
     fill.position.set(-40, 50, -30);
     scene.add(fill);
 
-    // Second colored fill from opposite side (warm neon bounce)
+        // Drugie odbicie neonu z innej strony
     if (this.isNight) {
       const fill2 = new THREE.DirectionalLight(0x601830, 0.06);
       fill2.position.set(40, 30, 30);
@@ -84,11 +84,11 @@ export class Environment {
     this.sun.shadow.camera.far = 300;
     scene.add(this.sun);
 
-    // Rain
+        // Deszczyk
     if (zone.weather === 'rain') this._initRain();
     if (zone.weather === 'snow') this._initSnow();
 
-    // Stars at night (always now since all zones are night)
+        // Gwiazdki
     if (this.isNight) this._initStars();
   }
 
@@ -142,7 +142,7 @@ export class Environment {
       positions[i*3]   = r * Math.sin(theta) * Math.cos(phi);
       positions[i*3+1] = r * Math.cos(theta) + 60;
       positions[i*3+2] = r * Math.sin(theta) * Math.sin(phi);
-      // Slight color variation (white, blueish, yellowish)
+            // Gwiazdy w roznych odcieniach
       const tint = Math.random();
       if (tint < 0.3) {
         colors[i*3] = 0.7; colors[i*3+1] = 0.8; colors[i*3+2] = 1.0;
@@ -160,14 +160,14 @@ export class Environment {
     }));
     this.scene.add(stars);
 
-    // Moon - larger, with glow
+        // Ksiezyc z poświata
     const moonGroup = new THREE.Group();
     const moon = new THREE.Mesh(
       new THREE.SphereGeometry(5, 24, 16),
       new THREE.MeshBasicMaterial({ color: 0xe8e0d0 })
     );
     moonGroup.add(moon);
-    // Moon glow (soft transparent sphere around)
+        // Miękki glow ksiezyca
     const glow = new THREE.Mesh(
       new THREE.SphereGeometry(9, 16, 12),
       new THREE.MeshBasicMaterial({

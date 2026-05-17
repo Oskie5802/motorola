@@ -1,4 +1,4 @@
-// === Audio: lightweight WebAudio synth - no external assets required ===
+// Audio: prosty syntezator WebAudio, bez zewnetrznych plikow bo po co
 
 export class AudioSystem {
   constructor() {
@@ -29,7 +29,7 @@ export class AudioSystem {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   }
 
-  // --- One-shot SFX ---
+  // efekty dzwiekowe jednorazowe (sfx)
   blip(freq = 880, dur = 0.08, vol = 0.12, type = 'square') {
     if (!this.enabled) return;
     this._init();
@@ -48,7 +48,7 @@ export class AudioSystem {
   bad()  { this.blip(180, 0.18, 0.2, 'sawtooth'); }
   warn() { this.blip(440, 0.08, 0.15, 'square'); setTimeout(() => this.blip(440, 0.08, 0.15, 'square'), 120); }
   motoChime() {
-    // Motorola-esque double-tone
+    // podwojny tonik w stylu motoroli
     this.blip(660, 0.12, 0.13, 'sine');
     setTimeout(() => this.blip(990, 0.18, 0.13, 'sine'), 110);
   }
@@ -66,7 +66,7 @@ export class AudioSystem {
     o.start();
     this._sirenOsc = o;
     this._sirenGain = g;
-    // Continuous two-tone wail loop using setInterval to reschedule frequency ramps
+    // ciagla petla syreny, robimy to na setInterval zeby przeliczac rampy czestotliwosci
     const schedule = () => {
       if (!this._sirenOsc) return;
       const t = this.ctx.currentTime;
@@ -91,10 +91,10 @@ export class AudioSystem {
   }
 
   ambient(zone) {
-    // Subtle low hum + occasional bird/horn (no heavy looping for code-only sim)
+    // cichy szum w tle i czasem jakis ptak albo klakson (bez ciezkiego loopowania audio)
     if (!this.enabled) return;
     this._init();
-    // Hum
+    // buczenie
     if (this._hum) try { this._hum.stop(); } catch {}
     const o = this.ctx.createOscillator();
     o.type = 'sawtooth';
@@ -108,7 +108,7 @@ export class AudioSystem {
     o.start();
     this._hum = o;
 
-    // Periodic birds / honks
+    // losowe ptaki i traby co jakis czas
     clearInterval(this._amInt);
     this._amInt = setInterval(() => {
       if (Math.random() < 0.3) this.blip(2200 + Math.random() * 800, 0.06, 0.04, 'triangle');

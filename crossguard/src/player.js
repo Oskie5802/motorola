@@ -1,4 +1,4 @@
-// === Player: Alex Nawigant – Kenney animated character model ===
+// Gracz = Alex
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -9,20 +9,20 @@ export class Player {
     this.scene = scene;
     this.group = new THREE.Group();
 
-    // --- Animation state ---
+        // Zmienne animacji
     this.mixer = null;
     this.actions = {};
     this._currentAction = null;
     this._blendFraction = 0;
 
-    // --- Build character from loaded FBX data ---
+        // Skladanie modela z czesci z fbx
     if (characterData && characterData.model) {
       this._buildFromModel(characterData);
     } else {
       this._buildFallback();
     }
 
-    // Cień miękki pod stopami (decal)
+        // Decal na cien pod ludzikiem
     const shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.55, 24),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22 })
@@ -57,7 +57,7 @@ export class Player {
     const model = SkeletonUtils.clone(characterData.model);
     model.scale.set(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
 
-    // Re-apply skin material after clone (clone may lose custom materials)
+        // Po sklonowaniu gubi materiały, narzucamy recznie jeszcze raz
     const srcMaterials = [];
     characterData.model.traverse((child) => {
       if (child.isMesh) srcMaterials.push(child.material);
@@ -74,28 +74,28 @@ export class Player {
     this.group.add(model);
     this._model = model;
 
-    // Find the SkinnedMesh inside the clone - use it as mixer root so
-    // PropertyBinding resolves bones via skeleton.getBoneByName() instead of
-    // recursive name-search (which fails on complex IK rigs like Kenney's).
+        // Szukamy obiektu ze skinem by mixer zadzialal poprawnie
+        // bo inaczej rzuca sie o getBoneByName
+        // na rigach z IKam (jak u Kenneya) wyskakuje błąd, ten fix to must have
     let skinnedMesh = null;
     model.traverse(child => { if (child.isSkinnedMesh && !skinnedMesh) skinnedMesh = child; });
 
-    // Setup AnimationMixer on SkinnedMesh (has .skeleton) or fall back to model group
+        // Dodaj mixer albo idziemy na latwizne i nie dziala plynnie
     this.mixer = new THREE.AnimationMixer(skinnedMesh || model);
     const anims = characterData.animations;
 
-    // Register available animation clips
+        // rejestrujemy co potrafi odpalic
     for (const [name, clip] of Object.entries(anims)) {
       const action = this.mixer.clipAction(clip);
       this.actions[name] = action;
     }
 
-    // Start locomotion blend (idle + run blended by speed)
+        // Locomotion blend, czyli nie ma od razu sprintu z miejsca
     this._setupLocomotionBlend();
   }
 
   _buildFallback() {
-    // Simple box placeholder if model fails to load
+        // Prowizoryczny kwadraciak jezeli modele nie dotarły
     const mat = new THREE.MeshStandardMaterial({ color: 0x00A3E0, roughness: 0.55 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 0.4), mat);
     body.position.y = 0.9;
@@ -120,7 +120,7 @@ export class Player {
     this._blendFraction = 0;
   }
 
-  // fraction: 0 = idle, 0.5 = walk, 1 = run
+    // waga 0=stoi 0.5=lazi 1=biegnie
   _setLocomotionBlend(fraction) {
     const idle = this.actions['idle'];
     const walk = this.actions['walk'];
@@ -141,7 +141,7 @@ export class Player {
         if (run)  run.setEffectiveTimeScale(0.9 + t * 0.5);
       }
     } else {
-      // 2-way blend: idle ↔ run (no walk.fbx)
+            // blend tylko idle i run (chodzenia zapomnialem wgrac)
       if (idle) idle.setEffectiveWeight(1 - fraction);
       if (run) {
         run.setEffectiveWeight(fraction);
@@ -229,7 +229,7 @@ export class Player {
 
     this.moving = len > 0 && speed > 0;
 
-    // Locomotion blend: 0=idle, 0.5=walk, 1=run
+        // przelicznik szybkosci animacji na bazie predkosci wektora poruszania
     if (this.mixer) {
       const targetFraction = !this.moving ? 0 : running ? 1.0 : 0.5;
       this._blendFraction = THREE.MathUtils.lerp(this._blendFraction, targetFraction, Math.min(1, dt * 7));

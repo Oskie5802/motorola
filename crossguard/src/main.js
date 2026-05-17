@@ -1,4 +1,4 @@
-// === CrossGuard main bootstrap: menu → game → results ===
+// Odpalanie całego bałaganu (main loop)
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { ZONES, gradeFor } from './config.js';
@@ -16,7 +16,7 @@ const $ = (id) => document.getElementById(id);
 
 const audio = new AudioSystem();
 
-// === Progress (localStorage) ===
+// Zapis gry w przegladarce
 const PROGRESS_KEY = 'crossguard_progress_v1';
 function loadProgress() {
   try { return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; }
@@ -27,14 +27,14 @@ function saveProgress(p) {
 }
 let progress = loadProgress();
 
-// === State ===
+// Stan apki
 let selectedZoneId = ZONES[0].id;
 let currentSession = null; // { renderer, scene, camera, ... }
 let cachedModels = null;   // OBJ building models, loaded once
 let cachedCharacter = null; // Kenney animated character, loaded once
 let cachedCars = null;      // Kenney car-kit GLB models, loaded once
 
-// === Menu construction ===
+// Składanie manu w html
 function renderZoneSelect() {
   const container = $('zoneSelect');
   container.innerHTML = '';
@@ -65,7 +65,7 @@ function renderZoneSelect() {
   }
 }
 
-// === Loading screen helpers ===
+// Funkcje do loadingu
 function hideLoading() {
   return new Promise(resolve => {
     const el = $('loading');
@@ -82,15 +82,15 @@ function showLoading() {
   const el = $('loading');
   el.classList.remove('hidden', 'loading-exit', 'loading-visible');
   el.classList.add('loading-bare');
-  // Double rAF forces transition to pick up the opacity:0 start
+    // Hack z rAF zeby przejscie CSS w ogole zaczelo lapac opacity: 0
   requestAnimationFrame(() => requestAnimationFrame(() => {
     el.classList.add('loading-visible');
   }));
 }
 
-// === Loading screen → menu ===
+// Ekran loadingu przeskakuje na menu
 window.addEventListener('load', () => {
-  // Mark bar fill as animated (initial load)
+    // Animuj pasek progressu
   const barFill = document.querySelector('.bar-fill');
   if (barFill) barFill.classList.add('anim');
 
@@ -98,10 +98,10 @@ window.addEventListener('load', () => {
   const autoCinema = params.has('cinema') || params.has('showcase') || location.hash === '#cinema';
 
   setTimeout(() => {
-    // Prepare menu while loading still visible
+        // Buduj to menu jak jeszcze ukryte
     renderZoneSelect();
     if (autoCinema) {
-      // Skip menu - jump straight into showcase
+            // Przeskocz do dema
       $('menu').classList.add('hidden');
       hideLoading().then(() => {
         audio.resume();
@@ -114,7 +114,7 @@ window.addEventListener('load', () => {
   }, 1100);
 });
 
-// === Menu events ===
+// Nasluchiwacze na buttony
 $('startBtn').onclick = () => {
   audio.resume();
   $('menu').classList.add('hidden');
@@ -145,7 +145,7 @@ async function ensureModels() {
   await hideLoading();
   return cachedModels;
 }
-// F9 = quick-launch cinematic from menu/anywhere
+// F9 odpala demo w kazdym miejscu
 window.addEventListener('keydown', (e) => {
   if (e.code === 'F9') {
     e.preventDefault();
@@ -168,7 +168,7 @@ $('howtoBack').onclick = () => {
   $('menu').classList.remove('hidden');
 };
 
-// === Pause ===
+// Pauza gry
 let isPaused = false;
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && currentSession && !currentSession.cinematic) {
@@ -185,10 +185,10 @@ $('quitBtn').onclick = () => {
   $('menu').classList.remove('hidden');
 };
 
-// === Results actions ===
+// Ekran koncowy, co dalej
 $('nextBtn').onclick = () => {
   $('results').classList.add('hidden');
-  // Advance to next unlocked zone if available, else replay
+    // Gramy nastepny poziom albo to samo jak nie masz lepszego
   const idx = ZONES.findIndex(z => z.id === currentSession.zone.id);
   const totalScore = Object.values(progress).reduce((s, v) => s + (v.score || 0), 0);
   let next = ZONES[idx + 1];
@@ -204,7 +204,7 @@ $('menuBtn').onclick = () => {
   $('menu').classList.remove('hidden');
 };
 
-// === Cinematic showcase mode ===
+// Tryb Showcase
 let cinematicActive = false;
 let cinematicAbort = null;
 
@@ -221,7 +221,7 @@ async function startCinematic() {
   window.addEventListener('keydown', onKey);
   cinematicAbort = () => { aborted = true; };
 
-  // Featured zone: downtown (rain + trams = most cinematic)
+    // Pokazujemy glowne miasto bo deszcz i tramwaje
   const featured = ZONES.find(z => z.id === 'downtown') || ZONES[2] || ZONES[0];
 
   await startGame(featured, { cinematic: true });
@@ -238,7 +238,7 @@ async function startCinematic() {
     });
     session.director = director;
 
-    // Wait until all shots finish or user aborts
+        // Czekaj az skoncza to krecic
     await new Promise((resolve) => {
       let done = false;
       const finish = () => { if (done) return; done = true; clearInterval(poll); resolve(); };
@@ -247,10 +247,10 @@ async function startCinematic() {
     });
   }
 
-  // Finale: diagonal mosaic of remaining zones
+    // Na koniec mozaika ekranow z innymi trybami
   if (!aborted) {
     showFinaleMosaic(overlay, ZONES, featured.id);
-    // Stay on finale screen until user presses Esc or ~8s
+        // Zostaw na ekranie chwile zeby user popatrzyl
     await Promise.race([
       sleep(8500),
       new Promise(res => {
@@ -268,12 +268,12 @@ async function startCinematic() {
   $('menu').classList.remove('hidden');
 }
 
-// === Game start ===
+// Inicjalizacja swiata
 async function startGame(zone, opts = {}) {
   const cinematic = !!opts.cinematic;
   const models = await ensureModels();
 
-  // Scene
+    // Scena
   const canvas = $('game');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -286,13 +286,13 @@ async function startGame(zone, opts = {}) {
 
   const scene = new THREE.Scene();
 
-  // Environment map dla ładnych refleksów na pojazdach i szybach
+    // Mapa srodowiska dla refleksow (paskudne to bez)
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
   const envTex = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
   scene.environment = envTex;
 
-  // Camera
+    // Kamera glowna
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
   camera.position.set(0, 14, 14);
 
@@ -300,7 +300,7 @@ async function startGame(zone, opts = {}) {
   const city = new City(scene, zone, env.isNight, models);
   city.scene = scene; // for goal marker access
 
-  // Player at random sidewalk spawn
+    // Gracz w jakims dziwnym miejscu
   const spawn = city.spawnPoints[Math.floor(Math.random() * city.spawnPoints.length)];
   const player = new Player(scene, spawn, cachedCharacter);
   if (!cinematic) player.setupInput(canvas);
@@ -311,14 +311,14 @@ async function startGame(zone, opts = {}) {
   const game = new GameLogic({ city, player, traffic, hud, audio, zone });
   game.camera = camera; // for floater projection
 
-  // Hook completion
+    // Nasluch na zakonczenie
   if (!cinematic) game.onComplete = (result) => showResults(result);
 
-  // Show HUD
+    // Odpalaj ui
   if (!cinematic) $('hud').classList.remove('hidden');
   else $('hud').classList.add('hidden');
 
-  // First-run tutorial (only once, stored in progress) – skipped in cinematic
+    // Samouczek jak jeszcze nie widziales (nie puszczaj w trybie demo)
   if (!cinematic && !progress._seenTutorial) {
     $('tutorial').classList.remove('hidden');
     isPaused = true;
@@ -330,10 +330,10 @@ async function startGame(zone, opts = {}) {
     };
   }
 
-  // Audio
+    // Glosniczki
   audio.ambient(zone.id);
 
-  // Resize
+    // Obsluga skalowania ona
   const onResize = () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -341,15 +341,15 @@ async function startGame(zone, opts = {}) {
   };
   window.addEventListener('resize', onResize);
 
-  // Loop
+    // Glowna pętla
   const clock = new THREE.Clock();
   let raf = 0;
   function tick() {
     raf = requestAnimationFrame(tick);
     const dt = Math.min(0.1, clock.getDelta());
     if (cinematic) {
-      // Cinematic mode: world keeps simulating, but player & camera are
-      // controlled by the director (set externally on currentSession).
+            // Tryb cinema: swiat sobie leci, ale kamerą i typem steruje reżyser
+            // czyli cinematic.js
       city.updateTrafficLights(dt);
       traffic.update(dt, player.pos, null);
       env.update(dt, player.pos);
@@ -378,7 +378,7 @@ async function startGame(zone, opts = {}) {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
       renderer.dispose();
-      // Dispose all scene materials/geometries
+            // Posprzątaj RAM po levelu
       scene.traverse(obj => {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
@@ -399,7 +399,7 @@ function endSession() {
   $('hud').classList.add('hidden');
 }
 
-// === Results screen ===
+// Widok punktow
 function showResults(result) {
   $('hud').classList.add('hidden');
   $('gradeLetter').textContent = result.grade.letter;
@@ -418,7 +418,7 @@ function showResults(result) {
     ${result.zone.lesson}
   `;
 
-  // Save progress
+    // Zapisz do localstorage
   const zid = result.zone.id;
   const prev = progress[zid] || { bestScore: -Infinity, score: 0 };
   if (result.score > prev.bestScore) prev.bestScore = result.score;
