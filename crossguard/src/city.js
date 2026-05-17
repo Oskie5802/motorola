@@ -453,19 +453,101 @@ export class City {
     for (const tl of this.trafficLights) {
       const key = `${tl.intersection.x.toFixed(2)},${tl.intersection.z.toFixed(2)}`;
       let g = groups.get(key);
-      if (!g) { g = { items: [] }; groups.set(key, g); }
+      if (!g) { g = { items: [], x: tl.intersection.x, z: tl.intersection.z }; groups.set(key, g); }
       g.items.push(tl);
     }
-    // Sync NS and EW
-    for (const g of groups.values()) {
-      const ns = g.items.filter(t => t.axis === 'ns');
-      const ew = g.items.filter(t => t.axis === 'ew');
-      // Initial offset: ns green when ew red
-      ns.forEach(t => { t.state = 'green'; t.timer = 0; });
-      ew.forEach(t => { t.state = 'red'; t.timer = 0; });
+
+    // Pick a random arterial row (constant z) and column (constant x). Intersections
+    // on these get a "green wave": phases aligned so cars travelling at waveSpeed
+    // along the arterial hit consecutive greens. All other intersections get
+    // independent random phases so the city doesn't tick in lockstep.
+    const bs = this.blockSize;
+    const halfCity = (this.gridSize * bs) / 2;
+    const arterialJ = 1 + Math.floor(Math.random() * Math.max(1, this.gridSize - 1));
+    const arterialI = 1 + Math.floor(Math.random() * Math.max(1, this.gridSize - 1));
+    const arterialZ = arterialJ * bs - halfCity;
+    const arterialX = arterialI * bs - halfCity;
+    const waveSpeed = 11;             // m/s — target speed cars must drive to ride the wave
+    const arterialGreen = 6.5;        // longer green on the arterial direction
+    const arterialCross = 4.0;        // shorter green on the crossing direction
+    const arterialAmber = 1.3;
+    const arterialCycle = arterialGreen + arterialAmber + arterialCross + arterialAmber;
+
+    for (const grp of groups.values()) {
+      const ns = grp.items.filter(t => t.axis === 'ns');
+      const ew = grp.items.filter(t => t.axis === 'ew');
+
+      // Decide if this intersection is on an arterial.
+      const onArterialEW = Math.abs(grp.z - arterialZ) < 0.5; // EW road runs along constant z
+      const onArterialNS = Math.abs(grp.x - arterialX) < 0.5;
+
+      let nsGreen, ewGreen, amber, phase;
+      if (onArterialEW) {
+        // EW gets the long green; NS is the cross street
+        ewGreen = arterialGreen;
+        nsGreen = arterialCross;
+        amber = arterialAmber;
+        // Phase chosen so EW green starts at t = x / waveSpeed at this intersection.
+        // Cycle phase progresses as (t + offset) mod fullCycle. EW green window
+        // begins at phase nsGreen + amber. Solve offset = nsGreen+amber - x/waveSpeed.
+        const fullCycle = arterialCycle;
+        phase = ((nsGreen + amber - grp.x / waveSpeed) % fullCycle + fullCycle) % fullCycle;
+      } else if (onArterialNS) {
+        nsGreen = arterialGreen;
+        ewGreen = arterialCross;
+        amber = arterialAmber;
+        const fullCycle = arterialCycle;
+        // NS green window begins at phase 0. Solve offset = 0 - z/waveSpeed.
+        phase = ((-grp.z / waveSpeed) % fullCycle + fullCycle) % fullCycle;
+      } else {
+        // Off-arterial: randomise each intersection independently.
+        nsGreen = 3.5 + Math.random() * 4.0;   // 3.5 – 7.5 s
+        ewGreen = 3.5 + Math.random() * 4.0;
+        amber = 1.0 + Math.random() * 0.6;     // 1.0 – 1.6 s
+        const fullCycle = nsGreen + amber + ewGreen + amber;
+        phase = Math.random() * fullCycle;
+      }
+
+      const fullCycle = nsGreen + amber + ewGreen + amber;
+
+      // Assign cycle durations. Red duration for each axis = opposite axis green + amber,
+      // so the state machine never lets both axes be green simultaneously.
+      ns.forEach(t => {
+        t.cycleGreen = nsGreen;
+        t.cycleAmber = amber;
+        t.cycleRed = ewGreen + amber;
+      });
+      ew.forEach(t => {
+        t.cycleGreen = ewGreen;
+        t.cycleAmber = amber;
+        t.cycleRed = nsGreen + amber;
+      });
+
+      // Map phase position in the joint cycle to (state, timer) per axis.
+      // Joint cycle layout (starting at NS-green-begins):
+      //   [0, nsGreen)                              : NS green, EW red (just turned)
+      //   [nsGreen, nsGreen+amber)                  : NS amber, EW red
+      //   [nsGreen+amber, nsGreen+amber+ewGreen)    : NS red (just turned), EW green
+      //   [nsGreen+amber+ewGreen, fullCycle)        : NS red, EW amber
+      const p = phase % fullCycle;
+      const setFromPhase = (t, axis) => {
+        if (axis === 'ns') {
+          if (p < nsGreen)                       { t.state = 'green'; t.timer = p; }
+          else if (p < nsGreen + amber)          { t.state = 'amber'; t.timer = p - nsGreen; }
+          else                                   { t.state = 'red';   t.timer = p - nsGreen - amber; }
+        } else {
+          if (p < nsGreen + amber)               { t.state = 'red';   t.timer = p; }
+          else if (p < nsGreen + amber + ewGreen){ t.state = 'green'; t.timer = p - nsGreen - amber; }
+          else                                   { t.state = 'amber'; t.timer = p - nsGreen - amber - ewGreen; }
+        }
+      };
+      ns.forEach(t => setFromPhase(t, 'ns'));
+      ew.forEach(t => setFromPhase(t, 'ew'));
+
       this._applyLightVisual(ns);
       this._applyLightVisual(ew);
     }
+
     // Initialize pedestrian signals (opposite phase to their linked vehicle signal)
     for (const pl of this.pedestrianLights) {
       pl.state = pl.linkedVehicle.state === 'red' ? 'green' : 'red';
