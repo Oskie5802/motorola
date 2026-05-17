@@ -10,6 +10,7 @@ import { AudioSystem } from './audio.js';
 import { Environment } from './environment.js';
 import { GameLogic } from './game.js';
 import { loadBuildingModels, loadCharacterModel, loadCarModels } from './modelLoader.js';
+import { CinematicDirector, buildCinematicOverlay, showFinaleMosaic, hideCinemaOverlay } from './cinematic.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -93,12 +94,23 @@ window.addEventListener('load', () => {
   const barFill = document.querySelector('.bar-fill');
   if (barFill) barFill.classList.add('anim');
 
+  const params = new URLSearchParams(location.search);
+  const autoCinema = params.has('cinema') || params.has('showcase') || location.hash === '#cinema';
+
   setTimeout(() => {
     // Prepare menu while loading still visible
     renderZoneSelect();
-    $('menu').classList.remove('hidden');
-    // Now burn the loading screen away — menu crossfades in beneath
-    hideLoading();
+    if (autoCinema) {
+      // Skip menu - jump straight into showcase
+      $('menu').classList.add('hidden');
+      hideLoading().then(() => {
+        audio.resume();
+        startCinematic();
+      });
+    } else {
+      $('menu').classList.remove('hidden');
+      hideLoading();
+    }
   }, 1100);
 });
 
@@ -133,6 +145,20 @@ async function ensureModels() {
   await hideLoading();
   return cachedModels;
 }
+// F9 = quick-launch cinematic from menu/anywhere
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'F9') {
+    e.preventDefault();
+    if (cinematicActive) return;
+    audio.resume();
+    $('menu').classList.add('hidden');
+    $('results').classList.add('hidden');
+    $('howto').classList.add('hidden');
+    endSession();
+    startCinematic();
+  }
+});
+
 $('howToBtn').onclick = () => {
   $('menu').classList.add('hidden');
   $('howto').classList.remove('hidden');
@@ -145,7 +171,7 @@ $('howtoBack').onclick = () => {
 // === Pause ===
 let isPaused = false;
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'Escape' && currentSession) {
+  if (e.code === 'Escape' && currentSession && !currentSession.cinematic) {
     isPaused = !isPaused;
     $('pause').classList.toggle('hidden', !isPaused);
   }
@@ -178,8 +204,73 @@ $('menuBtn').onclick = () => {
   $('menu').classList.remove('hidden');
 };
 
+// === Cinematic showcase mode ===
+let cinematicActive = false;
+let cinematicAbort = null;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startCinematic() {
+  if (cinematicActive) return;
+  cinematicActive = true;
+  await ensureModels();
+  const overlay = buildCinematicOverlay();
+
+  let aborted = false;
+  const onKey = (e) => { if (e.code === 'Escape') aborted = true; };
+  window.addEventListener('keydown', onKey);
+  cinematicAbort = () => { aborted = true; };
+
+  // Featured zone: downtown (rain + trams = most cinematic)
+  const featured = ZONES.find(z => z.id === 'downtown') || ZONES[2] || ZONES[0];
+
+  await startGame(featured, { cinematic: true });
+  const session = currentSession;
+  if (session && !aborted) {
+    const director = new CinematicDirector({
+      camera: session.camera,
+      scene: session.scene,
+      city: session.city,
+      traffic: session.traffic,
+      player: session.player,
+      zone: featured,
+      ui: overlay,
+    });
+    session.director = director;
+
+    // Wait until all shots finish or user aborts
+    await new Promise((resolve) => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; clearInterval(poll); resolve(); };
+      const poll = setInterval(() => { if (aborted) finish(); }, 120);
+      director.onZoneDone = finish;
+    });
+  }
+
+  // Finale: diagonal mosaic of remaining zones
+  if (!aborted) {
+    showFinaleMosaic(overlay, ZONES, featured.id);
+    // Stay on finale screen until user presses Esc or ~8s
+    await Promise.race([
+      sleep(8500),
+      new Promise(res => {
+        const tick = setInterval(() => { if (aborted) { clearInterval(tick); res(); } }, 100);
+      }),
+    ]);
+  }
+
+  window.removeEventListener('keydown', onKey);
+  hideCinemaOverlay(overlay);
+  cinematicActive = false;
+  cinematicAbort = null;
+  endSession();
+  renderZoneSelect();
+  $('menu').classList.remove('hidden');
+}
+
 // === Game start ===
-async function startGame(zone) {
+async function startGame(zone, opts = {}) {
+  const cinematic = !!opts.cinematic;
   const models = await ensureModels();
 
   // Scene
@@ -212,7 +303,8 @@ async function startGame(zone) {
   // Player at random sidewalk spawn
   const spawn = city.spawnPoints[Math.floor(Math.random() * city.spawnPoints.length)];
   const player = new Player(scene, spawn, cachedCharacter);
-  player.setupInput(canvas);
+  if (!cinematic) player.setupInput(canvas);
+  else { player.keys = {}; } // disable input; cinematic drives the player
 
   const traffic = new TrafficSystem(scene, city, zone, cachedCars);
   const hud = new HUD(city, zone);
@@ -220,13 +312,14 @@ async function startGame(zone) {
   game.camera = camera; // for floater projection
 
   // Hook completion
-  game.onComplete = (result) => showResults(result);
+  if (!cinematic) game.onComplete = (result) => showResults(result);
 
   // Show HUD
-  $('hud').classList.remove('hidden');
+  if (!cinematic) $('hud').classList.remove('hidden');
+  else $('hud').classList.add('hidden');
 
-  // First-run tutorial (only once, stored in progress)
-  if (!progress._seenTutorial) {
+  // First-run tutorial (only once, stored in progress) – skipped in cinematic
+  if (!cinematic && !progress._seenTutorial) {
     $('tutorial').classList.remove('hidden');
     isPaused = true;
     $('tutorialOk').onclick = () => {
@@ -254,21 +347,33 @@ async function startGame(zone) {
   function tick() {
     raf = requestAnimationFrame(tick);
     const dt = Math.min(0.1, clock.getDelta());
-    if (!isPaused && game.state === 'playing') {
+    if (cinematic) {
+      // Cinematic mode: world keeps simulating, but player & camera are
+      // controlled by the director (set externally on currentSession).
       city.updateTrafficLights(dt);
       traffic.update(dt, player.pos, null);
-      player.update(dt, city, traffic);
       env.update(dt, player.pos);
-      game.update(dt);
-      hud.update(dt, player, traffic, game.goal);
+      if (currentSession && currentSession.director) {
+        currentSession.director.update(dt);
+      }
+    } else {
+      if (!isPaused && game.state === 'playing') {
+        city.updateTrafficLights(dt);
+        traffic.update(dt, player.pos, null);
+        player.update(dt, city, traffic);
+        env.update(dt, player.pos);
+        game.update(dt);
+        hud.update(dt, player, traffic, game.goal);
+      }
+      player.updateCamera(camera);
     }
-    player.updateCamera(camera);
     renderer.render(scene, camera);
   }
   tick();
 
   currentSession = {
     renderer, scene, camera, raf, onResize, zone, audio,
+    city, traffic, player, env, game, hud, cinematic,
     cleanup: () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
