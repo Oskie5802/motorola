@@ -40,6 +40,8 @@ export class HUD {
     this.radioVisible = false;
     this._lastRadioEvent = null; // { text, event } from RADIO_EVENTS
     this.radioUnlocked = false; // unlocked via progression
+    // Wyłącz powiadomienia w grze: ustaw na `true` aby ponownie włączyć
+    this.notificationsEnabled = false;
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyR' && this.radioUnlocked) {
@@ -47,6 +49,11 @@ export class HUD {
         this.radioBox.classList.toggle('hidden', !this.radioVisible);
       }
     });
+
+    if (!this.notificationsEnabled) {
+      this.radioBox.classList.add('hidden');
+      this.alertsEl.classList.add('hidden');
+    }
   }
 
   setMission(text) { this.missionEl.textContent = text; }
@@ -60,6 +67,7 @@ export class HUD {
   setLPR(n) { this.lprEl.textContent = String(n); }
   setAssist(msg) { this.assistEl.textContent = msg; }
   setRadio(msg) {
+    if (!this.notificationsEnabled) return;
     this.radioEl.textContent = msg;
     if (!this.radioVisible) {
       this.radioVisible = true;
@@ -85,6 +93,7 @@ export class HUD {
   }
 
   alert(text, kind = 'info', durationMs = 2700) {
+    if (!this.notificationsEnabled) return;
     const el = document.createElement('div');
     el.className = `alert ${kind}`;
     el.textContent = text;
@@ -94,6 +103,7 @@ export class HUD {
 
   // Floating score number anchored to a world position (projected through camera each frame)
   spawnFloater(worldPos, text, kind = 'pos', camera) {
+    if (!this.notificationsEnabled) return;
     const el = document.createElement('div');
     el.className = `floater ${kind}`;
     el.textContent = text;
@@ -138,6 +148,7 @@ export class HUD {
   unlockRadio() {
     if (this.radioUnlocked) return;
     this.radioUnlocked = true;
+    if (!this.notificationsEnabled) return;
     this.radioBox.classList.remove('hidden');
     this.setRadio('📡 Kanał dyspozytorski odblokowany!');
     this.alert('🔓 Radio APX P25 odblokowane! [R] aby podsłuchiwać', 'good', 4000);

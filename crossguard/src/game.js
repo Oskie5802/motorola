@@ -92,23 +92,6 @@ export class GameLogic {
     this.city.scene.add(group);
     this._goalMarker = group;
 
-    // Navigation arrow - hovers above the player, rotates toward goal
-    const arrowGroup = new THREE.Group();
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(0.4, 1.0, 6),
-      new THREE.MeshBasicMaterial({ color: 0xffb800 })
-    );
-    cone.rotation.x = Math.PI / 2; // point along +Z
-    cone.position.z = 0.3;
-    arrowGroup.add(cone);
-    const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(0.55, 0.07, 6, 18),
-      new THREE.MeshBasicMaterial({ color: 0xffb800, transparent: true, opacity: 0.7 })
-    );
-    ring2.rotation.x = Math.PI / 2;
-    arrowGroup.add(ring2);
-    this.city.scene.add(arrowGroup);
-    this._navArrow = arrowGroup;
   }
 
   update(dt) {
@@ -120,15 +103,6 @@ export class GameLogic {
     if (this._goalMarker) {
       this._goalMarker.rotation.y += dt * 0.6;
       this._goalMarker.children[2].position.y = 14 + Math.sin(this.elapsed * 2) * 0.4;
-    }
-    // Update nav arrow (hovers above player, points at goal, fades close to goal)
-    if (this._navArrow) {
-      const dx = this.goal.x - this.player.pos.x;
-      const dz = this.goal.z - this.player.pos.z;
-      const d = Math.hypot(dx, dz);
-      this._navArrow.position.set(this.player.pos.x, 3.2 + Math.sin(this.elapsed * 3) * 0.15, this.player.pos.z);
-      this._navArrow.rotation.y = Math.atan2(dx, dz);
-      this._navArrow.visible = d > 4;
     }
     // Highlight red-light-runner vehicles with a red glow ring
     for (const v of this.traffic.vehicles) {
@@ -515,15 +489,6 @@ export class GameLogic {
       this.hud.alert(`${text}  ${sign}${delta}`, kind);
       if (delta > 0) this.audio.good();
       else this.audio.bad();
-    }
-    // Floating number above the player so feedback is tied to the action
-    if (this.camera) {
-      this.hud.spawnFloater(
-        { x: this.player.pos.x, z: this.player.pos.z },
-        `${delta >= 0 ? '+' : ''}${delta}`,
-        delta >= 0 ? 'pos' : 'neg',
-        this.camera,
-      );
     }
   }
 
