@@ -1,4 +1,4 @@
-// === CrossGuard config: zones, scoring, vehicles, weather ===
+// Konfiguracja CrossGuard: strefy, punktacja, pogoda, vki
 
 export const ZONES = [
   {
@@ -120,7 +120,7 @@ export function gradeFor(score) {
   return GRADES[GRADES.length - 1];
 }
 
-// Motorola palette for materials
+// Paleta kolorow motoroli dla materialow
 export const PALETTE = {
   blue:   0x003DA5,
   cyan:   0x00A3E0,
@@ -135,11 +135,11 @@ export const PALETTE = {
   nightSky: 0x060a18,
   building: [0x2a3048, 0x353d5a, 0x404868, 0x2e3650, 0x252a42, 0x383f5c],
   vehicle: [0xb53030, 0x2266c2, 0xf0c44a, 0x33b56a, 0x444444, 0xcccccc, 0x884cc8],
-  // Neon accent colors for building glow effects
+    // Kolory neonow
   neon: [0x00ffaa, 0xff00ff, 0x00aaff, 0xff6600, 0xaa00ff, 0x00ffff, 0xff0066],
 };
 
-// Localized assist tips (rotate)
+// Rotacyjne podpowiedzi asystenta
 export const ASSIST_TIPS = [
   'Pamiętaj - zawsze korzystaj z przejść dla pieszych.',
   'Zatrzymaj się przy krawężniku przed wejściem na pasy.',
@@ -151,8 +151,8 @@ export const ASSIST_TIPS = [
   'Pamiętaj o widoczności - nie używaj telefonu podczas przechodzenia.',
 ];
 
-// Radio messages that trigger real gameplay events
-// Format: { text, event } where event is a function called on GameLogic
+// Komunikaty radiowe które naprawde wywołują event w grze
+// Format: {text, event} gdzie event to odpalana funkcja
 export const RADIO_EVENTS = [
   {
     text: 'Dyspozytor: zgłoszenie kolizji - pojazd ignoruje światło!',
@@ -193,7 +193,7 @@ export const RADIO_EVENTS = [
   },
 ];
 
-// Fallback flavor messages (no gameplay effect)
+// Tzw flavor-teksty (tylko klimat, nic nie robia)
 export const RADIO_FLAVOR = [
   'Patrol 3: kontrola prędkości, pojazdy zwalniają.',
   'Straż 2: zabezpieczamy miejsce zdarzenia.',

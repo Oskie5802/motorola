@@ -1,4 +1,4 @@
-// === Async loader for OBJ building assets from assets/OBJ format/ ===
+// Asynchroniczny loader budynków
 import * as THREE from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
@@ -54,9 +54,9 @@ export async function loadBuildingModels(onProgress) {
   };
 }
 
-// === Load Kenney car-kit GLB models ===
+// Loadowanie wozow od Kenneya
 const CAR_MODEL_DEFS = [
-  // civilian cars
+    // zwyklaki
   { file: 'sedan.glb',           type: 'car',    speed: 1.0, w: 1.8, h: 1.2, d: 4.0 },
   { file: 'sedan-sports.glb',    type: 'car',    speed: 1.1, w: 1.8, h: 1.2, d: 4.0 },
   { file: 'hatchback-sports.glb',type: 'car',    speed: 1.0, w: 1.7, h: 1.1, d: 3.6 },
@@ -64,13 +64,13 @@ const CAR_MODEL_DEFS = [
   { file: 'suv-luxury.glb',     type: 'car',    speed: 0.95,w: 2.0, h: 1.5, d: 4.4 },
   { file: 'van.glb',            type: 'car',    speed: 0.85,w: 2.0, h: 1.7, d: 4.6 },
   { file: 'taxi.glb',           type: 'car',    speed: 1.0, w: 1.8, h: 1.2, d: 4.0 },
-  // bus
+    // pks
   { file: 'delivery.glb',       type: 'bus',    speed: 0.7, w: 2.2, h: 2.4, d: 7.0 },
-  // truck
+    // tira
   { file: 'truck.glb',          type: 'truck',  speed: 0.65,w: 2.2, h: 2.2, d: 5.5 },
   { file: 'truck-flat.glb',     type: 'truck',  speed: 0.6, w: 2.2, h: 2.0, d: 6.0 },
   { file: 'garbage-truck.glb',  type: 'truck',  speed: 0.55,w: 2.2, h: 2.4, d: 6.0 },
-  // emergency
+    // sluzby
   { file: 'police.glb',         type: 'emergency', speed: 1.2, w: 1.8, h: 1.2, d: 4.0 },
   { file: 'ambulance.glb',      type: 'emergency', speed: 1.1, w: 2.0, h: 1.8, d: 4.8 },
   { file: 'firetruck.glb',      type: 'emergency', speed: 0.9, w: 2.2, h: 2.4, d: 7.0 },
@@ -97,7 +97,7 @@ export async function loadCarModels(onProgress) {
           child.receiveShadow = true;
         }
       });
-      // Compute bounding box for scaling
+            // Oblicz rozmiar hitboxa po wgraniu
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       results[def.file] = { model, size, def };
@@ -112,7 +112,7 @@ export async function loadCarModels(onProgress) {
   return results;
 }
 
-// === Load Kenney animated character (FBX model + animations + skin) ===
+// Wgranie ludzika fbx
 function loadFBX(url) {
   return new Promise((resolve, reject) => {
     new FBXLoader().load(url, resolve, undefined, reject);
@@ -120,16 +120,16 @@ function loadFBX(url) {
 }
 
 export async function loadCharacterModel() {
-  // Load base model
+    // laduj siatke i kosci
   const model = await loadFBX(CHAR_BASE + 'Model/characterMedium.fbx');
 
-  // Apply skin texture
+    // nalepka ze skina
   const texLoader = new THREE.TextureLoader();
   const skinTex = await new Promise((res, rej) => {
     texLoader.load(CHAR_BASE + 'Skins/skaterMaleA.png', res, undefined, rej);
   });
   skinTex.colorSpace = THREE.SRGBColorSpace;
-  // Kenney FBX from Blender: leave flipY at default (true)
+    // z blendera wypluwa fbx'a bez flipY wiec zostawiamy
 
   model.traverse((child) => {
     if (child.isMesh) {
@@ -143,9 +143,9 @@ export async function loadCharacterModel() {
     }
   });
 
-  // Build a bone name lookup map with multiple naming conventions
-  // so we can retarget animation tracks regardless of prefix differences.
-  // Maps: normalized-key → actual bone name in model
+    // robimy mape kosci dla animacji bo moga sie inaczej nazywac w zaleznosci co wgrasz
+    // ten kod to zlosliwy hack na FBXa od Kenneya
+    // np. klucz -> prawdziwa kosc
   const boneNameMap = new Map();
   model.traverse(child => {
     if (!child.isBone) return;
@@ -159,19 +159,19 @@ export async function loadCharacterModel() {
   const exactBones = [...boneNameMap.keys()].filter(k => boneNameMap.get(k) === k);
   console.log('[CharLoader] All model bone names:', exactBones);
 
-  // Load animation clips from separate FBX files
+    // wyciagamy osobno same animacje z fbx
   const animFiles = ['idle', 'run', 'jump'];
   const animations = {};
   for (const name of animFiles) {
     try {
       const animFbx = await loadFBX(CHAR_BASE + 'Animations/' + name + '.fbx');
       if (animFbx.animations && animFbx.animations.length > 0) {
-        // Pick the longest clip — FBX files often contain a bind-pose clip first
+                // bierz najdluzsza animacje (ignorujemy t-pose)
         const clip = animFbx.animations.reduce((best, c) => c.duration > best.duration ? c : best, animFbx.animations[0]);
         clip.name = name;
 
-        // Retarget: remap track node names to actual bone names in the model.
-        // Handles: plain "BoneName", "mixamorig:BoneName", "Armature|BoneName", "Armature|mixamorig:BoneName"
+                // tutaj mapujemy nazwy animacji na nasz rig
+                // parsowanie tego paskudnego formatu nazw
         let remapped = 0, skipped = 0;
         for (const track of clip.tracks) {
           const dotIdx = track.name.indexOf('.');
@@ -179,7 +179,7 @@ export async function loadCharacterModel() {
           let nodeName = track.name.substring(0, dotIdx);
           const prop = track.name.substring(dotIdx);
 
-          // Strip armature/object prefix separated by '|' (Blender FBX export)
+                    // wycinamy prefiksy z blendera
           const pipeIdx = nodeName.lastIndexOf('|');
           if (pipeIdx >= 0) nodeName = nodeName.substring(pipeIdx + 1);
 

@@ -1,4 +1,4 @@
-// === City generation: grid-based blocks, roads, sidewalks, crossings, lights ===
+// Generowanie miasta: siatka ulic, bloki, chodniki, światła i pasy
 import * as THREE from "three";
 import { PALETTE } from "./config.js";
 
@@ -11,7 +11,7 @@ export class City {
     this.gridSize = zone.gridSize;
     this.size = this.gridSize * this.blockSize;
 
-    // Tracked entities
+        // Obiekty które musimy śledzić w pamięci
     this.crossings = []; // [{x,z, axis:'h'|'v', light:obj}]
     this.trafficLights = []; // [{group, state, timer, pos, axis, redMat, greenMat, amberMat}]
     this.cameras = []; // [{x,z, mesh}]
@@ -28,7 +28,7 @@ export class City {
     this._build();
   }
 
-  // World coords: city centered around (0,0). Grid coords in [-(g/2)..(g/2)]
+    // Miasto wokół (0,0), grid leci od -g/2 do g/2
   cellToWorld(i, j) {
     return {
       x: (i - this.gridSize / 2) * this.blockSize,
@@ -42,7 +42,7 @@ export class City {
     const half = (g * bs) / 2;
     const roadWidth = 8;
 
-    // === Ground (grass base) - PLASKI, ponizej dróg ===
+        // Baza - trawa (musi być płaska, trochę niżej niż drogi)
     const groundGeo = new THREE.PlaneGeometry(
       this.size + 200,
       this.size + 200,
@@ -57,7 +57,7 @@ export class City {
     ground.position.y = -0.08;
     this.scene.add(ground);
 
-    // === Roads: full grid (every blockSize) ===
+        // Ulice na siatce (co jeden block)
     const roadMat = new THREE.MeshStandardMaterial({
       color: PALETTE.road,
       roughness: 0.85,
@@ -72,10 +72,10 @@ export class City {
       roughness: 0.8,
     });
 
-    // Roads (horizontal and vertical bands)
+        // Pasma poziome i pionowe dla ulic
     for (let i = 0; i <= g; i++) {
       const coord = i * bs - half;
-      // Horizontal road
+            // Ulica w poziomie
       const hRoad = new THREE.Mesh(
         new THREE.PlaneGeometry(this.size, roadWidth),
         roadMat,
@@ -92,7 +92,7 @@ export class City {
         axis: "h",
       });
 
-      // Vertical road
+            // Ulica w pionie
       const vRoad = new THREE.Mesh(
         new THREE.PlaneGeometry(roadWidth, this.size),
         roadMat,
@@ -109,23 +109,23 @@ export class City {
         axis: "v",
       });
 
-      // Lane lines (dashed yellow center)
+            // Przerywane linie na środku (żółte)
       this._addLaneLines(0, coord, this.size, roadWidth, "h");
       this._addLaneLines(coord, 0, roadWidth, this.size, "v");
     }
 
-    // === Blocks: sidewalk frame + building cluster ===
+        // Kwartal: ramka z chodnika i budynki w srodku
     for (let i = 0; i < g; i++) {
       for (let j = 0; j < g; j++) {
         const cx = (i + 0.5) * bs - half;
         const cz = (j + 0.5) * bs - half;
-        // Leave a wider gap (3m on each side) between road edge and sidewalk
-        // so zebra crossings fit entirely on the road, not on the curb.
+                // Zostawiamy po 3m odstępu z każdej strony od drogi
+                // żeby pasy mieściły się całe na ulicy a nie na krawężniku
         const innerSize = bs - roadWidth - 6;
         const sidewalkSize = innerSize;
         const buildArea = innerSize - 2;
 
-        // Sidewalk slab
+                // Chodnik (ta wielka płyta)
         const sw = new THREE.Mesh(
           new THREE.BoxGeometry(sidewalkSize, 0.12, sidewalkSize),
           sidewalkMat,
@@ -140,10 +140,10 @@ export class City {
           z2: cz + sidewalkSize / 2,
         });
 
-        // Curb edges
+                // Krawężniki
         const curbT = 0.28;
         const curbW = 0.55;
-        // Place curb at the road edge (transition from road to walkable area).
+                // Krawężnik leci tu gdzie zaczyna się droga
         const curbOff = bs / 2 - roadWidth / 2 - curbW / 2;
         for (const [dx, dz, w, d] of [
           [0, -curbOff, sidewalkSize, curbW],
@@ -159,10 +159,10 @@ export class City {
           this.scene.add(c);
         }
 
-        // Buildings inside block (1-4 buildings, low-poly)
+                // Low poly domki (od 1 do 4 na blok)
         this._buildBuildings(cx, cz, buildArea);
 
-        // Spawn points (corners of sidewalk) — skip any inside a building
+                // Spawny na rogach chodników - pomijamy jak są wtopione w budynek
         const off = sidewalkSize / 2 - 1.5;
         for (const pt of [
           { x: cx - off, z: cz - off },
@@ -176,10 +176,10 @@ export class City {
       }
     }
 
-    // === Intersections + crossings + lights ===
-    // Polish convention: vehicle signal sits on the driver's right, just BEFORE
-    // the stop line/crossing. Pedestrian signals sit on both curbs at each end
-    // of a crossing, lamps facing into the crossing area.
+        // Skrzyżowania, pasy i światła
+        // Po polsku: światło dla aut po prawej stronie, PRZED
+        // linia i pasami. Dla pieszych po obu stronach przejścia
+        // skierowane w stronę przejścia
     const crossOff = roadWidth / 2 + 1.5;               // 5.5 – crossing center from intersection
     const crossWidth = 3.0;
     const roadHalf = roadWidth / 2;                     // 4
@@ -191,39 +191,39 @@ export class City {
         const z = j * bs - half;
         this.intersections.push({ x, z });
 
-        // --- Vehicle signals (one per approach arm, right-hand side, BEFORE the intersection) ---
-        // Right-hand traffic: vehicle is on the half-road closer to the curb on its right.
-        // Pole sits on that curb, lamps face the oncoming driver.
-        // Vehicles coming FROM SOUTH (drive -Z, on +X half): pole SE of intersection, lamps face +Z.
+                // Światła dla aut (jedno na wlot po prawej, przed skrzyżowaniem)
+                // Ruch prawostronny: jedziemy bliżej prawej
+                // Słup na prawym krawężniku, skierowany do kierowcy
+                // Ruch z południa (-Z na +X): słupek SE, skierowany na +Z
         const tlForSouth = this._addTrafficLight(x + roadHalf + 0.5, z + sigOff, 'ns', 0, x, z);
-        // Vehicles FROM NORTH (drive +Z, on -X half): pole NW, lamps face -Z.
+                // Ruch z północy: słupek NW, na -Z
         const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
-        // Vehicles FROM WEST (drive +X, on +Z half): pole SW, lamps face -X.
+                // Ruch z zachodu: słupek SW, na -X
         const tlForWest = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
-        // Vehicles FROM EAST (drive -X, on -Z half): pole NE, lamps face +X.
+                // Ruch ze wschodu: słupek NE, na +X
         const tlForEast = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', Math.PI / 2, x, z);
 
-        // --- Pedestrian signals: 2 per crossing, on the sidewalk corners at each end. ---
-        // pedCorner = sidewalk inner edge (where the curb meets the sidewalk slab). The two
-        // ped lights that share a corner are offset along their own crossing axis so they
-        // don't collide visually.
+                // Sygnalizatory piesze: dwa na każde przejście na rogach
+                // pedCorner = to tam gdzie zaczyna się chodnik.
+                // lekko je przesuwamy żeby się w sobie nie zderzały (z-fighting)
+                // 
         const pedCorner = roadHalf + 3;      // 7 – at the far crossing edge (sidewalk side)
         const pedOff = roadHalf + 0.5;    // 4.5 – just outside road edge at crossing corner
-        // North-arm crossing (peds walk E–W across NS road)
+                // Północne ramię (przejście przez drogę NS)
         this._addPedestrianLight(x - pedOff, z - pedCorner, Math.PI / 2, tlForNorth); // NW corner, lamps face +X (toward crossing)
         this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth); // NE corner, lamps face -X
-        // South-arm crossing
+                // Południowe ramię
         this._addPedestrianLight(x - pedOff, z + pedCorner, Math.PI / 2, tlForSouth); // SW corner
         this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth); // SE corner
-        // East-arm crossing (peds walk N–S across EW road)
+                // Wschodnie ramię (przez droge EW)
         this._addPedestrianLight(x + pedCorner, z - pedOff, 0, tlForEast); // NE corner, lamps face +Z
         this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast); // SE corner, lamps face -Z
-        // West-arm crossing
+                // Zachodnie ramię
         this._addPedestrianLight(x - pedCorner, z - pedOff, 0, tlForWest); // NW corner
         this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest); // SW corner
 
-        // --- Zebra crossings ---
-        // North/south arms on the NS road, peds walk E–W:
+                // Same pasy na jezdni
+                // Północ/południe dla drogi NS:
         for (const dz of [-crossOff, +crossOff]) {
           this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
           const lightObj = dz < 0 ? tlForNorth : tlForSouth;
@@ -233,7 +233,7 @@ export class City {
             x2: x + roadWidth / 2, z2: z + dz + crossWidth / 2,
           });
         }
-        // East/west arms on the EW road, peds walk N–S:
+                // Wschód/zachód dla drogi EW:
         for (const dx of [-crossOff, +crossOff]) {
           this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
           const lightObj = dx < 0 ? tlForWest : tlForEast;
@@ -246,21 +246,21 @@ export class City {
       }
     }
 
-    // Link N-S and E-W lights so they oppose each other (per intersection)
+        // Linkujemy kierunki żeby N-S miało przeciwne światła do E-W
     this._linkTrafficLights();
 
-    // === Cameras (Avigilon) ===
+        // Kamery (te od Avigilona)
     this._placeCameras();
 
-    // === Roadworks obstacles ===
+        // Utrudnienia i roboty drogowe
     if (this.zone.id === "industrial" || this.zone.id === "highway") {
       this._addRoadworks();
     }
 
-    // === Street lamps (night atmosphere) ===
+        // Latarnie uliczne robiące klimat
     this._addLamps();
 
-    // === Boundary box ===
+        // Niewidzialna ściana
     this.bounds = { min: -half, max: half };
   }
 
@@ -269,16 +269,16 @@ export class City {
     const bs = this.blockSize;
     const g = this.gridSize;
     const half = (g * bs) / 2;
-    // Exclusion radius around each intersection center (covers intersection box + crossings + dash length margin)
+        // Promień wykluczenia wokół skrzyżowania (żeby np nie rysować linii ciągłej na skrzyżowaniu)
     const excludeR = 8.5; // crossOff(5.5) + crossWidth/2(1.5) + dashLen/2(1) + margin(0.5)
 
-    // Collect all road grid coordinates (perpendicular roads cross at these positions)
+        // Zbieramy współrzędne gdzie drogi się przecinają
     const roadPositions = [];
     for (let k = 0; k <= g; k++) {
       roadPositions.push(k * bs - half);
     }
 
-    // Check if a dash position along the road is near any perpendicular road crossing
+        // Sprawdzamy czy dany kawałek linii jest przy skrzyżowaniu
     const isNearCrossing = (pos) => {
       for (const rp of roadPositions) {
         if (Math.abs(pos - rp) < excludeR) return true;
@@ -291,7 +291,7 @@ export class City {
         gap = 2;
       for (let x = -w / 2 + 1; x < w / 2; x += dashLen + gap) {
         const worldX = cx + x;
-        // Skip dashes near intersections (where vertical roads cross this horizontal road)
+                // Omijamy rysowanie linii przy skrzyżowaniach z drogą pionową
         if (isNearCrossing(worldX)) continue;
         const line = new THREE.Mesh(
           new THREE.PlaneGeometry(dashLen, 0.25),
@@ -306,7 +306,7 @@ export class City {
         gap = 2;
       for (let z = -d / 2 + 1; z < d / 2; z += dashLen + gap) {
         const worldZ = cz + z;
-        // Skip dashes near intersections (where horizontal roads cross this vertical road)
+                // Omijamy rysowanie przy skrzyżowaniach z poziomą
         if (isNearCrossing(worldZ)) continue;
         const line = new THREE.Mesh(
           new THREE.PlaneGeometry(0.25, dashLen),
@@ -319,12 +319,12 @@ export class City {
     }
   }
 
-  // Render a zebra crossing.
-  //   pedAxis: 'x' or 'z' - direction the pedestrian walks (perpendicular to vehicles)
-  //   roadW: road width (= length of each stripe, spans across the road in walk direction)
-  //   footprint: width of crossing along the vehicle direction
-  // Real zebras: stripes are LONG in pedestrian walking direction (you walk across each bar),
-  // and arrayed along the vehicle direction.
+    // Generuje model zebry.
+    //   pedAxis: 'x' albo 'z' (oś wzdłuż której idzie gracz)
+    //   roadW: długość całego paska (szerokość samej drogi)
+    //   footprint: grubość paska
+    // Zebra w realu ma długie pasy w kierunku chodu
+    // poukładane wzdłuż jezdni. Staramy się to odwzorować
   _addZebra(cx, cz, pedAxis, roadW, footprint) {
     const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const stripeCount = 8;
@@ -335,11 +335,11 @@ export class City {
       const off = -totalSpan / 2 + stripeThick / 2 + i * stripeThick * 2;
       let geo, pos;
       if (pedAxis === 'x') {
-        // Peds walk X → vehicles travel Z → bars short in X (perpendicular), arrayed in X
+                // Ruch w osi X to pasy rozłożone wg Z
         geo = new THREE.PlaneGeometry(stripeThick, stripeLen);
         pos = [cx + off, 0.015, cz];
       } else {
-        // Peds walk Z → vehicles travel X → bars short in Z (perpendicular), arrayed in Z
+                // Odwrotnie do powyższego
         geo = new THREE.PlaneGeometry(stripeLen, stripeThick);
         pos = [cx, 0.015, cz + off];
       }
@@ -352,7 +352,7 @@ export class City {
 
   _addTrafficLight(x, z, axis, rotationY = 0, intersectionX = x, intersectionZ = z) {
     const group = new THREE.Group();
-    // Pole
+        // Słupek od latarni
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.12, 0.12, 4.2),
       new THREE.MeshLambertMaterial({ color: 0x222a33 })
@@ -360,7 +360,7 @@ export class City {
     pole.position.y = 2.1;
     pole.castShadow = true;
     group.add(pole);
-    // Housing
+        // Puszka z żarówkami
     const housing = new THREE.Mesh(
       new THREE.BoxGeometry(0.7, 1.6, 0.5),
       new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
@@ -368,7 +368,7 @@ export class City {
     housing.position.y = 4.0;
     group.add(housing);
 
-    // 3 lamps
+        // 3 żarówki
     const redMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0x220000, emissiveIntensity: 0.4 });
     const ambMat = new THREE.MeshStandardMaterial({ color: 0x553f00, emissive: 0x221800, emissiveIntensity: 0.4 });
     const grnMat = new THREE.MeshStandardMaterial({ color: 0x005522, emissive: 0x002211, emissiveIntensity: 0.4 });
@@ -402,7 +402,7 @@ export class City {
 
   _addPedestrianLight(x, z, rotationY, linkedVehicle) {
     const group = new THREE.Group();
-    // Shorter, thinner pole
+        // Niższy i cieńszy słupek dla pieszego
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.07, 0.07, 2.6),
       new THREE.MeshLambertMaterial({ color: 0x222a33 })
@@ -410,14 +410,14 @@ export class City {
     pole.position.y = 1.3;
     pole.castShadow = true;
     group.add(pole);
-    // Smaller housing
+        // Mała puszka
     const housing = new THREE.Mesh(
       new THREE.BoxGeometry(0.42, 0.95, 0.32),
       new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
     );
     housing.position.set(0, 2.85, 0);
     group.add(housing);
-    // Two lamps: red (top = stop) and green (bottom = walk)
+        // Tylko 2 światełka: czerwone i zielone
     const redMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0x220000, emissiveIntensity: 0.4 });
     const grnMat = new THREE.MeshStandardMaterial({ color: 0x005522, emissive: 0x002211, emissiveIntensity: 0.4 });
     const redLamp = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 7), redMat);
@@ -446,9 +446,9 @@ export class City {
   }
 
   _linkTrafficLights() {
-    // Group lights by intersection center (each light carries its intersection coords).
-    // Position-based grouping is unsafe with Polish-style placement because adjacent
-    // intersections' near-side signals can come within ~13 units of each other.
+        // Grupujemy światła według środka skrzyżowania
+        // Nie możemy grupowac po pozycji bezpośrednio, bo nasze "polskie" światła
+        // mogą leżeć blisko siebie na małych ulicach
     const groups = new Map();
     for (const tl of this.trafficLights) {
       const key = `${tl.intersection.x.toFixed(2)},${tl.intersection.z.toFixed(2)}`;
@@ -457,10 +457,10 @@ export class City {
       g.items.push(tl);
     }
 
-    // Pick a random arterial row (constant z) and column (constant x). Intersections
-    // on these get a "green wave": phases aligned so cars travelling at waveSpeed
-    // along the arterial hit consecutive greens. All other intersections get
-    // independent random phases so the city doesn't tick in lockstep.
+        // Wybieramy główne ulice dla "zielonej fali" (jeden wiersz i kolumna)
+        // samochody na nich mogą jechać płynnie, bo światła mają odpowiednie opóźnienie
+        // pozostałe skrzyżowania mają losowe fazy
+        // żeby uniknąć mechanicznego tykania wszystkich świateł naraz
     const bs = this.blockSize;
     const halfCity = (this.gridSize * bs) / 2;
     const arterialJ = 1 + Math.floor(Math.random() * Math.max(1, this.gridSize - 1));
@@ -477,19 +477,19 @@ export class City {
       const ns = grp.items.filter(t => t.axis === 'ns');
       const ew = grp.items.filter(t => t.axis === 'ew');
 
-      // Decide if this intersection is on an arterial.
+            // Sprawdzamy czy to skrzyżowanie to główna droga
       const onArterialEW = Math.abs(grp.z - arterialZ) < 0.5; // EW road runs along constant z
       const onArterialNS = Math.abs(grp.x - arterialX) < 0.5;
 
       let nsGreen, ewGreen, amber, phase;
       if (onArterialEW) {
-        // EW gets the long green; NS is the cross street
+                // Wschód-zachód ma długie zielone, północ-południe ma krótkie
         ewGreen = arterialGreen;
         nsGreen = arterialCross;
         amber = arterialAmber;
-        // Phase chosen so EW green starts at t = x / waveSpeed at this intersection.
-        // Cycle phase progresses as (t + offset) mod fullCycle. EW green window
-        // begins at phase nsGreen + amber. Solve offset = nsGreen+amber - x/waveSpeed.
+                // Faza przesunięta o prędkość fali
+                // Zwyczajny moduł cyklu żeby się zapętlało
+                // offset = zieloneNS + żółte - droga/prędkość
         const fullCycle = arterialCycle;
         phase = ((nsGreen + amber - grp.x / waveSpeed) % fullCycle + fullCycle) % fullCycle;
       } else if (onArterialNS) {
@@ -497,10 +497,10 @@ export class City {
         ewGreen = arterialCross;
         amber = arterialAmber;
         const fullCycle = arterialCycle;
-        // NS green window begins at phase 0. Solve offset = 0 - z/waveSpeed.
+                // to samo dla NS
         phase = ((-grp.z / waveSpeed) % fullCycle + fullCycle) % fullCycle;
       } else {
-        // Off-arterial: randomise each intersection independently.
+                // boczne uliczki - losujemy fazę
         nsGreen = 3.5 + Math.random() * 4.0;   // 3.5 – 7.5 s
         ewGreen = 3.5 + Math.random() * 4.0;
         amber = 1.0 + Math.random() * 0.6;     // 1.0 – 1.6 s
@@ -510,8 +510,8 @@ export class City {
 
       const fullCycle = nsGreen + amber + ewGreen + amber;
 
-      // Assign cycle durations. Red duration for each axis = opposite axis green + amber,
-      // so the state machine never lets both axes be green simultaneously.
+            // Ustawiamy czasy. Czerwone = zielone i żółte dla drugiego kierunku
+            // dzięki temu unikamy dzwona na środku bo oba by miały zielone
       ns.forEach(t => {
         t.cycleGreen = nsGreen;
         t.cycleAmber = amber;
@@ -523,12 +523,12 @@ export class City {
         t.cycleRed = nsGreen + amber;
       });
 
-      // Map phase position in the joint cycle to (state, timer) per axis.
-      // Joint cycle layout (starting at NS-green-begins):
-      //   [0, nsGreen)                              : NS green, EW red (just turned)
-      //   [nsGreen, nsGreen+amber)                  : NS amber, EW red
-      //   [nsGreen+amber, nsGreen+amber+ewGreen)    : NS red (just turned), EW green
-      //   [nsGreen+amber+ewGreen, fullCycle)        : NS red, EW amber
+            // Przeliczanie fazy na konkretny stan i timer osi
+            // Układ faz w cyklu:
+            //   [0, nsGreen)                              : NS ma zielone, EW ma czerwone
+            //   [nsGreen, nsGreen+amber)                  : NS ma zolte, EW ma czerwone
+            //   ... wiadomo
+            //   
       const p = phase % fullCycle;
       const setFromPhase = (t, axis) => {
         if (axis === 'ns') {
@@ -548,7 +548,7 @@ export class City {
       this._applyLightVisual(ew);
     }
 
-    // Initialize pedestrian signals (opposite phase to their linked vehicle signal)
+        // Światła dla pieszych startują jako przeciwność aut
     for (const pl of this.pedestrianLights) {
       pl.state = pl.linkedVehicle.state === 'red' ? 'green' : 'red';
       this._applyPedLightVisual(pl);
@@ -574,7 +574,7 @@ export class City {
     const FLASH_DURATION = 3.0;  // seconds of flashing green before ped turns red
     const FLASH_INTERVAL = 0.35; // on/off period
 
-    // Update vehicle signals and mark pedestrian-flash window
+        // Update aut i przygotowanie pod mruganie pieszego
     for (const tl of this.trafficLights) {
       tl.timer += dt;
       let nextState = tl.state;
@@ -585,19 +585,19 @@ export class City {
         tl.state = nextState;
         this._applyLightVisual([tl]);
       }
-      // Pedestrian flash window: last FLASH_DURATION seconds of the vehicle red phase
+            // Mruganie pieszego przez ostatnie 3 sekundy czerwonego dla aut
       tl._pedFlashing = tl.state === 'red' && (tl.cycleRed - tl.timer) <= FLASH_DURATION;
     }
 
-    // Update pedestrian signals with flashing support
+        // Update pieszych z efektem migania
     for (const pl of this.pedestrianLights) {
       const veh = pl.linkedVehicle;
       if (veh.state !== 'red') {
-        // Vehicle green/amber → ped red
+                // Auta mają zielone/zółte -> pieszy ma czerwone
         pl._flashTimer = 0;
         if (pl.state !== 'red') { pl.state = 'red'; this._applyPedLightVisual(pl); }
       } else if (veh._pedFlashing) {
-        // Last N seconds of ped green → flash
+                // Ostatnie N sekund -> pieszy mruga
         pl.state = 'flashing';
         pl._flashTimer = (pl._flashTimer || 0) + dt;
         const on = Math.floor(pl._flashTimer / FLASH_INTERVAL) % 2 === 0;
@@ -608,7 +608,7 @@ export class City {
         pl.redMat.emissive.setHex(0x220000);
         pl.redMat.emissiveIntensity = 0.25;
       } else {
-        // Solid pedestrian green
+                // Czyste zielone
         pl._flashTimer = 0;
         if (pl.state !== 'green') { pl.state = 'green'; this._applyPedLightVisual(pl); }
       }
@@ -652,7 +652,7 @@ export class City {
       let actualW = nativeSize.x * MODEL_SCALE;
       let actualD = nativeSize.z * MODEL_SCALE;
 
-      // Scale down if the model is too large for the block
+            // Skalujemy wdół żeby model nie wjechał na ulice
       const maxDim = area;
       let fitScale = MODEL_SCALE;
       if (actualW > maxDim || actualD > maxDim) {
@@ -662,11 +662,11 @@ export class City {
         actualD *= scaleFactor;
       }
 
-      // Clamp offset so model stays inside the block
+            // Przycinamy pozycje modelu do wymiarow blocka
       const maxOffX = Math.max(0, (area - actualW) / 2);
       const maxOffZ = Math.max(0, (area - actualD) / 2);
 
-      // First building (placed[] empty) always fits. Subsequent ones get 15 attempts.
+            // Pierwszy blok ma zawsze miejsce, kolejne losujemy do 15 razy aż wejdą
       let offX = 0,
         offZ = 0,
         fits = false;
@@ -702,10 +702,10 @@ export class City {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
-          // Night lighting is very dim (ambient ~0.15); without an
-          // emissive contribution the Kenney models render almost black.
-          // Reuse the diffuse colormap as an emissive map so each building
-          // self-illuminates with its own texture colors.
+                    // W nocy jest ciemno, bez samo-świecenia Kenney byłby smołą
+                    // a chcemy żeby to jakoś wyglądało
+                    // Kopiujemy albedo na emmisive żeby świeciły własnymi kolorami
+                    // taki tam sprytny hack
           const mats = Array.isArray(child.material) ? child.material : [child.material];
           for (const m of mats) {
             if (!m || m.userData.__cgLit) continue;
@@ -762,7 +762,7 @@ export class City {
       bldg.receiveShadow = true;
       this.scene.add(bldg);
 
-      // Cokół (ciemniejszy parter)
+            // Cokół (taki podrasowany, ciemniejszy parter)
       const base = new THREE.Mesh(
         new THREE.BoxGeometry(w * 1.03, 1.5, d * 1.03),
         new THREE.MeshStandardMaterial({
@@ -774,7 +774,7 @@ export class City {
       base.receiveShadow = true;
       this.scene.add(base);
 
-      // Gzyms na górze
+            // Gzyms
       const cornice = new THREE.Mesh(
         new THREE.BoxGeometry(w * 1.05, 0.25, d * 1.05),
         new THREE.MeshStandardMaterial({
@@ -787,7 +787,7 @@ export class City {
 
       this._addWindows(bldg, w, h, d);
 
-      // Dach
+            // Dach budynków
       const roof = new THREE.Mesh(
         new THREE.BoxGeometry(w * 0.7, 0.8, d * 0.7),
         new THREE.MeshStandardMaterial({
@@ -797,7 +797,7 @@ export class City {
       );
       roof.position.set(cx + offX, h + 0.55, cz + offZ);
       this.scene.add(roof);
-      // Klimatyzator na dachu
+            // Elementy klimy
       if (Math.random() > 0.4) {
         const ac = new THREE.Mesh(
           new THREE.BoxGeometry(1.2, 0.6, 0.8),
@@ -814,7 +814,7 @@ export class City {
         );
         this.scene.add(ac);
       }
-      // Antena dla wyższych budynków
+            // Mały nadajnik/antena na tych wyższych
       if (h > 14 && Math.random() > 0.5) {
         const ant = new THREE.Mesh(
           new THREE.CylinderGeometry(0.05, 0.05, 3),
@@ -834,7 +834,7 @@ export class City {
         z2: cz + offZ + d / 2,
       });
     }
-    // Dodaj drzewa i ławki przy chodnikach
+        // Dekoracje przy chodnikach
     if (Math.random() > 0.3) this._addStreetFurniture(cx, cz, area);
   }
 
@@ -851,7 +851,7 @@ export class City {
     for (let i = 0; i < trees; i++) {
       const tx = cx + (Math.random() - 0.5) * area * 0.95;
       const tz = cz + (Math.random() - 0.5) * area * 0.95;
-      // pomiń jeśli w budynku
+            // ignorujemy jeśli wpadło w budynek
       if (this.collidesBuilding(tx, tz, 1)) continue;
       const trunk = new THREE.Mesh(
         new THREE.CylinderGeometry(0.18, 0.22, 1.6, 8),
@@ -868,7 +868,7 @@ export class City {
       leaves.position.set(tx, 2.3, tz);
       leaves.castShadow = true;
       this.scene.add(leaves);
-      // dwie mniejsze "kępy" - mniej geometrycznie
+            // dwie kulki żeby wyglądało trochę ładniej niż jeden klocek
       const leaves2 = new THREE.Mesh(
         new THREE.IcosahedronGeometry(r * 0.65, 1),
         leafMat,
@@ -876,7 +876,7 @@ export class City {
       leaves2.position.set(tx + 0.4, 2.6, tz - 0.3);
       this.scene.add(leaves2);
     }
-    // Ławka
+        // Ławeczka
     if (Math.random() > 0.55) {
       const bx = cx + (Math.random() - 0.5) * area * 0.7;
       const bz = cz + (Math.random() - 0.5) * area * 0.7;
@@ -954,7 +954,7 @@ export class City {
   }
 
   _placeCameras() {
-    // Mount on intersection corners
+        // Montujemy na rogach skrzyżowań
     const positions = [];
     const used = new Set();
     for (const intr of this.intersections) {
@@ -979,7 +979,7 @@ export class City {
       cam.position.set(p.x + 4, 5.0, p.z + 4);
       this.scene.add(cam);
 
-      // Red status LED
+            // Czerwona diodka statusu
       const led = new THREE.Mesh(
         new THREE.SphereGeometry(0.08, 8, 6),
         new THREE.MeshBasicMaterial({ color: 0xff2233 }),
@@ -1000,7 +1000,7 @@ export class City {
       const x = seg.x1 + (seg.x2 - seg.x1) * t;
       const z = seg.z1 + (seg.z2 - seg.z1) * t;
 
-      // Cone
+            // Pachołek drogowy
       const coneMat = new THREE.MeshLambertMaterial({ color: 0xff6a00 });
       for (let c = -1; c <= 1; c++) {
         const cone = new THREE.Mesh(
@@ -1010,7 +1010,7 @@ export class City {
         cone.position.set(x + c * 0.8, 0.45, z);
         cone.castShadow = true;
         this.scene.add(cone);
-        // Reflective band
+                // Element odblaskowy
         const band = new THREE.Mesh(
           new THREE.CylinderGeometry(0.18, 0.22, 0.1, 8),
           new THREE.MeshBasicMaterial({ color: 0xffffff }),
@@ -1028,7 +1028,7 @@ export class City {
   }
 
   _addLamps() {
-    // Street lamps at intersections and along roads (visual only, no PointLights)
+        // Same latarnie (wyłączone światła bo webgl zdycha od limitu pointlightów)
     if (!this.isNight) return;
     const bs = this.blockSize;
     const g = this.gridSize;
@@ -1036,10 +1036,10 @@ export class City {
     const lampMat = new THREE.MeshLambertMaterial({ color: 0x333a44 });
     const lampHeadMat = new THREE.MeshBasicMaterial({ color: 0xffeedd });
 
-    // Place lamps along roads at regular intervals
+        // Wrzucamy lampy wzdłuż ulic
     for (let i = 0; i <= g; i++) {
       const roadCoord = i * bs - half;
-      // Lamps along horizontal roads
+            // Latarnie dla ulic poziomych
       for (let seg = 0; seg < g; seg++) {
         const segCenter = (seg + 0.5) * bs - half;
         for (const side of [-1, 1]) {
@@ -1048,7 +1048,7 @@ export class City {
           this._createStreetLamp(lx, lz, lampMat, lampHeadMat);
         }
       }
-      // Lamps along vertical roads
+            // Latarnie dla ulic pionowych
       for (let seg = 0; seg < g; seg++) {
         const segCenter = (seg + 0.5) * bs - half;
         for (const side of [-1, 1]) {
@@ -1061,7 +1061,7 @@ export class City {
   }
 
   _createStreetLamp(x, z, poleMat, headMat) {
-    // Pole
+        // Słupek od latarni
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.08, 0.1, 5.5, 6),
       poleMat
@@ -1069,20 +1069,20 @@ export class City {
     pole.position.set(x, 2.75, z);
     pole.castShadow = true;
     this.scene.add(pole);
-    // Lamp head
+        // Góra lampy
     const head = new THREE.Mesh(
       new THREE.BoxGeometry(0.6, 0.15, 0.35),
       headMat
     );
     head.position.set(x, 5.5, z);
     this.scene.add(head);
-    // Warm light cone
-    // const light = new THREE.PointLight(0xffcc88, 1.8, 18, 2);
-    // light.position.set(x, 5.3, z);
-    // this.scene.add(light);
+        // Imitacja słupa światła (cone)
+        // const light = new THREE.PointLight(0xffcc88, 1.8, 18, 2);  // wyłączone bo zabija FPS
+        // light.position.set(x, 5.3, z); // powód jw.
+        // this.scene.add(light);
   }
 
-  // === Helpers used by gameplay ===
+    // Utility dla gameplayu
   isOnSidewalk(x, z) {
     for (const s of this.sidewalks) {
       if (x >= s.x1 && x <= s.x2 && z >= s.z1 && z <= s.z2) return true;
@@ -1090,7 +1090,7 @@ export class City {
     return false;
   }
   isOnRoad(x, z) {
-    // Only consider actual road surface (within roadWidth/2 of a road center line)
+        // Sprawdzamy czy to na pewno jest jezdnia
     if (
       x < this.bounds.min ||
       x > this.bounds.max ||
@@ -1101,7 +1101,7 @@ export class City {
     const roadHalf = 4; // roadWidth / 2
     for (const seg of this.roadSegments) {
       if (seg.axis === "h") {
-        // Horizontal road: check if within Z band and X range
+                // Droga pozioma, sprawdzamy współrzędne
         if (
           Math.abs(z - seg.z1) <= roadHalf &&
           x >= seg.x1 &&
@@ -1109,7 +1109,7 @@ export class City {
         )
           return true;
       } else {
-        // Vertical road: check if within X band and Z range
+                // Droga pionowa, sprawdzamy wspolrzedne
         if (
           Math.abs(x - seg.x1) <= roadHalf &&
           z >= seg.z1 &&
@@ -1120,10 +1120,10 @@ export class City {
     }
     return false;
   }
-  // Returns true if player is on any safe ground (sidewalk or grass - anything not road/crossing)
+    // Zwraca true jeśli gracz nie jest na jezdni ani na pasach
   isOnSafeGround(x, z) {
     if (this.isOnSidewalk(x, z)) return true;
-    // Grass: within bounds, not on road, not on crossing
+        // Trawa - w mapie, ale nie droga/pasy
     if (
       x < this.bounds.min ||
       x > this.bounds.max ||
@@ -1151,7 +1151,7 @@ export class City {
     return false;
   }
 
-  // Pick a random spawn point far from a position
+    // Losowy punkt daleko od danej pozycji
   farSpawn(fromX, fromZ, minDist = 60) {
     const candidates = this.spawnPoints
       .map((p) => ({ p, d: Math.hypot(p.x - fromX, p.z - fromZ) }))
@@ -1163,7 +1163,7 @@ export class City {
     ].p;
   }
 
-  // Random sidewalk point
+    // Losowy punkt na chodniku
   randomSidewalkPoint() {
     return this.spawnPoints[
       Math.floor(Math.random() * this.spawnPoints.length)

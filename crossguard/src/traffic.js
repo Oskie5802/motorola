@@ -1,4 +1,4 @@
-// === Vehicles, NPC pedestrians, emergency vehicles ===
+// Caly ruch uliczny, pieszki itd
 import * as THREE from 'three';
 import { PALETTE } from './config.js';
 
@@ -23,23 +23,23 @@ export class TrafficSystem {
   }
 
   _makeVehicle(forceType = null) {
-    // === GLB model path ===
+        // Sciezki
     if (this.carModels && Object.keys(this.carModels).length > 0) {
       return this._makeVehicleGLB(forceType);
     }
-    // === Fallback: original box geometry ===
+        // To stary kod z boxami jak sie wywala glb, zostawiamy the failsafe
     return this._makeVehicleBox(forceType);
   }
 
   _makeVehicleGLB(forceType = null) {
-    // Pick a model def based on zone & type
+        // Wybierz model na podstawie strefy
     const allDefs = Object.values(this.carModels);
     const carDefs     = allDefs.filter(d => d.def.type === 'car');
     const busDefs     = allDefs.filter(d => d.def.type === 'bus');
     const truckDefs   = allDefs.filter(d => d.def.type === 'truck');
     const emergDefs   = allDefs.filter(d => d.def.type === 'emergency');
 
-    // Weighted selection by zone
+        // Losowanko wagowe dla zonow
     let pool;
     if (forceType === 'emergency') {
       pool = emergDefs.length ? emergDefs : carDefs;
@@ -50,7 +50,7 @@ export class TrafficSystem {
     } else if (this.zone.id === 'downtown' && Math.random() < 0.15) {
       pool = busDefs.length ? busDefs : carDefs;
     } else {
-      // Default: mostly cars, occasional bus/truck
+            // W centrum glownie osobówki
       const r = Math.random();
       if (r < 0.7) pool = carDefs;
       else if (r < 0.85) pool = busDefs.length ? busDefs : carDefs;
@@ -61,7 +61,7 @@ export class TrafficSystem {
     const chosen = pool[Math.floor(Math.random() * pool.length)];
     const def = chosen.def;
 
-    // Clone the model
+        // Sklonuj autko
     const group = chosen.model.clone(true);
     group.traverse(child => {
       if (child.isMesh) {
@@ -71,7 +71,7 @@ export class TrafficSystem {
       }
     });
 
-    // Scale model to fit desired dimensions
+        // Przeskaluj jak bydle wyszlo z blendera zamale
     const modelSize = chosen.size;
     const scaleX = def.w / modelSize.x;
     const scaleY = def.h / modelSize.y;
@@ -79,15 +79,15 @@ export class TrafficSystem {
     const uniformScale = Math.min(scaleX, scaleY, scaleZ);
     group.scale.setScalar(uniformScale);
 
-    // Recompute actual dimensions after uniform scale
+        // Oblicz nowe wymiary boxow do hitboxów na wypadek zderzeń
     const actualW = modelSize.x * uniformScale;
     const actualH = modelSize.y * uniformScale;
     const actualD = modelSize.z * uniformScale;
 
-    // Center the model: shift so bottom is at y=0 and center horizontally
+        // Wycentrowuj jezdziło zeby po ziemi smigalo a nie w asfalcie
     group.position.set(0, 0, 0);
 
-    // Add headlight glow
+        // Swiatelka z przedu
     const lightMat = new THREE.MeshStandardMaterial({
       color: 0xfff6d2, emissive: 0xfff2c8, emissiveIntensity: 1.4
     });
@@ -98,7 +98,7 @@ export class TrafficSystem {
     const hR = hL.clone();
     hR.position.x = actualW * 0.32;
     group.add(hR);
-    // Tail lights
+        // Stopki i pozycyjne
     const tMat = new THREE.MeshStandardMaterial({
       color: 0xff2a2a, emissive: 0xff2030, emissiveIntensity: 0.9
     });
@@ -111,7 +111,7 @@ export class TrafficSystem {
 
     this.scene.add(group);
 
-    // Choose a road segment & lane direction
+        // Losuj gdzie ma jechac i jakim pasem
     const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
     const dir = Math.random() < 0.5 ? 1 : -1;
     const laneOffset = 1.6 * dir;
@@ -131,7 +131,7 @@ export class TrafficSystem {
       axis = 'v';
     }
     group.position.set(x, 0, z);
-    // Kenney GLB models face +Z, so no extra PI offset needed
+        // Kenney ogarnal modele +Z wiec dzialaja bez rotacji pi
     group.rotation.y = Math.atan2(vx, vz);
 
     return {
@@ -413,22 +413,22 @@ export class TrafficSystem {
       const pantsMat = new THREE.MeshStandardMaterial({ color: pantsC, roughness: 0.85 });
       const shoesMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 });
 
-      // Tors
+            // cialko bota
       const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.28, 1, 2, 1), shirtMat);
       torso.position.y = 1.0;
       torso.castShadow = true;
       group.add(torso);
-      // Szyja
+            // kark
       const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 10), skinMat);
       neck.position.y = 1.42;
       group.add(neck);
-      // Głowa
+            // dynia
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.20, 14, 12), skinMat);
       head.position.y = 1.6;
       head.scale.set(1, 1.08, 0.95);
       head.castShadow = true;
       group.add(head);
-      // Włosy (półsfera)
+            // fryz
       if (Math.random() > 0.15) {
         const hair = new THREE.Mesh(
           new THREE.SphereGeometry(0.21, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2.1),
@@ -437,34 +437,34 @@ export class TrafficSystem {
         hair.position.y = 1.64;
         group.add(hair);
       }
-      // Ramiona (cylindry)
+            // rączki
       const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.6, 10), shirtMat);
       armL.position.set(-0.32, 1.05, 0);
       armL.castShadow = true;
       group.add(armL);
       const armR = armL.clone(); armR.position.x = 0.32;
       group.add(armR);
-      // Dłonie
+            // łapy
       const handL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), skinMat);
       handL.position.set(-0.32, 0.74, 0);
       group.add(handL);
       const handR = handL.clone(); handR.position.x = 0.32;
       group.add(handR);
-      // Nogi
+            // giry
       const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.65, 10), pantsMat);
       legL.position.set(-0.12, 0.34, 0);
       legL.castShadow = true;
       group.add(legL);
       const legR = legL.clone(); legR.position.x = 0.12;
       group.add(legR);
-      // Buty
+            // trzewiki
       const shoeL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), shoesMat);
       shoeL.position.set(-0.12, 0.05, 0.04);
       group.add(shoeL);
       const shoeR = shoeL.clone(); shoeR.position.x = 0.12;
       group.add(shoeR);
 
-      // miękki cień
+            // cien cieniutki
       const sh = new THREE.Mesh(
         new THREE.CircleGeometry(0.38, 18),
         new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 })
@@ -493,10 +493,10 @@ export class TrafficSystem {
     }
   }
 
-  // Build a looping NPC route that circles one full intersection,
-  // crossing all 4 arms and obeying each arm's traffic light.
-  // Layout (clockwise): south arm → SW corner → west arm → NW corner →
-  //                     north arm → NE corner → east arm → SE corner → repeat
+    // Trasa na caly etat: zrob pętlę wokół skrzyżowania.
+    // przejdz wszystkie 4 boki po pasach zgodnie z swiatłami
+    // Trasa leci jak wskazówki zegara
+    // w nieskonczonosc bo zycie npece jest nudne
   _makeNpcRoute() {
     const inters = this.city.intersections;
     const crossings = this.city.crossings;
@@ -522,7 +522,7 @@ export class TrafficSystem {
 
       if (!S || !W || !N || !E) continue;
 
-      // Stroll points — skip if inside a building
+            // Punkty do łażenia
       const pts = [
         { x: ix + RE + ST, z: iz + CO },   // east of south arm
         { x: ix - CO,      z: iz + RE + ST }, // south of west arm
@@ -531,32 +531,32 @@ export class TrafficSystem {
       ];
       if (pts.some(p => this.city.collidesBuilding(p.x, p.z, 0.3))) continue;
 
-      // Pick a random starting arm so NPCs spread around the intersection
+            // Losowy start bo inaczej tloczyliby sie na jednym pasie
       const startArm = Math.floor(Math.random() * 4);
       const full = [
-        // South arm: cross east → west
+                // Dolny bok: idzie w lewo
         { x: ix + RE + ST, z: iz + CO,  type: 'walk' },
         { x: ix + RE,      z: iz + CO,  type: 'wait', light: S.light },
         { x: ix - RE,      z: iz + CO,  type: 'walk' },
         { x: ix - RE,      z: iz + RE,  type: 'walk' }, // SW corner
-        // West arm: cross south → north
+                // Lewy: w gore
         { x: ix - CO,      z: iz + RE + ST, type: 'walk' },
         { x: ix - CO,      z: iz + RE,  type: 'wait', light: W.light },
         { x: ix - CO,      z: iz - RE,  type: 'walk' },
         { x: ix - RE,      z: iz - RE,  type: 'walk' }, // NW corner
-        // North arm: cross west → east
+                // Gorny: w prawo
         { x: ix - RE - ST, z: iz - CO,  type: 'walk' },
         { x: ix - RE,      z: iz - CO,  type: 'wait', light: N.light },
         { x: ix + RE,      z: iz - CO,  type: 'walk' },
         { x: ix + RE,      z: iz - RE,  type: 'walk' }, // NE corner
-        // East arm: cross north → south
+                // Prawy: w dol
         { x: ix + CO,      z: iz - RE - ST, type: 'walk' },
         { x: ix + CO,      z: iz - RE,  type: 'wait', light: E.light },
         { x: ix + CO,      z: iz + RE,  type: 'walk' },
         { x: ix + RE,      z: iz + RE,  type: 'walk' }, // SE corner
       ];
 
-      // Rotate so NPCs start at different arms
+            // Rozrzuc ich po skrzyzowaniu
       const offset = startArm * 4;
       return [...full.slice(offset), ...full.slice(0, offset)];
     }
@@ -564,11 +564,11 @@ export class TrafficSystem {
   }
 
   update(dt, playerPos, signals) {
-    // Vehicles
+        // Aktualizacja bryk
     for (const v of this.vehicles) {
       this._updateVehicle(v, dt, playerPos, signals);
     }
-    // NPC pedestrians: walk sidewalk → stop at crossing → cross on green → repeat
+        // Ludziki: spacer -> stoimy przed przejsciem -> zielone to idziemy -> znowu spacer
     for (const p of this.peds) {
       if (!p.route || p.route.length === 0) continue;
       const wp = p.route[p.wpIdx];
@@ -578,7 +578,7 @@ export class TrafficSystem {
 
       if (wp.type === 'wait') {
         if (d > 0.4) {
-          // Not yet at the road edge — walk there first
+                    // Jeszcze nie doszedl do krawedzi drogi
           const nx = p.pos.x + (dx / d) * p.speed * dt;
           const nz = p.pos.z + (dz / d) * p.speed * dt;
           if (!this.city.collidesBuilding(nx, nz, 0.25)) {
@@ -594,11 +594,11 @@ export class TrafficSystem {
           p.group.rotation.y = Math.atan2(dx, dz);
           continue;
         }
-        // At road edge — vehicle RED = pedestrian GREEN, safe to cross
-        // But not during flashing green (last 3s warning — don't start crossing)
+                // Na przejsciu -> samochody maja czerwone to znaczy my smigamy
+                // ale jak mruga zielone to odpuszczamy, glupio zginąć
         const canCross = wp.light && wp.light.state === 'red' && !wp.light._pedFlashing;
         if (!canCross) {
-          // Stand still with gentle idle sway
+                    // Stoi znudzony i czeka na światło
           p.phase += dt * 1.5;
           const sway = Math.sin(p.phase) * 0.08;
           if (p.armL) p.armL.rotation.x = sway;
@@ -612,7 +612,7 @@ export class TrafficSystem {
         continue;
       }
 
-      // type === 'walk'
+            // tryb spacerku
       if (d < 0.4) {
         p.wpIdx = (p.wpIdx + 1) % p.route.length;
         continue;
@@ -638,22 +638,22 @@ export class TrafficSystem {
   }
 
   _updateVehicle(v, dt, playerPos, signals) {
-    // Check upcoming traffic light & player on crossing in front
+        // Sprawdz swiatla i czy gracz wlasnie nie pajacuje na pasach przed nami
     let shouldStop = false;
     const lookAhead = 6 + v.d / 2;
 
-    // Front position
+        // Odleglosc maski wozu od czegos z przodu
     const fx = v.pos.x + v.vx * lookAhead;
     const fz = v.pos.z + v.vz * lookAhead;
 
-    // Check traffic light in front
+        // Lookaj na sygnalizacje
     if (!v.runsRed && !v.isEmergency) {
       for (const tl of this.city.trafficLights) {
         const tdx = tl.pos.x - v.pos.x;
         const tdz = tl.pos.z - v.pos.z;
         const along = (v.vx * tdx) + (v.vz * tdz);
         const perp = Math.abs(v.vx * tdz - v.vz * tdx);
-        // Light controls car direction perpendicular to its axis label
+                // Jak zielone to rura
         const controls = (v.axis === 'h' && tl.axis === 'ew') || (v.axis === 'v' && tl.axis === 'ns');
         if (controls && along > 0 && along < lookAhead + 3 && perp < 8) {
           if (tl.state === 'red' || tl.state === 'amber') {
@@ -663,7 +663,7 @@ export class TrafficSystem {
       }
     }
 
-    // Player on crossing in front
+        // Typ wlazł mi pod maskę
     const pdx = playerPos.x - v.pos.x;
     const pdz = playerPos.z - v.pos.z;
     const palong = v.vx * pdx + v.vz * pdz;
@@ -671,11 +671,11 @@ export class TrafficSystem {
     if (palong > 0 && palong < lookAhead && pperp < 2.5) {
       const cross = this.city.isOnCrossing(playerPos.x, playerPos.z);
       if (cross) shouldStop = true;
-      // Also stop if very close (avoid running over jaywalker)
+            // Hamuj awaryjnie przed jaywalkerami zeby nie miec krwi na zderzaku
       if (palong < 4 && pperp < 1.6) shouldStop = true;
     }
 
-    // Vehicle ahead?
+        // Ktos z przodu?
     for (const other of this.vehicles) {
       if (other === v) continue;
       const odx = other.pos.x - v.pos.x;
@@ -688,37 +688,37 @@ export class TrafficSystem {
       }
     }
 
-    // Weather effect
+        // Przy deszczu jest gorzej z hamowaniem no nie
     const weatherMul = this.zone.weather === 'rain' ? 0.85 : this.zone.weather === 'fog' ? 0.8 : 1.0;
     const target = shouldStop ? 0 : v.baseSpeed * weatherMul * (v.isEmergency ? 1.4 : 1);
-    // GLB models: snappier acceleration/braking for dynamic feel
+        // Modele przyspieszaja z zacieciem zeby gra byla fajniejsza
     const accel = v.glbModel ? 5.0 : 3.0;
     v.speed += (target - v.speed) * Math.min(1, dt * accel);
 
     v.pos.x += v.vx * v.speed * dt;
     v.pos.z += v.vz * v.speed * dt;
 
-    // Wrap when off-grid
+        // Jak spadnie za mape
     const b = this.city.bounds;
     if (v.pos.x < b.min - 10 || v.pos.x > b.max + 10 ||
         v.pos.z < b.min - 10 || v.pos.z > b.max + 10) {
-      // Respawn on a random road segment
+            // Zrespiamy go znienacka z drugiej strony na jakims kawalku
       const fresh = this._makeVehicle();
       v.pos = fresh.pos; v.vx = fresh.vx; v.vz = fresh.vz;
       v.axis = fresh.axis; v.dir = fresh.dir;
       v.glbModel = fresh.glbModel;
       v.group.position.set(v.pos.x, 0, v.pos.z);
       v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
-      // Remove the temp visual we just created
+            // Wyrzuc ten prowizoryczny visual do smieci
       this.scene.remove(fresh.group);
       this.vehicles.splice(this.vehicles.indexOf(fresh), 1);
     }
 
     v.group.position.set(v.pos.x, 0, v.pos.z);
-    // GLB models face +Z natively, box models face -Z
+        // Kenney ogarnął od zlej strony niz my boxy
     v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
 
-    // Emergency siren visual
+        // Swiatelka w radiolach
     if (v.isEmergency && v.siren) {
       v.siren.userData.t = (v.siren.userData.t || 0) + dt * 8;
       const t = Math.sin(v.siren.userData.t);
@@ -728,12 +728,12 @@ export class TrafficSystem {
   }
 
   _spawnEmergency() {
-    // Use emergency GLB model if available
+        // Preferuj ladny model erki jezeli jest
     const v = this._makeVehicle('emergency');
     v.isEmergency = true;
     v.runsRed = true;
 
-    // If using box fallback, repaint body
+        // A jak goly box to po prostu pokoloruj
     if (!this.carModels || Object.keys(this.carModels).length === 0) {
       const newCol = Math.random() < 0.5 ? 0xffffff : 0xdd2c2c;
       const newMat = new THREE.MeshStandardMaterial({ color: newCol, roughness: 0.3, metalness: 0.6 });
@@ -744,7 +744,7 @@ export class TrafficSystem {
       });
     }
 
-    // Siren bar on top
+        // Kogut
     const sirenGroup = new THREE.Group();
     const red = new THREE.Mesh(
       new THREE.BoxGeometry(0.4, 0.18, 0.5),
@@ -764,18 +764,18 @@ export class TrafficSystem {
     this.vehicles.push(v);
     this.emergency.push(v);
 
-    // Notify gameplay (signals)
+        // Strzel eventem pod system gry
     return v;
   }
 
-  // Returns vehicle colliding with player (or null)
+    // Funkcja sprawdza czy gracz zrobil plask
   vehicleHitting(pos) {
     for (const v of this.vehicles) {
       const dx = pos.x - v.pos.x;
       const dz = pos.z - v.pos.z;
-      // Rotate into vehicle frame
+            // Odwracamy punkt odniesienia do ramy samochodu
       const cos = v.vz, sin = -v.vx;
-      // Actually rotation: vehicle rotated by atan2(vx, vz), so to get local: rotate by -angle
+            // Troche matmy, odwracamy lokalnie przez kat ujemny
       const ang = Math.atan2(v.vx, v.vz);
       const cs = Math.cos(-ang), sn = Math.sin(-ang);
       const lx = dx * cs - dz * sn;

@@ -1,14 +1,14 @@
-// === Tryb pokazowy: scenariusz kamerowy do nagrywania filmiku promującego grę ===
-// Aktywacja: ?cinema w URL, klawisz F9 lub przycisk w menu.
+// Tryb pokazowy: nagrywamy filmik promocyjny
+// Odpalanie: ?cinema w URL, F9 albo klik z menu.
 //
-// Pokazujemy JEDNĄ dzielnicę (centrum) - najbardziej filmową: deszcz, neony,
-// tramwaje. Eksponujemy kluczowe aspekty rozgrywki: Avigilon, przejścia,
-// pojazd uprzywilejowany, postać. Między ujęciami fade-to-black dla
-// kinowego cięcia. Finał = ukośna mozaika z pozostałymi strefami.
+// Pokazujemy tylko centrum - najbardziej filmowy klimat: deszcz, neony,
+// tramwaje itp. Chodzi o pokazanie ficzersów: kamery Avigilon, pasy,
+// karetki i postać gracza. Między ujęciami dajemy chamski fade-to-black
+// dla kinowego efektu. Na koniec mozaika z innymi strefami.
 
 import * as THREE from 'three';
 
-// === Utilities ===
+// Utilities
 const lerp = (a, b, t) => a + (b - a) * t;
 const easeInOut = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
@@ -19,7 +19,7 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Steers the player toward a target without keyboard input.
+// Prowadzi gracza do celu bez dotykania klawiatury
 function steerPlayer(player, city, dt, target, runSpeed = false) {
   if (!player || !target) return true;
   const dx = target.x - player.pos.x;
@@ -55,7 +55,7 @@ function steerPlayer(player, city, dt, target, runSpeed = false) {
   return false;
 }
 
-// === Shot factories ===
+// Generatory ujęć (shot factories)
 
 function shotIntroSweep(ctx) {
   const center = ctx.center;
@@ -101,7 +101,7 @@ function shotAerialOrbit(ctx) {
 }
 
 function shotCameraReveal(ctx) {
-  // Highlight an Avigilon camera at an intersection
+    // Zbliżenie na kamerę Avigilon na skrzyżowaniu
   const cam = pick(ctx.city.cameras);
   if (!cam) return shotAerialOrbit(ctx);
   const baseAngle = Math.random() * Math.PI * 2;
@@ -125,7 +125,7 @@ function shotCameraReveal(ctx) {
 }
 
 function shotIntersectionLife(ctx) {
-  // High-angle crane down to a busy intersection
+    // Ujęcie z dźwigu na zatłoczone skrzyżowanie
   const inter = pick(ctx.city.intersections) || { x: 0, z: 0 };
   const angle = Math.random() * Math.PI * 2;
   return {
@@ -144,13 +144,13 @@ function shotIntersectionLife(ctx) {
   };
 }
 
-// Helper: build a sidewalk→zebra→sidewalk waypoint chain for the player
+// Pomocnik: buduje trasę chodnik->zebra->chodnik dla gracza
 function buildCrossingWalk(cr) {
-  // crossings of axis 'h' lie on a NS road: pedestrians walk along x.
-  // crossings of axis 'v' lie on an EW road: pedestrians walk along z.
-  // Road half-width is ~4, sidewalk extends outward — start ~9 units out and
-  // finish ~9 units out on the opposite sidewalk, with explicit zebra-entry
-  // waypoints so the path snaps to the centre of the zebra (no diagonal).
+    // przejścia 'h' leżą na drodze NS, więc piesi idą wzdłuż X
+    // przejścia 'v' leżą na drodze EW, więc piesi idą wzdłuż Z
+    // Połowa drogi to ~4, chodnik jest dalej - zaczynamy od ~9 i
+    // kończymy na ~9 po drugiej stronie, żeby gracz szedł idealnie
+    // przez środek pasów (bez chodzenia na skróty)
   const sideOuter = 9;
   const sideZebra = 4;
   if (cr.axis === 'h') {
@@ -175,13 +175,13 @@ function buildCrossingWalk(cr) {
 }
 
 function shotCrossingHero(ctx) {
-  // Player walks the sidewalk → across the zebra → continues on far sidewalk
+    // Gracz idzie chodnikiem -> przez pasy -> dalej po drugiej stronie
   const cr = pick(ctx.city.crossings);
   if (!cr || !ctx.player) return shotAerialOrbit(ctx);
   const path = buildCrossingWalk(cr);
   ctx.player.pos.set(path.start.x, 0, path.start.z);
   ctx.player.group.position.set(path.start.x, 0, path.start.z);
-  // Face initial direction so the first frame doesn't show the player turning
+    // Obracamy go na start żeby nie było widać jak się obraca w pierwszej klatce
   const firstWp = path.waypoints[0];
   ctx.player.facing = Math.atan2(firstWp.x - path.start.x, firstWp.z - path.start.z);
   ctx.player.group.rotation.y = ctx.player.facing;
@@ -195,8 +195,8 @@ function shotCrossingHero(ctx) {
     fadeIn: 0.6, fadeOut: 0.6,
     update(dt, t) {
       const e = easeInOut(t);
-      // Camera placed perpendicular to the walking axis so the player crosses
-      // the frame naturally; slow push-in for cinema.
+            // Kamera prostopadle żeby gracz fajnie wchodził w kadr
+            // i lekki zoom in dla dramatyzmu
       const dist = lerp(10, 5, e);
       const cx = cr.axis === 'v' ? cr.x : cr.x + dist * camSide;
       const cz = cr.axis === 'h' ? cr.z : cr.z + dist * camSide;
@@ -208,8 +208,8 @@ function shotCrossingHero(ctx) {
 }
 
 function shotHeroOrbit(ctx) {
-  // Continue along sidewalks: queue the next two nearest spawn points (sidewalk corners)
-  // so the player keeps walking nicely while the camera orbits.
+    // Spacer chodnikiem: ładujemy dwa najbliższe rogi chodnika
+    // żeby gracz ładnie szedł w trakcie ujęcia z orbity
   if (ctx.player && ctx.city.spawnPoints && ctx.city.spawnPoints.length) {
     const px = ctx.player.pos.x, pz = ctx.player.pos.z;
     const sorted = ctx.city.spawnPoints
@@ -241,7 +241,7 @@ function shotHeroOrbit(ctx) {
   };
 }
 
-// === Director ===
+// Reżyser ujęć
 export class CinematicDirector {
   constructor({ camera, scene, city, traffic, player, zone, ui }) {
     this.camera = camera;
@@ -260,7 +260,7 @@ export class CinematicDirector {
       waypoints: [], // queue of {x,z} for the player to follow in order
     };
 
-    // Curated sequence emphasizing key Motorola features
+        // Z góry ustalona sekwencja żeby pokazać bajery Motoroli
     this.shots = [
       shotIntroSweep(this.ctx),
       shotAerialOrbit(this.ctx),
@@ -332,7 +332,7 @@ export class CinematicDirector {
     const t = Math.min(1, this.shotTime / sh.duration);
     sh.update(dt, t, this.ctx);
 
-    // Fade transitions: black at start (fadeIn) and end (fadeOut)
+        // Przejścia ekranu z/do czarnego
     const fadeIn = sh.fadeIn || 0.4;
     const fadeOut = sh.fadeOut || 0.4;
     let alpha = 0;
@@ -343,14 +343,14 @@ export class CinematicDirector {
     }
     this._setFade(alpha);
 
-    // Show shot label after fade-in completes
+        // Wyświetl tytuł ujęcia jak ekran się rozjaśni
     if (!this._labelShown && this.shotTime > fadeIn + 0.1) {
       this._labelShown = true;
       this._showShotLabel();
     }
 
-    // Steer player toward current target; on arrival pop the next waypoint.
-    // When the queue is empty, the player idles (no more random wandering).
+        // Kierujemy gracza do celu, jak dojdzie to wywalamy punkt z kolejki
+        // Jak kolejka pusta to gracz stoi (żadnego łażenia losowo)
     if (this.ctx.target && this.player) {
       const reached = steerPlayer(this.player, this.city, dt, this.ctx.target);
       if (reached) {
@@ -368,7 +368,7 @@ export class CinematicDirector {
   }
 }
 
-// === Overlay UI ===
+// Interfejs (overlay)
 export function buildCinematicOverlay() {
   let root = document.getElementById('cinema');
   if (root) return _refs(root);
@@ -424,12 +424,12 @@ function _refs(root) {
   };
 }
 
-// === Finale: diagonal split-panel showcase of remaining zones ===
+// Finał: kafelki ze strefami przecięte po skosie
 export function showFinaleMosaic(ui, zones, featuredZoneId) {
   if (!ui) return;
   const others = zones.filter(z => z.id !== featuredZoneId);
 
-  // Color & icon hints per zone id
+    // Kolory i ikonki dla stref
   const themes = {
     residential: { color: '#5fc56e', icon: '🏘️' },
     school:      { color: '#ffb800', icon: '🚸' },
@@ -463,7 +463,7 @@ export function showFinaleMosaic(ui, zones, featuredZoneId) {
     ui.finaleGrid.appendChild(card);
   });
 
-  // Fade game canvas into the finale
+    // Płynne przejście z gry do finału
   ui.fade.style.opacity = '1';
   ui.label.classList.add('cn-hidden');
   ui.finale.classList.remove('cn-hidden');
