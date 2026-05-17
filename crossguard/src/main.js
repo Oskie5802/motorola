@@ -9,7 +9,7 @@ import { HUD } from './hud.js';
 import { AudioSystem } from './audio.js';
 import { Environment } from './environment.js';
 import { GameLogic } from './game.js';
-import { loadBuildingModels, loadCharacterModel } from './modelLoader.js';
+import { loadBuildingModels, loadCharacterModel, loadCarModels } from './modelLoader.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -31,6 +31,7 @@ let selectedZoneId = ZONES[0].id;
 let currentSession = null; // { renderer, scene, camera, ... }
 let cachedModels = null;   // OBJ building models, loaded once
 let cachedCharacter = null; // Kenney animated character, loaded once
+let cachedCars = null;      // Kenney car-kit GLB models, loaded once
 
 // === Menu construction ===
 function renderZoneSelect() {
@@ -109,21 +110,25 @@ $('startBtn').onclick = () => {
 };
 
 async function ensureModels() {
-  if (cachedModels && cachedCharacter) return cachedModels;
+  if (cachedModels && cachedCharacter && cachedCars) return cachedModels;
   const bar = document.querySelector('.bar-fill');
   if (bar) { bar.style.width = '0%'; bar.classList.remove('anim'); }
   showLoading();
-  const [models, character] = await Promise.all([
+  const [models, character, cars] = await Promise.all([
     cachedModels || loadBuildingModels((p) => {
-      if (bar) bar.style.width = (p * 80).toFixed(0) + '%';
+      if (bar) bar.style.width = (p * 50).toFixed(0) + '%';
     }),
     cachedCharacter || loadCharacterModel().catch((e) => {
       console.warn('Character model failed to load, using fallback:', e);
       return null;
     }),
+    cachedCars || loadCarModels((p) => {
+      if (bar) bar.style.width = (50 + p * 50).toFixed(0) + '%';
+    }),
   ]);
   cachedModels = models;
   cachedCharacter = character;
+  cachedCars = cars;
   if (bar) bar.style.width = '100%';
   await hideLoading();
   return cachedModels;
@@ -209,7 +214,7 @@ async function startGame(zone) {
   const player = new Player(scene, spawn, cachedCharacter);
   player.setupInput(canvas);
 
-  const traffic = new TrafficSystem(scene, city, zone);
+  const traffic = new TrafficSystem(scene, city, zone, cachedCars);
   const hud = new HUD(city, zone);
   const game = new GameLogic({ city, player, traffic, hud, audio, zone });
   game.camera = camera; // for floater projection

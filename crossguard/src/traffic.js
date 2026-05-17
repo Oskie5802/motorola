@@ -3,10 +3,11 @@ import * as THREE from 'three';
 import { PALETTE } from './config.js';
 
 export class TrafficSystem {
-  constructor(scene, city, zone) {
+  constructor(scene, city, zone, carModels = null) {
     this.scene = scene;
     this.city = city;
     this.zone = zone;
+    this.carModels = carModels; // { filename: { model, size, def } }
     this.vehicles = [];
     this.peds = [];
     this.emergency = []; // active emergency vehicle instances
@@ -22,6 +23,134 @@ export class TrafficSystem {
   }
 
   _makeVehicle(forceType = null) {
+    // === GLB model path ===
+    if (this.carModels && Object.keys(this.carModels).length > 0) {
+      return this._makeVehicleGLB(forceType);
+    }
+    // === Fallback: original box geometry ===
+    return this._makeVehicleBox(forceType);
+  }
+
+  _makeVehicleGLB(forceType = null) {
+    // Pick a model def based on zone & type
+    const allDefs = Object.values(this.carModels);
+    const carDefs     = allDefs.filter(d => d.def.type === 'car');
+    const busDefs     = allDefs.filter(d => d.def.type === 'bus');
+    const truckDefs   = allDefs.filter(d => d.def.type === 'truck');
+    const emergDefs   = allDefs.filter(d => d.def.type === 'emergency');
+
+    // Weighted selection by zone
+    let pool;
+    if (forceType === 'emergency') {
+      pool = emergDefs.length ? emergDefs : carDefs;
+    } else if (this.zone.id === 'industrial' && Math.random() < 0.5) {
+      pool = truckDefs.length ? truckDefs : carDefs;
+    } else if (this.zone.id === 'school' && Math.random() < 0.3) {
+      pool = busDefs.length ? busDefs : carDefs;
+    } else if (this.zone.id === 'downtown' && Math.random() < 0.15) {
+      pool = busDefs.length ? busDefs : carDefs;
+    } else {
+      // Default: mostly cars, occasional bus/truck
+      const r = Math.random();
+      if (r < 0.7) pool = carDefs;
+      else if (r < 0.85) pool = busDefs.length ? busDefs : carDefs;
+      else pool = truckDefs.length ? truckDefs : carDefs;
+    }
+
+    if (!pool.length) pool = carDefs.length ? carDefs : allDefs;
+    const chosen = pool[Math.floor(Math.random() * pool.length)];
+    const def = chosen.def;
+
+    // Clone the model
+    const group = chosen.model.clone(true);
+    group.traverse(child => {
+      if (child.isMesh) {
+        child.material = child.material.clone();
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    // Scale model to fit desired dimensions
+    const modelSize = chosen.size;
+    const scaleX = def.w / modelSize.x;
+    const scaleY = def.h / modelSize.y;
+    const scaleZ = def.d / modelSize.z;
+    const uniformScale = Math.min(scaleX, scaleY, scaleZ);
+    group.scale.setScalar(uniformScale);
+
+    // Recompute actual dimensions after uniform scale
+    const actualW = modelSize.x * uniformScale;
+    const actualH = modelSize.y * uniformScale;
+    const actualD = modelSize.z * uniformScale;
+
+    // Center the model: shift so bottom is at y=0 and center horizontally
+    group.position.set(0, 0, 0);
+
+    // Add headlight glow
+    const lightMat = new THREE.MeshStandardMaterial({
+      color: 0xfff6d2, emissive: 0xfff2c8, emissiveIntensity: 1.4
+    });
+    const hL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), lightMat);
+    hL.scale.set(1.2, 0.7, 0.5);
+    hL.position.set(-actualW * 0.32, actualH * 0.45, -actualD / 2 - 0.02);
+    group.add(hL);
+    const hR = hL.clone();
+    hR.position.x = actualW * 0.32;
+    group.add(hR);
+    // Tail lights
+    const tMat = new THREE.MeshStandardMaterial({
+      color: 0xff2a2a, emissive: 0xff2030, emissiveIntensity: 0.9
+    });
+    const tL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.06), tMat);
+    tL.position.set(-actualW * 0.32, actualH * 0.45, actualD / 2 + 0.02);
+    group.add(tL);
+    const tR = tL.clone();
+    tR.position.x = actualW * 0.32;
+    group.add(tR);
+
+    this.scene.add(group);
+
+    // Choose a road segment & lane direction
+    const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const laneOffset = 1.6 * dir;
+
+    let x, z, vx, vz, axis;
+    if (seg.axis === 'h') {
+      x = seg.x1 + Math.random() * (seg.x2 - seg.x1);
+      z = seg.z1 + laneOffset;
+      vx = dir;
+      vz = 0;
+      axis = 'h';
+    } else {
+      x = seg.x1 + laneOffset;
+      z = seg.z1 + Math.random() * (seg.z2 - seg.z1);
+      vx = 0;
+      vz = dir;
+      axis = 'v';
+    }
+    group.position.set(x, 0, z);
+    // Kenney GLB models face +Z, so no extra PI offset needed
+    group.rotation.y = Math.atan2(vx, vz);
+
+    return {
+      group,
+      type: def.type === 'emergency' ? 'car' : def.type,
+      w: actualW, h: actualH, d: actualD,
+      baseSpeed: this.zone.vehicleSpeed * def.speed * 16,
+      speed: this.zone.vehicleSpeed * def.speed * 16,
+      glbModel: true,
+      vx, vz, axis, dir,
+      pos: { x, z },
+      stopped: false,
+      runsRed: Math.random() < this.zone.redLightRunChance,
+      isEmergency: false,
+      siren: null,
+    };
+  }
+
+  _makeVehicleBox(forceType = null) {
     const types = [
       { type: 'car',    w: 1.6, h: 1.1, d: 3.0, speed: 1.0, color: null },
       { type: 'car',    w: 1.6, h: 1.1, d: 3.0, speed: 1.0, color: null },
@@ -32,14 +161,13 @@ export class TrafficSystem {
     ];
     let t = types[Math.floor(Math.random() * types.length)];
     if (this.zone.id === 'industrial') {
-      // Bias to truck
       if (Math.random() < 0.5) t = types[4];
     }
     if (this.zone.id === 'downtown' && Math.random() < 0.2) {
-      t = types[5]; // tram
+      t = types[5];
     }
     if (this.zone.id === 'school' && Math.random() < 0.3) {
-      t = types[3]; // school bus
+      t = types[3];
     }
     if (forceType) t = types.find(x => x.type === forceType) || t;
 
@@ -60,7 +188,6 @@ export class TrafficSystem {
     const rimMat   = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.35, metalness: 0.85 });
 
     if (t.type === 'car') {
-      // Dolne nadwozie (szersze podwozie)
       const lower = new THREE.Mesh(
         new THREE.BoxGeometry(t.w, t.h * 0.42, t.d, 1, 1, 4),
         bodyMat
@@ -69,7 +196,6 @@ export class TrafficSystem {
       lower.castShadow = true;
       group.add(lower);
 
-      // Maska (przód niżej) i bagażnik
       const hood = new THREE.Mesh(
         new THREE.BoxGeometry(t.w * 0.95, t.h * 0.22, t.d * 0.32),
         bodyMat
@@ -80,7 +206,6 @@ export class TrafficSystem {
       trunk.position.z = t.d * 0.32;
       group.add(trunk);
 
-      // Kabina (trapezoidalna - skalowana)
       const cabin = new THREE.Mesh(
         new THREE.BoxGeometry(t.w * 0.85, t.h * 0.42, t.d * 0.45),
         cabinMat
@@ -88,7 +213,6 @@ export class TrafficSystem {
       cabin.position.set(0, t.h * 0.78, 0);
       group.add(cabin);
 
-      // Szyba przednia
       const wsGeo = new THREE.PlaneGeometry(t.w * 0.78, t.h * 0.38);
       const ws = new THREE.Mesh(wsGeo, glassMat);
       ws.position.set(0, t.h * 0.78, -t.d * 0.22);
@@ -98,7 +222,6 @@ export class TrafficSystem {
       wsBack.position.z = t.d * 0.22;
       wsBack.rotation.x = 0.25;
       group.add(wsBack);
-      // Szyby boczne
       const sideGeo = new THREE.PlaneGeometry(t.d * 0.42, t.h * 0.32);
       const sideL = new THREE.Mesh(sideGeo, glassMat);
       sideL.position.set(-t.w * 0.43, t.h * 0.8, 0);
@@ -109,7 +232,6 @@ export class TrafficSystem {
       sideR.rotation.y = Math.PI / 2;
       group.add(sideR);
 
-      // Dach - subtelny pasek
       const roof = new THREE.Mesh(
         new THREE.BoxGeometry(t.w * 0.7, 0.05, t.d * 0.4),
         new THREE.MeshStandardMaterial({ color: color, roughness: 0.4, metalness: 0.55 })
@@ -117,7 +239,6 @@ export class TrafficSystem {
       roof.position.set(0, t.h * 1.0, 0);
       group.add(roof);
     } else if (t.type === 'bus' || t.type === 'truck') {
-      // Korpus
       const lower = new THREE.Mesh(
         new THREE.BoxGeometry(t.w, t.h * 0.6, t.d),
         bodyMat
@@ -125,14 +246,12 @@ export class TrafficSystem {
       lower.position.y = t.h * 0.45;
       lower.castShadow = true;
       group.add(lower);
-      // Kabina/dach
       const cabin = new THREE.Mesh(
         new THREE.BoxGeometry(t.w * 0.95, t.h * 0.4, t.d * 0.55),
         new THREE.MeshStandardMaterial({ color: 0x1a1f28, roughness: 0.4 })
       );
       cabin.position.set(0, t.h * 0.95, t.type === 'truck' ? -t.d * 0.18 : -t.d * 0.05);
       group.add(cabin);
-      // Pasy okien
       for (let i = 0; i < (t.type === 'bus' ? 5 : 2); i++) {
         const wn = new THREE.Mesh(
           new THREE.PlaneGeometry(t.d * 0.13, t.h * 0.3),
@@ -146,7 +265,6 @@ export class TrafficSystem {
         wnR.rotation.y = Math.PI / 2;
         group.add(wnR);
       }
-      // Szyba przednia (kabina)
       const fws = new THREE.Mesh(
         new THREE.PlaneGeometry(t.w * 0.85, t.h * 0.35),
         glassMat
@@ -167,7 +285,6 @@ export class TrafficSystem {
       );
       top.position.y = t.h * 0.88;
       group.add(top);
-      // Długie szyby
       for (let i = 0; i < 6; i++) {
         const wn = new THREE.Mesh(new THREE.PlaneGeometry(t.d * 0.12, t.h * 0.3), glassMat);
         wn.position.set(-t.w * 0.501, t.h * 0.85, -t.d * 0.42 + (i + 0.5) * (t.d * 0.85 / 6));
@@ -178,7 +295,6 @@ export class TrafficSystem {
         wnR.rotation.y = Math.PI / 2;
         group.add(wnR);
       }
-      // Pantograf
       const pole = new THREE.Mesh(
         new THREE.CylinderGeometry(0.04, 0.04, 0.8),
         new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8 })
@@ -187,7 +303,6 @@ export class TrafficSystem {
       group.add(pole);
     }
 
-    // === Koła (wszystkie pojazdy) ===
     if (t.type !== 'tram') {
       const wheelR = Math.min(0.36, t.h * 0.3);
       const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, 0.22, 14);
@@ -207,7 +322,6 @@ export class TrafficSystem {
         }
       }
     } else {
-      // Tram - dwie pary niskich kół
       for (const az of [-t.d * 0.35, t.d * 0.35]) {
         const w = new THREE.Mesh(
           new THREE.CylinderGeometry(0.28, 0.28, t.w * 1.05, 12),
@@ -219,7 +333,6 @@ export class TrafficSystem {
       }
     }
 
-    // Reflektory
     const lightMat = new THREE.MeshStandardMaterial({
       color: 0xfff6d2, emissive: 0xfff2c8, emissiveIntensity: 1.4
     });
@@ -230,7 +343,6 @@ export class TrafficSystem {
     const hR = hL.clone();
     hR.position.x = t.w * 0.32;
     group.add(hR);
-    // Tylne światła
     const tMat = new THREE.MeshStandardMaterial({
       color: 0xff2a2a, emissive: 0xff2030, emissiveIntensity: 0.9
     });
@@ -243,14 +355,12 @@ export class TrafficSystem {
 
     this.scene.add(group);
 
-    // Choose a road segment & lane direction
     const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
     const dir = Math.random() < 0.5 ? 1 : -1;
-    const laneOffset = 1.6 * dir; // offset to right side of road
+    const laneOffset = 1.6 * dir;
 
     let x, z, vx, vz, axis;
     if (seg.axis === 'h') {
-      // road runs along x; offset in z
       x = seg.x1 + Math.random() * (seg.x2 - seg.x1);
       z = seg.z1 + laneOffset;
       vx = dir;
@@ -270,7 +380,7 @@ export class TrafficSystem {
       group,
       type: t.type,
       w: t.w, h: t.h, d: t.d,
-      baseSpeed: this.zone.vehicleSpeed * t.speed * 12, // u/s
+      baseSpeed: this.zone.vehicleSpeed * t.speed * 12,
       speed: this.zone.vehicleSpeed * t.speed * 12,
       vx, vz, axis, dir,
       pos: { x, z },
@@ -581,7 +691,9 @@ export class TrafficSystem {
     // Weather effect
     const weatherMul = this.zone.weather === 'rain' ? 0.85 : this.zone.weather === 'fog' ? 0.8 : 1.0;
     const target = shouldStop ? 0 : v.baseSpeed * weatherMul * (v.isEmergency ? 1.4 : 1);
-    v.speed += (target - v.speed) * Math.min(1, dt * 3.0);
+    // GLB models: snappier acceleration/braking for dynamic feel
+    const accel = v.glbModel ? 5.0 : 3.0;
+    v.speed += (target - v.speed) * Math.min(1, dt * accel);
 
     v.pos.x += v.vx * v.speed * dt;
     v.pos.z += v.vz * v.speed * dt;
@@ -594,15 +706,17 @@ export class TrafficSystem {
       const fresh = this._makeVehicle();
       v.pos = fresh.pos; v.vx = fresh.vx; v.vz = fresh.vz;
       v.axis = fresh.axis; v.dir = fresh.dir;
+      v.glbModel = fresh.glbModel;
       v.group.position.set(v.pos.x, 0, v.pos.z);
-      v.group.rotation.y = Math.atan2(v.vx, v.vz);
+      v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
       // Remove the temp visual we just created
       this.scene.remove(fresh.group);
       this.vehicles.splice(this.vehicles.indexOf(fresh), 1);
     }
 
     v.group.position.set(v.pos.x, 0, v.pos.z);
-    v.group.rotation.y = Math.atan2(v.vx, v.vz) + Math.PI;
+    // GLB models face +Z natively, box models face -Z
+    v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
 
     // Emergency siren visual
     if (v.isEmergency && v.siren) {
@@ -614,18 +728,21 @@ export class TrafficSystem {
   }
 
   _spawnEmergency() {
-    const v = this._makeVehicle('car');
+    // Use emergency GLB model if available
+    const v = this._makeVehicle('emergency');
     v.isEmergency = true;
     v.runsRed = true;
 
-    // Repaint body
-    const newCol = Math.random() < 0.5 ? 0xffffff : 0xdd2c2c;
-    const newMat = new THREE.MeshStandardMaterial({ color: newCol, roughness: 0.3, metalness: 0.6 });
-    v.group.children.forEach(ch => {
-      if (ch.material && ch.material.color && ch.geometry && ch.geometry.type === 'BoxGeometry') {
-        ch.material = newMat;
-      }
-    });
+    // If using box fallback, repaint body
+    if (!this.carModels || Object.keys(this.carModels).length === 0) {
+      const newCol = Math.random() < 0.5 ? 0xffffff : 0xdd2c2c;
+      const newMat = new THREE.MeshStandardMaterial({ color: newCol, roughness: 0.3, metalness: 0.6 });
+      v.group.children.forEach(ch => {
+        if (ch.material && ch.material.color && ch.geometry && ch.geometry.type === 'BoxGeometry') {
+          ch.material = newMat;
+        }
+      });
+    }
 
     // Siren bar on top
     const sirenGroup = new THREE.Group();

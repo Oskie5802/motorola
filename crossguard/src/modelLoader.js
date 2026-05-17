@@ -3,9 +3,11 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const BASE = 'assets/OBJ%20format/';
 const CHAR_BASE = 'assets/kenney_animated-characters-protagonists/';
+const CAR_BASE = 'assets/kenney_car-kit/Models/GLB format/';
 
 const BUILDING_NAMES = [
   'building-a', 'building-b', 'building-c', 'building-d', 'building-e',
@@ -50,6 +52,64 @@ export async function loadBuildingModels(onProgress) {
     buildings:   bResults.filter(r => r.status === 'fulfilled').map(r => r.value),
     skyscrapers: sResults.filter(r => r.status === 'fulfilled').map(r => r.value),
   };
+}
+
+// === Load Kenney car-kit GLB models ===
+const CAR_MODEL_DEFS = [
+  // civilian cars
+  { file: 'sedan.glb',           type: 'car',    speed: 1.0, w: 1.8, h: 1.2, d: 4.0 },
+  { file: 'sedan-sports.glb',    type: 'car',    speed: 1.1, w: 1.8, h: 1.2, d: 4.0 },
+  { file: 'hatchback-sports.glb',type: 'car',    speed: 1.0, w: 1.7, h: 1.1, d: 3.6 },
+  { file: 'suv.glb',            type: 'car',    speed: 0.9, w: 2.0, h: 1.5, d: 4.4 },
+  { file: 'suv-luxury.glb',     type: 'car',    speed: 0.95,w: 2.0, h: 1.5, d: 4.4 },
+  { file: 'van.glb',            type: 'car',    speed: 0.85,w: 2.0, h: 1.7, d: 4.6 },
+  { file: 'taxi.glb',           type: 'car',    speed: 1.0, w: 1.8, h: 1.2, d: 4.0 },
+  // bus
+  { file: 'delivery.glb',       type: 'bus',    speed: 0.7, w: 2.2, h: 2.4, d: 7.0 },
+  // truck
+  { file: 'truck.glb',          type: 'truck',  speed: 0.65,w: 2.2, h: 2.2, d: 5.5 },
+  { file: 'truck-flat.glb',     type: 'truck',  speed: 0.6, w: 2.2, h: 2.0, d: 6.0 },
+  { file: 'garbage-truck.glb',  type: 'truck',  speed: 0.55,w: 2.2, h: 2.4, d: 6.0 },
+  // emergency
+  { file: 'police.glb',         type: 'emergency', speed: 1.2, w: 1.8, h: 1.2, d: 4.0 },
+  { file: 'ambulance.glb',      type: 'emergency', speed: 1.1, w: 2.0, h: 1.8, d: 4.8 },
+  { file: 'firetruck.glb',      type: 'emergency', speed: 0.9, w: 2.2, h: 2.4, d: 7.0 },
+];
+
+function loadGLB(url) {
+  return new Promise((resolve, reject) => {
+    new GLTFLoader().load(url, resolve, undefined, reject);
+  });
+}
+
+export async function loadCarModels(onProgress) {
+  const results = {};
+  let done = 0;
+  const total = CAR_MODEL_DEFS.length;
+
+  for (const def of CAR_MODEL_DEFS) {
+    try {
+      const gltf = await loadGLB(CAR_BASE + def.file);
+      const model = gltf.scene;
+      model.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      // Compute bounding box for scaling
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      results[def.file] = { model, size, def };
+    } catch (e) {
+      console.warn('[CarLoader] Failed to load', def.file, e);
+    }
+    done++;
+    if (onProgress) onProgress(done / total);
+  }
+
+  console.log('[CarLoader] Loaded', Object.keys(results).length, 'car models');
+  return results;
 }
 
 // === Load Kenney animated character (FBX model + animations + skin) ===
