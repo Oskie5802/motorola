@@ -1,4 +1,3 @@
-// Caly ruch uliczny, pieszki itd
 import * as THREE from 'three';
 import { PALETTE } from './config.js';
 
@@ -61,9 +60,9 @@ export class TrafficSystem {
     const chosen = pool[Math.floor(Math.random() * pool.length)];
     const def = chosen.def;
 
-        // Sklonuj autko
-    const group = chosen.model.clone(true);
-    group.traverse(child => {
+        // Sklonuj autko, owin w grupe by przesunac pivot na srodek
+    const inner = chosen.model.clone(true);
+    inner.traverse(child => {
       if (child.isMesh) {
         child.material = child.material.clone();
         child.castShadow = true;
@@ -77,44 +76,30 @@ export class TrafficSystem {
     const scaleY = def.h / modelSize.y;
     const scaleZ = def.d / modelSize.z;
     const uniformScale = Math.min(scaleX, scaleY, scaleZ);
-    group.scale.setScalar(uniformScale);
+    inner.scale.setScalar(uniformScale);
 
         // Oblicz nowe wymiary boxow do hitboxów na wypadek zderzeń
     const actualW = modelSize.x * uniformScale;
     const actualH = modelSize.y * uniformScale;
     const actualD = modelSize.z * uniformScale;
 
-        // Wycentrowuj jezdziło zeby po ziemi smigalo a nie w asfalcie
-    group.position.set(0, 0, 0);
+        // GLB ma pivot byle gdzie — recentruj zeby v.pos byl srodkiem auta a kola na y=0
+    const bbox = new THREE.Box3().setFromObject(inner);
+    const center = bbox.getCenter(new THREE.Vector3());
+    inner.position.set(-center.x, -bbox.min.y, -center.z);
 
-        // Swiatelka z przedu
-    const lightMat = new THREE.MeshStandardMaterial({
-      color: 0xfff6d2, emissive: 0xfff2c8, emissiveIntensity: 1.4
-    });
-    const hL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), lightMat);
-    hL.scale.set(1.2, 0.7, 0.5);
-    hL.position.set(-actualW * 0.32, actualH * 0.45, -actualD / 2 - 0.02);
-    group.add(hL);
-    const hR = hL.clone();
-    hR.position.x = actualW * 0.32;
-    group.add(hR);
-        // Stopki i pozycyjne
-    const tMat = new THREE.MeshStandardMaterial({
-      color: 0xff2a2a, emissive: 0xff2030, emissiveIntensity: 0.9
-    });
-    const tL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.06), tMat);
-    tL.position.set(-actualW * 0.32, actualH * 0.45, actualD / 2 + 0.02);
-    group.add(tL);
-    const tR = tL.clone();
-    tR.position.x = actualW * 0.32;
-    group.add(tR);
+    const group = new THREE.Group();
+    group.add(inner);
+
+        // Modele GLB maja swoje swiatla, nie dolepiamy kulek
 
     this.scene.add(group);
 
         // Losuj gdzie ma jechac i jakim pasem
     const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
     const dir = Math.random() < 0.5 ? 1 : -1;
-    const laneOffset = 1.6 * dir;
+    // Right-hand traffic: when driving +x, stay on -z side; when -x, stay on +z.
+    const laneOffset = -1.6 * dir;
 
     let x, z, vx, vz, axis;
     if (seg.axis === 'h') {
@@ -138,8 +123,8 @@ export class TrafficSystem {
       group,
       type: def.type === 'emergency' ? 'car' : def.type,
       w: actualW, h: actualH, d: actualD,
-      baseSpeed: this.zone.vehicleSpeed * def.speed * 16,
-      speed: this.zone.vehicleSpeed * def.speed * 16,
+      baseSpeed: this.zone.vehicleSpeed * def.speed * 26,
+      speed: this.zone.vehicleSpeed * def.speed * 26,
       glbModel: true,
       vx, vz, axis, dir,
       pos: { x, z },
@@ -357,7 +342,8 @@ export class TrafficSystem {
 
     const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
     const dir = Math.random() < 0.5 ? 1 : -1;
-    const laneOffset = 1.6 * dir;
+    // Right-hand traffic: when driving +x, stay on -z side; when -x, stay on +z.
+    const laneOffset = -1.6 * dir;
 
     let x, z, vx, vz, axis;
     if (seg.axis === 'h') {
@@ -646,34 +632,66 @@ export class TrafficSystem {
     const fx = v.pos.x + v.vx * lookAhead;
     const fz = v.pos.z + v.vz * lookAhead;
 
-        // Lookaj na sygnalizacje
+        // Sprawdz sygnalizacje — anchor na srodek skrzyzowania zeby auto
+        // zatrzymalo sie NA linii stopu i zostalo, nawet po minieciu slupa.
     if (!v.runsRed && !v.isEmergency) {
+      // Crossing footprint spans 4..7 units from intersection center along the
+      // vehicle's approach (roadHalf=4, crossing centered at 5.5, width 3).
+      // Front bumper must land just shy of the near zebra edge (7), so the
+      // vehicle CENTER stop line is at 7 + v.d/2 + small margin.
+      const stopLine = 7.5 + v.d / 2;
+      const brakeDist = 26 + v.d;
       for (const tl of this.city.trafficLights) {
-        const tdx = tl.pos.x - v.pos.x;
-        const tdz = tl.pos.z - v.pos.z;
-        const along = (v.vx * tdx) + (v.vz * tdz);
-        const perp = Math.abs(v.vx * tdz - v.vz * tdx);
-                // Jak zielone to rura
         const controls = (v.axis === 'h' && tl.axis === 'ew') || (v.axis === 'v' && tl.axis === 'ns');
-        if (controls && along > 0 && along < lookAhead + 3 && perp < 8) {
-          if (tl.state === 'red' || tl.state === 'amber') {
-            shouldStop = true;
-          }
+        if (!controls) continue;
+        if (tl.state !== 'red' && tl.state !== 'amber') continue;
+        if (!tl.intersection) continue;
+        const idx = tl.intersection.x - v.pos.x;
+        const idz = tl.intersection.z - v.pos.z;
+        const along = v.vx * idx + v.vz * idz;
+        const perp  = Math.abs(v.vx * idz - v.vz * idx);
+        // Keep brakes engaged from when we enter the brake zone until the car
+        // has actually cleared the crossing on the way out (along < -4 = past
+        // intersection center on the far side). The wider lower bound prevents
+        // the car from releasing brakes after overshoot and creeping forward.
+        if (perp < 3 && along > -4 && along < stopLine + brakeDist) {
+          shouldStop = true;
         }
       }
     }
 
-        // Typ wlazł mi pod maskę
+        // Pieszy na pasach z przodu — hamuj WCZESNIE i zatrzymaj sie przy
+        // dalszej krawedzi zebry, nie przy nim. Anchor na srodek najblizszego
+        // skrzyzowania zeby ciezarowki nie parkowaly na pasach.
     const pdx = playerPos.x - v.pos.x;
     const pdz = playerPos.z - v.pos.z;
     const palong = v.vx * pdx + v.vz * pdz;
-    const pperp = Math.abs(v.vx * pdz - v.vz * pdx);
-    if (palong > 0 && palong < lookAhead && pperp < 2.5) {
-      const cross = this.city.isOnCrossing(playerPos.x, playerPos.z);
-      if (cross) shouldStop = true;
-            // Hamuj awaryjnie przed jaywalkerami zeby nie miec krwi na zderzaku
-      if (palong < 4 && pperp < 1.6) shouldStop = true;
+    const pperp  = Math.abs(v.vx * pdz - v.vz * pdx);
+    const playerOnCrossing = this.city.isOnCrossing(playerPos.x, playerPos.z);
+    if (playerOnCrossing && palong > 0 && palong < 24 && pperp < 4) {
+            // Znajdz skrzyzowanie z pasami na ktorych jest gracz, w pasie auta
+      let best = null, bestAlong = Infinity;
+      for (const inter of this.city.intersections) {
+        const idx = inter.x - v.pos.x;
+        const idz = inter.z - v.pos.z;
+        const ialong = v.vx * idx + v.vz * idz;
+        const iperp  = Math.abs(v.vx * idz - v.vz * idx);
+        if (iperp < 3 && ialong > 0 && ialong < ialong + 30 && ialong < bestAlong) {
+                    // Gracz musi byc faktycznie blisko pasow tego skrzyzowania
+          const pdInter = Math.hypot(playerPos.x - inter.x, playerPos.z - inter.z);
+          if (pdInter < 10) { best = inter; bestAlong = ialong; }
+        }
+      }
+      if (best) {
+        const stopLine = 7.5 + v.d / 2;
+        const brakeDist = 14 + v.d;
+        if (bestAlong > stopLine && bestAlong < stopLine + brakeDist) {
+          shouldStop = true;
+        }
+      }
     }
+    // Emergency: very close jaywalker right in front, slam brakes.
+    if (palong > 0 && palong < 4 && pperp < 1.6) shouldStop = true;
 
         // Ktos z przodu?
     for (const other of this.vehicles) {
@@ -691,8 +709,8 @@ export class TrafficSystem {
         // Przy deszczu jest gorzej z hamowaniem no nie
     const weatherMul = this.zone.weather === 'rain' ? 0.85 : this.zone.weather === 'fog' ? 0.8 : 1.0;
     const target = shouldStop ? 0 : v.baseSpeed * weatherMul * (v.isEmergency ? 1.4 : 1);
-        // Modele przyspieszaja z zacieciem zeby gra byla fajniejsza
-    const accel = v.glbModel ? 5.0 : 3.0;
+        // GLB: szybsze przyspieszenie, twardsze hamowanie dla dynamiki
+    const accel = shouldStop ? (v.glbModel ? 9.0 : 5.0) : (v.glbModel ? 3.5 : 2.2);
     v.speed += (target - v.speed) * Math.min(1, dt * accel);
 
     v.pos.x += v.vx * v.speed * dt;
