@@ -624,23 +624,18 @@ export class TrafficSystem {
   }
 
   _updateVehicle(v, dt, playerPos, signals) {
-        // Sprawdz swiatla i czy gracz wlasnie nie pajacuje na pasach przed nami
-    let shouldStop = false;
-    const lookAhead = 6 + v.d / 2;
+        // Pogoda potrafi nieźle popsuc przyczepnosc
+    const weatherMul = this.zone.weather === 'rain' ? 0.85 : this.zone.weather === 'fog' ? 0.8 : 1.0;
+    const maxSpeed = v.baseSpeed * weatherMul * (v.isEmergency ? 1.4 : 1);
 
-        // Odleglosc maski wozu od czegos z przodu
-    const fx = v.pos.x + v.vx * lookAhead;
-    const fz = v.pos.z + v.vz * lookAhead;
+        // distToStop = ile metrow centrum wozu moze jeszcze przejechac
+        // zanim musi sie zatrzymac. Inf jezeli nic nas nie blokuje.
+        // Pas (lane) jest przesuniety o ~1.6 od osi drogi — perp tolerancja ~3.
+    let distToStop = Infinity;
+    const STOP_AHEAD = 7.5 + v.d / 2;  // srodek wozu zatrzymuje sie tutaj (bumper tuz przed zebra)
 
-        // Sprawdz sygnalizacje — anchor na srodek skrzyzowania zeby auto
-        // zatrzymalo sie NA linii stopu i zostalo, nawet po minieciu slupa.
+        // 1) Czerwone/zolte swiatlo na najblizszym skrzyzowaniu na naszym pasie
     if (!v.runsRed && !v.isEmergency) {
-      // Crossing footprint spans 4..7 units from intersection center along the
-      // vehicle's approach (roadHalf=4, crossing centered at 5.5, width 3).
-      // Front bumper must land just shy of the near zebra edge (7), so the
-      // vehicle CENTER stop line is at 7 + v.d/2 + small margin.
-      const stopLine = 7.5 + v.d / 2;
-      const brakeDist = 26 + v.d;
       for (const tl of this.city.trafficLights) {
         const controls = (v.axis === 'h' && tl.axis === 'ew') || (v.axis === 'v' && tl.axis === 'ns');
         if (!controls) continue;
@@ -650,68 +645,76 @@ export class TrafficSystem {
         const idz = tl.intersection.z - v.pos.z;
         const along = v.vx * idx + v.vz * idz;
         const perp  = Math.abs(v.vx * idz - v.vz * idx);
-        // Keep brakes engaged from when we enter the brake zone until the car
-        // has actually cleared the crossing on the way out (along < -4 = past
-        // intersection center on the far side). The wider lower bound prevents
-        // the car from releasing brakes after overshoot and creeping forward.
-        if (perp < 3 && along > -4 && along < stopLine + brakeDist) {
-          shouldStop = true;
-        }
+        if (perp >= 3) continue;
+                // Jezeli juz wjechalismy na pasy/skrzyzowanie (along < STOP_AHEAD)
+                // — przejedzmy, nie blokuj sie w srodku skrzyzowania.
+        const d = along - STOP_AHEAD;
+        if (d > -0.3 && d < distToStop) distToStop = d;
       }
     }
 
-        // Pieszy na pasach z przodu — hamuj WCZESNIE i zatrzymaj sie przy
-        // dalszej krawedzi zebry, nie przy nim. Anchor na srodek najblizszego
-        // skrzyzowania zeby ciezarowki nie parkowaly na pasach.
+        // 2) Pieszy na zebrze przed nami — ale TYLKO jezeli jeszcze nie wjechalismy
+        // na skrzyzowanie. Jak juz jestesmy w srodku, lepiej przejechac niz stanac na pasach.
     const pdx = playerPos.x - v.pos.x;
     const pdz = playerPos.z - v.pos.z;
     const palong = v.vx * pdx + v.vz * pdz;
     const pperp  = Math.abs(v.vx * pdz - v.vz * pdx);
     const playerOnCrossing = this.city.isOnCrossing(playerPos.x, playerPos.z);
-    if (playerOnCrossing && palong > 0 && palong < 24 && pperp < 4) {
-            // Znajdz skrzyzowanie z pasami na ktorych jest gracz, w pasie auta
-      let best = null, bestAlong = Infinity;
+    if (playerOnCrossing && palong > 0 && pperp < 4) {
+      let bestAlong = Infinity;
       for (const inter of this.city.intersections) {
         const idx = inter.x - v.pos.x;
         const idz = inter.z - v.pos.z;
         const ialong = v.vx * idx + v.vz * idz;
         const iperp  = Math.abs(v.vx * idz - v.vz * idx);
-        if (iperp < 3 && ialong > 0 && ialong < ialong + 30 && ialong < bestAlong) {
-                    // Gracz musi byc faktycznie blisko pasow tego skrzyzowania
-          const pdInter = Math.hypot(playerPos.x - inter.x, playerPos.z - inter.z);
-          if (pdInter < 10) { best = inter; bestAlong = ialong; }
-        }
+        if (iperp >= 3 || ialong <= 0) continue;
+        const pdInter = Math.hypot(playerPos.x - inter.x, playerPos.z - inter.z);
+        if (pdInter < 10 && ialong < bestAlong) bestAlong = ialong;
       }
-      if (best) {
-        const stopLine = 7.5 + v.d / 2;
-        const brakeDist = 14 + v.d;
-        if (bestAlong > stopLine && bestAlong < stopLine + brakeDist) {
-          shouldStop = true;
-        }
+      if (bestAlong !== Infinity) {
+        const d = bestAlong - STOP_AHEAD;
+                // d > 0 znaczy ze linia stopu wciaz przed nami — hamujemy
+                // d < 0 znaczy ze juz wjechalismy — odpuszczamy, przejedzmy szybko
+        if (d > 0 && d < distToStop) distToStop = d;
       }
     }
-    // Emergency: very close jaywalker right in front, slam brakes.
-    if (palong > 0 && palong < 4 && pperp < 1.6) shouldStop = true;
+        // Awaryjne hamowanie: pieszy DOSLOWNIE przed maska, w naszym pasie.
+        // Wask, zeby nie hamowac przy pieszym ktory tylko mija pas obok.
+    if (palong > 0 && palong < v.d / 2 + 2.5 && pperp < 0.9) {
+      const d = palong - v.d / 2 - 0.6;
+      if (d < distToStop) distToStop = d;
+    }
 
-        // Ktos z przodu?
+        // 3) Wóz z przodu na tym samym pasie — trzymaj odstęp
     for (const other of this.vehicles) {
       if (other === v) continue;
+      if (other.axis !== v.axis) continue;
+      if (other.vx !== v.vx || other.vz !== v.vz) continue;
       const odx = other.pos.x - v.pos.x;
       const odz = other.pos.z - v.pos.z;
       const oa = v.vx * odx + v.vz * odz;
       const op = Math.abs(v.vx * odz - v.vz * odx);
-      if (oa > 0 && oa < lookAhead && op < 2.0) {
-        shouldStop = true;
-        break;
-      }
+      if (op >= 2.2 || oa <= 0) continue;
+      const gap = 1.5;
+      const d = oa - other.d / 2 - v.d / 2 - gap;
+      if (d < distToStop) distToStop = d;
     }
 
-        // Przy deszczu jest gorzej z hamowaniem no nie
-    const weatherMul = this.zone.weather === 'rain' ? 0.85 : this.zone.weather === 'fog' ? 0.8 : 1.0;
-    const target = shouldStop ? 0 : v.baseSpeed * weatherMul * (v.isEmergency ? 1.4 : 1);
-        // GLB: szybsze przyspieszenie, twardsze hamowanie dla dynamiki
-    const accel = shouldStop ? (v.glbModel ? 9.0 : 5.0) : (v.glbModel ? 3.5 : 2.2);
+        // Plynne hamowanie: v = sqrt(2*a*d) — odpalamy hamulec proporcjonalnie do dystansu
+    let target;
+    if (distToStop === Infinity) {
+      target = maxSpeed;
+    } else if (distToStop <= 0.05) {
+      target = 0;
+    } else {
+      const brakeA = 8.0;
+      target = Math.min(maxSpeed, Math.sqrt(2 * brakeA * distToStop));
+    }
+
+    const accel = (target < v.speed) ? (v.glbModel ? 6.5 : 5.0) : (v.glbModel ? 3.5 : 2.5);
     v.speed += (target - v.speed) * Math.min(1, dt * accel);
+    if (v.speed < 0) v.speed = 0;
+    if (target === 0 && v.speed < 0.05) v.speed = 0;
 
     v.pos.x += v.vx * v.speed * dt;
     v.pos.z += v.vz * v.speed * dt;
