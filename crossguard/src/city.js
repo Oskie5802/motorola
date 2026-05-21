@@ -291,20 +291,14 @@ export class City {
             });
           }
 
-          // Znaki pionowe:
-          // Droga z pierwszeństwem (D-1) dla osi poziomej (ruch ew: wschód-zachód)
-          this._createSign(x - sigOff, z + roadHalf + 0.5, 'D-1', -Math.PI / 2); // West approach, east-bound
-          this._createSign(x + sigOff, z - roadHalf - 0.5, 'D-1', Math.PI / 2);  // East approach, west-bound
+          // Znaki pionowe na skrzyżowaniach bez sygnalizacji:
+          // Droga z pierwszeństwem (D-1) z podczepionym znakiem przejścia dla pieszych (D-6) na jednym słupku (oś pozioma)
+          this._createDoubleSign(x - crossOff, z + roadHalf + 0.5, 'D-1', 'D-6', -Math.PI / 2); // West approach & crossing
+          this._createDoubleSign(x + crossOff, z - roadHalf - 0.5, 'D-1', 'D-6', Math.PI / 2);  // East approach & crossing
 
-          // Ustąp pierwszeństwa (A-7) dla osi pionowej (ruch ns: północ-południe)
-          this._createSign(x - roadHalf - 0.5, z - sigOff, 'A-7', Math.PI);      // North approach, south-bound
-          this._createSign(x + roadHalf + 0.5, z + sigOff, 'A-7', 0);            // South approach, north-bound
-
-          // Znaki przejścia dla pieszych (D-6)
-          this._createSign(x - roadHalf - 0.5, z - crossOff, 'D-6', Math.PI);     // North crossing, south-bound right side
-          this._createSign(x + roadHalf + 0.5, z + crossOff, 'D-6', 0);           // South crossing, north-bound right side
-          this._createSign(x - crossOff, z + roadHalf + 0.5, 'D-6', -Math.PI / 2); // West crossing, east-bound right side
-          this._createSign(x + crossOff, z - roadHalf - 0.5, 'D-6', Math.PI / 2);  // East crossing, west-bound right side
+          // Ustąp pierwszeństwa (A-7) z podczepionym znakiem przejścia dla pieszych (D-6) na jednym słupku (oś pionowa)
+          this._createDoubleSign(x - roadHalf - 0.5, z - crossOff, 'A-7', 'D-6', Math.PI); // North approach & crossing
+          this._createDoubleSign(x + roadHalf + 0.5, z + crossOff, 'A-7', 'D-6', 0);       // South approach & crossing
         }
       }
     }
@@ -1358,21 +1352,8 @@ export class City {
     this.scene.add(head);
   }
 
-  _createSign(x, z, type, rotationY) {
-    const group = new THREE.Group();
-
-    // Słupek znaku (szary cylinder)
-    const poleMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
-    const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6),
-      poleMat
-    );
-    pole.position.y = 1.4;
-    pole.castShadow = true;
-    group.add(pole);
-
+  _createSignBoard(type) {
     const boardGroup = new THREE.Group();
-    boardGroup.position.set(0, 2.5, 0);
 
     const createTriangleGeometry = (size, inverted = false) => {
       const geom = new THREE.BufferGeometry();
@@ -1429,57 +1410,156 @@ export class City {
       boardGroup.add(yellowMesh);
 
     } else if (type === 'D-6') {
-      // Przejście dla pieszych (niebieski kwadrat z białym trójkątem i sylwetką pieszego)
-      const blueBox = new THREE.Mesh(
+      // Przejście dla pieszych (realistyczny polski znak D-6 ze zdjęcia)
+      
+      // 1. Biały prostopadłościan (tył / obwódka)
+      const whiteBack = new THREE.Mesh(
         new THREE.BoxGeometry(0.65, 0.65, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      boardGroup.add(whiteBack);
+
+      // 2. Niebieski kwadrat na wierzchu (mniejszy, aby odsłonić białą obwódkę)
+      const blueBox = new THREE.Mesh(
+        new THREE.BoxGeometry(0.61, 0.61, 0.02),
         new THREE.MeshBasicMaterial({ color: 0x0044aa })
       );
+      blueBox.position.z = 0.002;
       boardGroup.add(blueBox);
 
-      const whiteTriGeo = createTriangleGeometry(0.48, false);
+      // 3. Duży biały trójkąt wpisany w niebieski kwadrat
+      const whiteTriGeo = createTriangleGeometry(0.56, false);
       const whiteTri = new THREE.Mesh(
         whiteTriGeo,
         new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
       );
-      whiteTri.position.set(0, -0.06, 0.005);
+      whiteTri.position.set(0, -0.05, 0.013);
       boardGroup.add(whiteTri);
 
-      // Czarna sylwetka pieszego
+      // 4. Trzy czarne poziome kreski (pasy zebry) na tle trójkąta pod nogami pieszego
+      const zebraGroup = new THREE.Group();
+      zebraGroup.position.set(0, -0.10, 0.015);
+      const zebraMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      
+      const stripeW = 0.09;
+      const stripeH = 0.015;
+      const stripeD = 0.002;
+      const stripeLeft = new THREE.Mesh(new THREE.BoxGeometry(stripeW, stripeH, stripeD), zebraMat);
+      stripeLeft.position.set(-0.13, 0, 0);
+      zebraGroup.add(stripeLeft);
+
+      const stripeMid = new THREE.Mesh(new THREE.BoxGeometry(stripeW, stripeH, stripeD), zebraMat);
+      stripeMid.position.set(0, 0, 0);
+      zebraGroup.add(stripeMid);
+
+      const stripeRight = new THREE.Mesh(new THREE.BoxGeometry(stripeW, stripeH, stripeD), zebraMat);
+      stripeRight.position.set(0.13, 0, 0);
+      zebraGroup.add(stripeRight);
+
+      boardGroup.add(zebraGroup);
+
+      // 5. Ulepszona czarna sylwetka pieszego
       const pedGroup = new THREE.Group();
-      pedGroup.position.set(0, -0.06, 0.01);
+      pedGroup.position.set(0, -0.05, 0.017); // Wyśrodkowana w układzie znaku
       const blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
 
       // Głowa
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), blackMat);
-      head.position.set(0, 0.15, 0);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), blackMat);
+      head.position.set(-0.015, 0.13, 0);
       pedGroup.add(head);
 
       // Tułów
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.01), blackMat);
-      torso.position.set(0, 0.06, 0);
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.11, 0.005), blackMat);
+      torso.rotation.z = 0.15; // Pochylenie w lewo (do przodu)
+      torso.position.set(0, 0.05, 0);
       pedGroup.add(torso);
 
-      // Nogi
-      const leg1 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.1, 0.01), blackMat);
-      leg1.rotation.z = 0.25;
-      leg1.position.set(-0.03, -0.03, 0);
-      pedGroup.add(leg1);
+      // Lewa ręka (front, wysunięta w lewo/dół)
+      const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.005), blackMat);
+      leftArm.rotation.z = -0.65; // Kąt ujemny kieruje rękę w dół-lewo
+      leftArm.position.set(-0.035, 0.05, 0.001);
+      pedGroup.add(leftArm);
 
-      const leg2 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.1, 0.01), blackMat);
-      leg2.rotation.z = -0.3;
-      leg2.position.set(0.03, -0.03, 0);
-      pedGroup.add(leg2);
+      // Prawa ręka (back, idąca w dół/prawo)
+      const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.005), blackMat);
+      rightArm.rotation.z = 0.15; // Kąt dodatni kieruje rękę w dół-prawo
+      rightArm.position.set(0.02, 0.05, -0.001);
+      pedGroup.add(rightArm);
 
-      // Ręce
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.01), blackMat);
-      arm.rotation.z = 0.4;
-      arm.position.set(-0.03, 0.08, 0);
-      pedGroup.add(arm);
+      // Lewa noga (przednia, wysunięta mocno w lewo/dół)
+      const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.10, 0.005), blackMat);
+      leftLeg.rotation.z = -0.5; // Kąt ujemny kieruje nogę w dół-lewo
+      leftLeg.position.set(-0.03, -0.04, 0.001);
+      pedGroup.add(leftLeg);
+
+      // Lewa stopa (pozioma kreska na końcu lewej nogi)
+      const leftFoot = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.012, 0.005), blackMat);
+      leftFoot.position.set(-0.055, -0.085, 0.001);
+      pedGroup.add(leftFoot);
+
+      // Prawa noga (tylna, wysunięta w prawo/dół)
+      const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.10, 0.005), blackMat);
+      rightLeg.rotation.z = 0.5; // Kąt dodatni kieruje nogę w dół-prawo
+      rightLeg.position.set(0.03, -0.04, -0.001);
+      pedGroup.add(rightLeg);
+
+      // Prawa stopa (pozioma kreska na końcu prawej nogi)
+      const rightFoot = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.012, 0.005), blackMat);
+      rightFoot.position.set(0.055, -0.085, -0.001);
+      pedGroup.add(rightFoot);
 
       boardGroup.add(pedGroup);
     }
 
-    group.add(boardGroup);
+    return boardGroup;
+  }
+
+  _createSign(x, z, type, rotationY) {
+    const group = new THREE.Group();
+
+    // Słupek znaku (szary cylinder)
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6),
+      poleMat
+    );
+    pole.position.y = 1.4;
+    pole.castShadow = true;
+    group.add(pole);
+
+    const board = this._createSignBoard(type);
+    board.position.set(0, 2.5, 0.07); // Odsunięcie w osi Z, aby słupek nie przechodził przez środek znaku
+    group.add(board);
+
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+    this.scene.add(group);
+    return group;
+  }
+
+  _createDoubleSign(x, z, topType, bottomType, rotationY) {
+    const group = new THREE.Group();
+
+    // Słupek znaku (szary cylinder)
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6),
+      poleMat
+    );
+    pole.position.y = 1.4;
+    pole.castShadow = true;
+    group.add(pole);
+
+    // Górny znak (np. Ustąp pierwszeństwa A-7)
+    const topBoard = this._createSignBoard(topType);
+    topBoard.position.set(0, 2.5, 0.07); // Odsunięcie w osi Z
+    group.add(topBoard);
+
+    // Dolny znak (np. Przejście dla pieszych D-6)
+    const bottomBoard = this._createSignBoard(bottomType);
+    bottomBoard.position.set(0, 1.6, 0.07); // Odsunięcie w osi Z i obniżenie na słupku
+    group.add(bottomBoard);
+
     group.position.set(x, 0, z);
     group.rotation.y = rotationY;
     this.scene.add(group);
