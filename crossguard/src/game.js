@@ -114,7 +114,8 @@ export class GameLogic {
   update(dt) {
     if (this.state !== 'playing') return;
     this.elapsed += dt;
-    this.hud.setTimer(Math.max(0, this.timeLimit - this.elapsed));
+    const timeLeft = Math.max(0, this.timeLimit - this.elapsed);
+    this.hud.setTimer(timeLeft);
 
         // Krecimy i bobbing markera
     if (this._goalMarker) {
@@ -173,14 +174,15 @@ export class GameLogic {
     this.hud.setDist(gd);
 
         // Podpowiedzi na przejsciu
+    let crossingLightForPed = null;
     if (onCrossing) {
             // Które światło kontroluje te pasy
       const tl = onCrossing.light;
-      const lightStateForPed = tl.state === 'green' ? 'red' :
-                               tl.state === 'red' ? 'green' :
-                               'amber';
+      crossingLightForPed = tl.state === 'green' ? 'red' :
+                            tl.state === 'red' ? 'green' :
+                            'amber';
             // Zasada: jak auta stoja (czerwone) to pieszy idzie (zielone)
-      this.hud.showCrossPrompt(lightStateForPed);
+      this.hud.showCrossPrompt(crossingLightForPed);
     } else {
       this.hud.showCrossPrompt(null);
     }
@@ -189,6 +191,7 @@ export class GameLogic {
     const _crossingKey = (c) => `${c.x1},${c.z1},${c.x2},${c.z2}`;
     if (onCrossing && !this._wasOnCrossing) {
             // Wszedł na przejscie
+      this.audio.crossingEnter();
       this._lastCrossing = onCrossing;
       const cKey = _crossingKey(onCrossing);
       const alreadyDone = this._completedCrossings.has(cKey);
@@ -210,6 +213,7 @@ export class GameLogic {
     }
     if (!onCrossing && this._wasOnCrossing && this._lastCrossing) {
             // Zeszedl z przejscia
+      this.audio.crossingExit();
       const exitedToSafe = this.city.isOnSafeGround(pos.x, pos.z);
       if (exitedToSafe && this._lastCrossingLightState === 'green' && !this._lastCrossingAlreadyDone) {
         this.addScore(SCORE.CROSS_GREEN, '✓ Bezpieczne przejście', 'good');
@@ -249,7 +253,7 @@ export class GameLogic {
     if (hit && this.elapsed - (this._lastHitAt || -10) > 3) {
       this._lastHitAt = this.elapsed;
       this.addScore(SCORE.HIT_BY_CAR, '🚨 Potrącenie przez pojazd!', 'bad');
-      this.audio.bad();
+      this.audio.crash();
       this.violations++;
             // Odrzuca gracza, ale w zlym kierunku i traci punkty
       this.player.pos.x -= (hit.vx) * 2;
@@ -293,6 +297,7 @@ export class GameLogic {
 
         // Doszedles do celu
     if (gd < 2.5) {
+      this.audio.goalReached();
       this.addScore(SCORE.REACH_GOAL, '🏁 Cel osiągnięty!', 'good');
       this._finish('success');
       return;
@@ -331,7 +336,7 @@ export class GameLogic {
               if (camToVeh < 25) {
                 v._avigilonFlagged = true;
                 this.hud.alert('📷 AVIGILON: pojazd łamie przepisy wykryty!', 'warn');
-                this.audio.warn();
+                this.audio.cameraDetect();
                 break;
               }
             }
@@ -351,8 +356,21 @@ export class GameLogic {
         v._lprFlagged = true;
         this.hud.incLPR();
         this.hud.alert('LPR: pojazd na obserwacji namierzony!', 'warn', 2400);
+        this.audio.lprScan();
       }
     }
+
+        // Update audio per frame z pełnym stanem gracza
+    const running = this.player.keys && (this.player.keys['ShiftLeft'] || this.player.keys['ShiftRight']);
+    this.audio.update(dt, {
+      moving: this.player.moving,
+      running: !!running,
+      onRoad: onRoad,
+      onCrossing: !!onCrossing,
+      crossingLight: crossingLightForPed,
+      timeLeft: timeLeft,
+      timeLimit: this.timeLimit,
+    });
   }
 
   _generateAdvice() {
@@ -440,7 +458,7 @@ export class GameLogic {
     const events = [
       () => {
         this.hud.alert('AVIGILON: pojazd ignoruje czerwone światło', 'warn');
-        this.audio.warn();
+        this.audio.cameraDetect();
         const v = this.traffic.vehicles.find(v => !v.runsRed);
         if (v) v.runsRed = true;
       },
@@ -449,6 +467,7 @@ export class GameLogic {
       },
       () => {
         this.hud.alert('AWARIA SYGNALIZACJI - zachowaj ostrożność', 'warn');
+        this.audio.warn();
         const tl = this.city.trafficLights[Math.floor(Math.random() * this.city.trafficLights.length)];
                 // Wymuszamy żółte światło na sekundę
         tl.state = 'amber'; tl.timer = 0;
@@ -457,9 +476,10 @@ export class GameLogic {
       () => {
         this.hud.alert('LPR: skradzione auto namierzone', 'warn');
         this.hud.incLPR();
+        this.audio.lprScan();
       },
       () => {
-                // Roboty drogowe - blokujemy graczowi droge zeby musial obejsć
+                // Roboty drogowe - blokujemy graczowi droge zeby musial obejść
         this._spawnRoadworks();
       },
     ];
@@ -500,7 +520,7 @@ export class GameLogic {
     this.city.obstacles.push({ x1: cx - 1.8, z1: cz - 1.0, x2: cx + 1.8, z2: cz + 1.0 });
 
     this.hud.alert('🚧 Roboty drogowe - chodnik zamknięty! Szukaj objazu!', 'warn');
-    this.audio.warn();
+    this.audio.roadworks();
   }
 
   addScore(delta, text, kind = 'info') {
@@ -509,6 +529,7 @@ export class GameLogic {
         // Radia można uzywac od 30 pkt
     if (this.score >= 30 && !this.hud.radioUnlocked) {
       this.hud.unlockRadio();
+      this.audio.radioUnlock();
     }
     if (text) {
       const sign = delta >= 0 ? '+' : '';
@@ -530,6 +551,8 @@ export class GameLogic {
   _finish(reason) {
     this.state = 'done';
     this.audio.sirenStop();
+    this.audio.stopHeartbeat();
+    this.audio.stopCrossingBeep();
     this.hud.showCrossPrompt(null);
     const grade = gradeFor(this.score);
     const result = {

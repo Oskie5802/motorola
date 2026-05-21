@@ -174,9 +174,11 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && currentSession && !currentSession.cinematic) {
     isPaused = !isPaused;
     $('pause').classList.toggle('hidden', !isPaused);
+    if (isPaused) audio.pauseIn();
+    else audio.pauseOut();
   }
 });
-$('resumeBtn').onclick = () => { isPaused = false; $('pause').classList.add('hidden'); };
+$('resumeBtn').onclick = () => { isPaused = false; $('pause').classList.add('hidden'); audio.pauseOut(); };
 $('quitBtn').onclick = () => {
   isPaused = false; $('pause').classList.add('hidden');
   endSession();
@@ -330,8 +332,11 @@ async function startGame(zone, opts = {}) {
     };
   }
 
-    // Glosniczki
-  audio.ambient(zone.id);
+        // Glosniczki
+    audio.ambient(zone.id);
+
+        // Deszcz w tle jak pada
+    if (zone.weather === 'rain') audio.startRain();
 
     // Obsluga skalowania ona
   const onResize = () => {

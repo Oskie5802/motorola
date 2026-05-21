@@ -17,19 +17,19 @@
 </head>
 
 <body>
-    <!-- Główny ekran / menu -->
+  <!-- Główny ekran / menu -->
   <div id="menu" class="screen menu-screen">
-        <!-- Gradientowe poświaty w tle żeby nie było drętwo -->
+    <!-- Gradientowe poświaty w tle żeby nie było drętwo -->
     <div class="mbg-glow" aria-hidden="true"></div>
     <div class="mbg-scan" aria-hidden="true"></div>
 
-        <!-- Estetyczne narożniki, bajer motoroli -->
+    <!-- Estetyczne narożniki, bajer motoroli -->
     <div class="hud-corner tl" aria-hidden="true"></div>
     <div class="hud-corner tr" aria-hidden="true"></div>
     <div class="hud-corner bl" aria-hidden="true"></div>
     <div class="hud-corner br" aria-hidden="true"></div>
 
-        <!-- Pasek statusu u góry (kosmetyka) -->
+    <!-- Pasek statusu u góry (kosmetyka) -->
     <div class="menu-topbar">
       <div class="menu-topbar-l">
         <span class="live-dot"></span>MOTOROLA SOLUTIONS · SAFECITY COMMAND CENTER
@@ -37,9 +37,9 @@
       <div class="menu-topbar-r">SYSTEM ONLINE · 2026</div>
     </div>
 
-        <!-- Dzielimy układ na sekcje -->
+    <!-- Dzielimy układ na sekcje -->
     <div class="menu-layout">
-            <!-- Lewa sekcja z logo i buttonem Play -->
+      <!-- Lewa sekcja z logo i buttonem Play -->
       <div class="menu-brand">
         <div class="brand-eyebrow">EDUKACYJNY SYMULATOR PIESZEGO</div>
         <div class="menu-logo">
@@ -57,7 +57,7 @@
         </div>
       </div>
 
-            <!-- Prawa sekcja wyboru levelu -->
+      <!-- Prawa sekcja wyboru levelu -->
       <div class="menu-zones-col">
         <div class="zones-col-hdr">
           <span class="zones-col-title">WYBIERZ STREFĘ OPERACYJNĄ</span>
@@ -68,7 +68,7 @@
     </div>
   </div>
 
-    <!-- Samouczek (How To Play) -->
+  <!-- Samouczek (How To Play) -->
   <div id="howto" class="screen hidden">
     <div class="menu-content">
       <h1>JAK GRAĆ?</h1>
@@ -104,12 +104,12 @@
     </div>
   </div>
 
-    <!-- Kontener na Three.js, cała gra siedzi w środku -->
+  <!-- Kontener na Three.js, cała gra siedzi w środku -->
   <canvas id="game"></canvas>
 
-    <!-- Warstwa HUD zarzucona na canvas gry -->
+  <!-- Warstwa HUD zarzucona na canvas gry -->
   <div id="hud" class="hidden">
-        <!-- Górny panel rodem z Command Center -->
+    <!-- Górny panel rodem z Command Center -->
     <div id="hudTopBar">
       <div class="hud-block" style="visibility:hidden;pointer-events:none"></div>
       <div class="hud-block center">
@@ -134,7 +134,7 @@
       </div>
     </div>
 
-        <!-- Radar / minimapka -->
+    <!-- Radar / minimapka -->
     <div id="minimap">
       <div class="hud-label">MINI-MAPA · AVIGILON FEED</div>
       <canvas id="minimapCanvas" width="220" height="220"></canvas>
@@ -146,7 +146,7 @@
       </div>
     </div>
 
-        <!-- Miejsce w którym AI rzuca suchary -->
+    <!-- Miejsce w którym AI rzuca suchary -->
     <div id="assist">
       <div class="assist-header">
         <span class="ai-icon">◆</span>
@@ -155,7 +155,7 @@
       <div id="assistMsg">Witaj w SafeCity, Alex. Rozpocznij trasę.</div>
     </div>
 
-        <!-- Odbiornik radiowy -->
+    <!-- Odbiornik radiowy -->
     <div id="radio" class="hidden">
       <div class="radio-header">
         <span>📡 APX P25 · Kanał Dyspozytorski</span>
@@ -163,10 +163,10 @@
       <div id="radioMsg">- cisza w eterze -</div>
     </div>
 
-        <!-- Wyskakujące powiadomienia (toasty) -->
+    <!-- Wyskakujące powiadomienia (toasty) -->
     <div id="alerts"></div>
 
-        <!-- Ekran zamazuje się jak gapisz się w komórkę na przejściu (karny jeżyk) -->
+    <!-- Ekran zamazuje się jak gapisz się w komórkę na przejściu (karny jeżyk) -->
     <div id="phoneOverlay" class="hidden">
       <div class="phone-screen">
         <div class="phone-header">📱 Wiadomości</div>
@@ -177,20 +177,20 @@
       </div>
     </div>
 
-        <!-- Napis na dole "Możesz iść" itp. -->
+    <!-- Napis na dole "Możesz iść" itp. -->
     <div id="crossPrompt" class="hidden">
       <span id="crossLightIcon">●</span>
       <span id="crossPromptText">Przejście dla pieszych</span>
     </div>
 
-        <!-- Elementy trzymane luzem do referencji w hud.js (brzydki hack, ale działa) -->
+    <!-- Elementy trzymane luzem do referencji w hud.js (brzydki hack, ale działa) -->
     <span id="zoneText" style="display:none"></span>
     <span id="weatherText" style="display:none"></span>
     <span id="timeOfDayText" style="display:none"></span>
     <span id="lprText" style="display:none"></span>
   </div>
 
-    <!-- Ekran końca, pokazywanie skórek punktowych -->
+  <!-- Ekran końca, pokazywanie skórek punktowych -->
   <div id="results" class="screen hidden">
     <div class="menu-content results">
       <h1 id="resultsHeader">RAPORT MISJI</h1>
@@ -214,7 +214,7 @@
     </div>
   </div>
 
-    <!-- Klasyczna pauza w trakcie rozwałki -->
+  <!-- Klasyczna pauza w trakcie rozwałki -->
   <div id="pause" class="screen hidden">
     <div class="menu-content">
       <h1>PAUZA</h1>
@@ -223,7 +223,7 @@
     </div>
   </div>
 
-    <!-- Okienko z objaśnieniem klawiszy przy pierwszym graniu -->
+  <!-- Okienko z objaśnieniem klawiszy przy pierwszym graniu -->
   <div id="tutorial" class="hidden">
     <div class="tut-card">
       <h2>WITAJ W SAFECITY, ALEX</h2>
@@ -243,7 +243,7 @@
   </div>
 
 
-    <!-- Pasek loadingu, zanim assetsy się wczytają -->
+  <!-- Pasek loadingu, zanim assetsy się wczytają -->
   <div id="loading" class="screen loading-screen">
     <div class="hud-corner tl" aria-hidden="true"></div>
     <div class="hud-corner tr" aria-hidden="true"></div>

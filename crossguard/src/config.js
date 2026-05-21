@@ -159,20 +159,24 @@ export const RADIO_EVENTS = [
     event: (game) => {
       const v = game.traffic.vehicles.find(v => !v.runsRed && !v.isEmergency);
       if (v) v.runsRed = true;
+      game.audio.radioMessage();
       game.audio.warn();
     },
   },
   {
     text: 'Karetka w trasie - pojazd uprzywilejowany na trasie!',
     event: (game) => {
+      game.audio.radioMessage();
       game.traffic._spawnEmergency();
-      game.audio.siren();
+      game.audio.sirenStart();
     },
   },
   {
     text: 'LPR: skradziony pojazd namierzony w Twoim sektorze!',
     event: (game) => {
+      game.audio.radioMessage();
       game.hud.incLPR();
+      game.audio.lprScan();
       const v = game.traffic.vehicles.find(v => !v.runsRed && !v.isEmergency);
       if (v) v.runsRed = true;
     },
@@ -180,6 +184,7 @@ export const RADIO_EVENTS = [
   {
     text: 'Drogówka: awaria sygnalizacji - ostrożność na przejściach!',
     event: (game) => {
+      game.audio.radioMessage();
       const tl = game.city.trafficLights[Math.floor(Math.random() * game.city.trafficLights.length)];
       tl.state = 'amber'; tl.timer = 0;
       game.city._applyLightVisual([tl]);
@@ -188,7 +193,8 @@ export const RADIO_EVENTS = [
   {
     text: 'Centrum: Avigilon wykrył zagrożenie - zachowaj czujność!',
     event: (game) => {
-      game.audio.warn();
+      game.audio.radioMessage();
+      game.audio.cameraDetect();
     },
   },
 ];
