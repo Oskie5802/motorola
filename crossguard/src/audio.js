@@ -826,7 +826,7 @@ export class AudioSystem {
         if (Math.random() < 0.6) {
           setTimeout(() => {
             if (!this.ctx) return;
-            const t2 = this.ctx.currentTime;
+          const t2 = this.ctx.currentTime;
             const o2 = this.ctx.createOscillator();
             const g2 = this.ctx.createGain();
             o2.type = 'sine';
