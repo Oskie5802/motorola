@@ -178,9 +178,9 @@ export class GameLogic {
     if (onCrossing) {
             // Które światło kontroluje te pasy
       const tl = onCrossing.light;
-      crossingLightForPed = tl.state === 'green' ? 'red' :
+      crossingLightForPed = tl ? (tl.state === 'green' ? 'red' :
                             tl.state === 'red' ? 'green' :
-                            'amber';
+                            'amber') : null;
             // Zasada: jak auta stoja (czerwone) to pieszy idzie (zielone)
       this.hud.showCrossPrompt(crossingLightForPed);
     } else {
@@ -196,7 +196,7 @@ export class GameLogic {
       const cKey = _crossingKey(onCrossing);
       const alreadyDone = this._completedCrossings.has(cKey);
       const tl = onCrossing.light;
-      const pedState = tl.state === 'green' ? 'red' : tl.state === 'red' ? 'green' : 'amber';
+      const pedState = tl ? (tl.state === 'green' ? 'red' : tl.state === 'red' ? 'green' : 'amber') : 'green';
       this._lastCrossingLightState = pedState;
       this._lastCrossingAlreadyDone = alreadyDone;
       if (pedState === 'green' && !alreadyDone) {
@@ -420,7 +420,7 @@ export class GameLogic {
       for (const c of this.city.crossings) {
         const d = Math.hypot((c.x1+c.x2)/2 - pos.x, (c.z1+c.z2)/2 - pos.z);
         if (d < 8) {
-          const pedState = c.light.state === 'green' ? 'red' : c.light.state === 'red' ? 'green' : 'amber';
+          const pedState = c.light ? (c.light.state === 'green' ? 'red' : c.light.state === 'red' ? 'green' : 'amber') : 'green';
           if (pedState === 'red') {
             const text = '🔴 Czerwone światło dla pieszych - czekaj!';
             this.hud.setAssist(text);

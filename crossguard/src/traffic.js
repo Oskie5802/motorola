@@ -580,9 +580,28 @@ export class TrafficSystem {
           p.group.rotation.y = Math.atan2(dx, dz);
           continue;
         }
-                // Na przejsciu -> samochody maja czerwone to znaczy my smigamy
+        // Na przejsciu -> samochody maja czerwone to znaczy my smigamy
                 // ale jak mruga zielone to odpuszczamy, glupio zginąć
-        const canCross = wp.light && wp.light.state === 'red' && !wp.light._pedFlashing;
+        let canCross = false;
+        if (wp.light) {
+          canCross = wp.light.state === 'red' && !wp.light._pedFlashing;
+        } else {
+          // Brak sygnalizacji: pieszy AI przechodzi, jeśli w pobliżu nie ma zbliżających się pojazdów
+          let carNear = false;
+          for (const v of this.vehicles) {
+            const d = Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z);
+            if (d < 12.0) {
+              const dx = wp.x - v.pos.x;
+              const dz = wp.z - v.pos.z;
+              const heading = v.vx * dx + v.vz * dz;
+              if (heading > 0) {
+                carNear = true;
+                break;
+              }
+            }
+          }
+          canCross = !carNear;
+        }
         if (!canCross) {
                     // Stoi znudzony i czeka na światło
           p.phase += dt * 1.5;
@@ -650,6 +669,41 @@ export class TrafficSystem {
                 // — przejedzmy, nie blokuj sie w srodku skrzyzowania.
         const d = along - STOP_AHEAD;
         if (d > -0.3 && d < distToStop) distToStop = d;
+      }
+
+      // Ustępowanie pierwszeństwa na skrzyżowaniach bez sygnalizacji świetlnej
+      if (v.axis === 'v') { // Oś pionowa ustępuje pierwszeństwa
+        let yieldInter = null;
+        let yieldDist = Infinity;
+        for (const inter of this.city.intersections) {
+          if (inter.signalized) continue;
+          const idx = inter.x - v.pos.x;
+          const idz = inter.z - v.pos.z;
+          const along = v.vx * idx + v.vz * idz;
+          const perp  = Math.abs(v.vx * idz - v.vz * idx);
+          if (perp < 3 && along > 0 && along < 30 && along < yieldDist) {
+            yieldInter = inter;
+            yieldDist = along;
+          }
+        }
+        if (yieldInter && yieldDist > 7.5 + v.d / 2 && yieldDist < 22) {
+          let priorityCarApproaching = false;
+          for (const other of this.vehicles) {
+            if (other === v) continue;
+            if (other.axis !== 'h') continue; // tylko auta na drodze z pierwszeństwem
+            const odx = yieldInter.x - other.pos.x;
+            const odz = yieldInter.z - other.pos.z;
+            const oalong = other.vx * odx + other.vz * odz;
+            const operp = Math.abs(other.vx * odz - other.vz * odx);
+            if (operp < 3 && oalong > -4 && oalong < 25) {
+              priorityCarApproaching = true;
+              break;
+            }
+          }
+          if (priorityCarApproaching) {
+            shouldStop = true;
+          }
+        }
       }
     }
 
