@@ -42,6 +42,8 @@ export class GameLogic {
     this._lastCrossing = null;
     this._lastCrossingLightState = null;
     this._completedCrossings = new Set(); // crossing keys already scored
+    this._timeStoppedNearCrossing = 0;
+    this._lastNearCrossingKey = null;
 
         // Aktywne porady od AI
     this._activeAdvice = null; // { text, check: () => bool, expiresAt }
@@ -162,35 +164,64 @@ export class GameLogic {
       }
     }
 
-        // Weryfikacja gdzie jest gracz
+    // Weryfikacja gdzie jest gracz
     const pos = this.player.pos;
     const moving = this.player.moving;
     const onSidewalk = this.city.isOnSafeGround(pos.x, pos.z);
     const onCrossing = this.city.isOnCrossing(pos.x, pos.z);
     const onRoad = this.city.isOnRoad(pos.x, pos.z) && !onCrossing;
 
-        // Ile jeszcze do przejscia
+    // Weryfikacja zatrzymania przed przejściem bez sygnalizacji (skrzyżowaniem równorzędnym)
+    let closestUnsigCrossing = null;
+    let minCrossingDist = Infinity;
+    for (const c of this.city.crossings) {
+      if (c.light === null) {
+        const dx = Math.max(0, c.x1 - pos.x, pos.x - c.x2);
+        const dz = Math.max(0, c.z1 - pos.z, pos.z - c.z2);
+        const dist = Math.hypot(dx, dz);
+        if (dist < minCrossingDist) {
+          minCrossingDist = dist;
+          closestUnsigCrossing = c;
+        }
+      }
+    }
+
+    if (closestUnsigCrossing && minCrossingDist <= 2.0) {
+      if (!moving) {
+        this._timeStoppedNearCrossing += dt;
+      }
+      const cKey = `${closestUnsigCrossing.x1},${closestUnsigCrossing.z1}`;
+      if (this._lastNearCrossingKey && this._lastNearCrossingKey !== cKey) {
+        this._timeStoppedNearCrossing = 0;
+      }
+      this._lastNearCrossingKey = cKey;
+    } else {
+      this._timeStoppedNearCrossing = 0;
+      this._lastNearCrossingKey = null;
+    }
+
+    // Ile jeszcze do przejscia
     const gd = Math.hypot(this.goal.x - pos.x, this.goal.z - pos.z);
     this.hud.setDist(gd);
 
-        // Podpowiedzi na przejsciu
+    // Podpowiedzi na przejsciu
     let crossingLightForPed = null;
     if (onCrossing) {
-            // Które światło kontroluje te pasy
+      // Które światło kontroluje te pasy
       const tl = onCrossing.light;
       crossingLightForPed = tl ? (tl.state === 'green' ? 'red' :
                             tl.state === 'red' ? 'green' :
                             'amber') : null;
-            // Zasada: jak auta stoja (czerwone) to pieszy idzie (zielone)
+      // Zasada: jak auta stoja (czerwone) to pieszy idzie (zielone)
       this.hud.showCrossPrompt(crossingLightForPed);
     } else {
       this.hud.showCrossPrompt(null);
     }
 
-        // Scoring za przejscia pasami
+    // Scoring za przejscia pasami
     const _crossingKey = (c) => `${c.x1},${c.z1},${c.x2},${c.z2}`;
     if (onCrossing && !this._wasOnCrossing) {
-            // Wszedł na przejscie
+      // Wszedł na przejscie
       this.audio.crossingEnter();
       this._lastCrossing = onCrossing;
       const cKey = _crossingKey(onCrossing);
@@ -199,6 +230,18 @@ export class GameLogic {
       const pedState = tl ? (tl.state === 'green' ? 'red' : tl.state === 'red' ? 'green' : 'amber') : 'green';
       this._lastCrossingLightState = pedState;
       this._lastCrossingAlreadyDone = alreadyDone;
+
+      // Weryfikacja zatrzymania (min. 0.5s) przed przejściem równorzędnym (bez sygnalizacji)
+      if (tl === null && !alreadyDone) {
+        if (this._timeStoppedNearCrossing < 0.5) {
+          this.addScore(SCORE.STOP_VIOLATION, '⛔ Brak zatrzymania przed przejściem!', 'bad');
+          this.violations++;
+          this.audio.warn();
+        }
+      }
+      this._timeStoppedNearCrossing = 0;
+      this._lastNearCrossingKey = null;
+
       if (pedState === 'green' && !alreadyDone) {
         this.addScore(SCORE.USE_CROSSING, 'Korzystasz z przejścia');
         if (this.player.onPhone) {
@@ -211,10 +254,15 @@ export class GameLogic {
         this._lastRedCrossAt = this.elapsed;
       }
     }
-    if (!onCrossing && this._wasOnCrossing && this._lastCrossing) {
+
+    if (!this._wasOnCrossing && this.player.moving) {
+      // Logic for ongoing state management moved above, just ensuring context persists
+    }
+
+    if (!this.city.isOnCrossing(this.player.pos.x, this.player.pos.z) && this._wasOnCrossing && this._lastCrossing) {
             // Zeszedl z przejscia
       this.audio.crossingExit();
-      const exitedToSafe = this.city.isOnSafeGround(pos.x, pos.z);
+      const exitedToSafe = this.city.isOnSafeGround(this.player.pos.x, this.player.pos.z);
       if (exitedToSafe && this._lastCrossingLightState === 'green' && !this._lastCrossingAlreadyDone) {
         this.addScore(SCORE.CROSS_GREEN, '✓ Bezpieczne przejście', 'good');
         this.successfulCrossings++;

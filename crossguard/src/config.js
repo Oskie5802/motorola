@@ -145,6 +145,7 @@ export const SCORE = {
   JAYWALK: -15,
   PHONE_CROSS: -10,
   IGNORE_ASSIST: -10,
+  STOP_VIOLATION: -15,
   HIT_BY_CAR: -50,
   REACH_GOAL: 50,
 };

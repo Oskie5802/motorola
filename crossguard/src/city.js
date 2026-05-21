@@ -217,56 +217,89 @@ export class City {
       }
     }
 
-    // === Skrzyzowania — tylko sygnalizowane z layoutu ===
+    // === Skrzyzowania — sygnalizowane lub ze znakami ===
     const crossOff = roadWidth / 2 + 1.5;
     const crossWidth = 3.0;
     const roadHalf = roadWidth / 2;
     const sigOff = crossOff + crossWidth / 2 + 0.5;
 
-    for (const [i, j] of this.layout.signals) {
-      // Walidacja ze indeksy sa w zakresie (wewnetrzne punkty siatki)
-      if (i < 1 || i >= g || j < 1 || j >= g) continue;
+    for (let i = 1; i < g; i++) {
+      for (let j = 1; j < g; j++) {
+        const x = xs[i];
+        const z = zs[j];
 
-      const x = xs[i];
-      const z = zs[j];
-      this.intersections.push({ x, z });
+        if (this._signalSet.has(`${i},${j}`)) {
+          // --- Skrzyżowanie z sygnalizacją świetlną ---
+          this.intersections.push({ x, z, signalized: true });
 
-      // Sygnalizacja pojazdowa (4 ramiona)
-      const tlForSouth = this._addTrafficLight(x + roadHalf + 0.5, z + sigOff, 'ns', 0, x, z);
-      const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
-      const tlForWest = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
-      const tlForEast = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', Math.PI / 2, x, z);
+          // Sygnalizacja pojazdowa (4 ramiona)
+          const tlForSouth = this._addTrafficLight(x + roadHalf + 0.5, z + sigOff, 'ns', 0, x, z);
+          const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
+          const tlForWest = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
+          const tlForEast = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', Math.PI / 2, x, z);
 
-      // Sygnalizacja piesza
-      const pedCorner = roadHalf + 3;
-      const pedOff = roadHalf + 0.5;
-      this._addPedestrianLight(x - pedOff, z - pedCorner, Math.PI / 2, tlForNorth);
-      this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth);
-      this._addPedestrianLight(x - pedOff, z + pedCorner, Math.PI / 2, tlForSouth);
-      this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth);
-      this._addPedestrianLight(x + pedCorner, z - pedOff, 0, tlForEast);
-      this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast);
-      this._addPedestrianLight(x - pedCorner, z - pedOff, 0, tlForWest);
-      this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest);
+          // Sygnalizacja piesza
+          const pedCorner = roadHalf + 3;
+          const pedOff = roadHalf + 0.5;
+          this._addPedestrianLight(x - pedOff, z - pedCorner, Math.PI / 2, tlForNorth);
+          this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth);
+          this._addPedestrianLight(x - pedOff, z + pedCorner, Math.PI / 2, tlForSouth);
+          this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth);
+          this._addPedestrianLight(x + pedCorner, z - pedOff, 0, tlForEast);
+          this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast);
+          this._addPedestrianLight(x - pedCorner, z - pedOff, 0, tlForWest);
+          this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest);
 
-      // Zebry
-      for (const dz of [-crossOff, +crossOff]) {
-        this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
-        const lightObj = dz < 0 ? tlForNorth : tlForSouth;
-        this.crossings.push({
-          x, z: z + dz, axis: 'h', light: lightObj,
-          x1: x - roadWidth / 2, z1: z + dz - crossWidth / 2,
-          x2: x + roadWidth / 2, z2: z + dz + crossWidth / 2,
-        });
-      }
-      for (const dx of [-crossOff, +crossOff]) {
-        this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
-        const lightObj = dx < 0 ? tlForWest : tlForEast;
-        this.crossings.push({
-          x: x + dx, z, axis: 'v', light: lightObj,
-          x1: x + dx - crossWidth / 2, z1: z - roadWidth / 2,
-          x2: x + dx + crossWidth / 2, z2: z + roadWidth / 2,
-        });
+          // Zebry
+          for (const dz of [-crossOff, +crossOff]) {
+            this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
+            const lightObj = dz < 0 ? tlForNorth : tlForSouth;
+            this.crossings.push({
+              x, z: z + dz, axis: 'h', light: lightObj,
+              x1: x - roadWidth / 2, z1: z + dz - crossWidth / 2,
+              x2: x + roadWidth / 2, z2: z + dz + crossWidth / 2,
+            });
+          }
+          for (const dx of [-crossOff, +crossOff]) {
+            this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
+            const lightObj = dx < 0 ? tlForWest : tlForEast;
+            this.crossings.push({
+              x: x + dx, z, axis: 'v', light: lightObj,
+              x1: x + dx - crossWidth / 2, z1: z - roadWidth / 2,
+              x2: x + dx + crossWidth / 2, z2: z + roadWidth / 2,
+            });
+          }
+        } else {
+          // --- Skrzyżowanie równorzędne ze znakami (bez sygnalizacji) ---
+          this.intersections.push({ x, z, signalized: false });
+
+          // Zebry bez sygnalizacji
+          for (const dz of [-crossOff, +crossOff]) {
+            this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
+            this.crossings.push({
+              x, z: z + dz, axis: 'h', light: null,
+              x1: x - roadWidth / 2, z1: z + dz - crossWidth / 2,
+              x2: x + roadWidth / 2, z2: z + dz + crossWidth / 2,
+            });
+          }
+          for (const dx of [-crossOff, +crossOff]) {
+            this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
+            this.crossings.push({
+              x: x + dx, z, axis: 'v', light: null,
+              x1: x + dx - crossWidth / 2, z1: z - roadWidth / 2,
+              x2: x + dx + crossWidth / 2, z2: z + roadWidth / 2,
+            });
+          }
+
+          // Znaki pionowe na skrzyżowaniach bez sygnalizacji (przesunięte przed przejście na odległość sigOff):
+          // Droga z pierwszeństwem (D-1) z podczepionym znakiem przejścia dla pieszych (D-6) na jednym słupku (oś pozioma)
+          this._createDoubleSign(x - sigOff, z + roadHalf + 0.5, 'D-1', 'D-6', -Math.PI / 2); // West approach & crossing
+          this._createDoubleSign(x + sigOff, z - roadHalf - 0.5, 'D-1', 'D-6', Math.PI / 2);  // East approach & crossing
+
+          // Ustąp pierwszeństwa (A-7) z podczepionym znakiem przejścia dla pieszych (D-6) na jednym słupku (oś pionowa)
+          this._createDoubleSign(x - roadHalf - 0.5, z - sigOff, 'A-7', 'D-6', Math.PI); // North approach & crossing
+          this._createDoubleSign(x + roadHalf + 0.5, z + sigOff, 'A-7', 'D-6', 0);       // South approach & crossing
+        }
       }
     }
 
@@ -319,7 +352,7 @@ export class City {
     const pathV = new THREE.Mesh(
       new THREE.PlaneGeometry(pathW, d - 4),
       pathMat,
-    );
+    )
     pathV.rotation.x = -Math.PI / 2;
     pathV.position.set(cx, 0.135, cz);
     pathV.receiveShadow = true;
@@ -565,7 +598,11 @@ export class City {
 
   _addTrafficLight(x, z, axis, rotationY = 0, intersectionX = x, intersectionZ = z) {
     const group = new THREE.Group();
-    // Pole
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.6, roughness: 0.5 });
+    const housingMat = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.4, roughness: 0.6 });
+    const backboardMat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, metalness: 0.3, roughness: 0.8 });
+
+    // Pole (taller, tapered)
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.11, 0.16, 4.6, 12),
       poleMat
@@ -573,7 +610,32 @@ export class City {
     pole.position.y = 2.3;
     pole.castShadow = true;
     group.add(pole);
-    // Housing
+
+    // Pole base / foundation
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.32, 0.25, 12),
+      poleMat
+    );
+    base.position.y = 0.12;
+    group.add(base);
+
+    // Mounting bracket from pole to housing
+    const bracket = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.18, 0.35),
+      poleMat
+    );
+    bracket.position.set(0, 4.0, 0.17);
+    group.add(bracket);
+
+    // Backboard plate (yellow border style is common in PL, but we keep dark for night look)
+    const backboard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 2.05, 0.06),
+      backboardMat
+    );
+    backboard.position.set(0, 4.0, 0.31);
+    group.add(backboard);
+
+    // Housing (slimmer, taller)
     const housing = new THREE.Mesh(
       new THREE.BoxGeometry(0.62, 1.85, 0.42),
       housingMat
@@ -582,16 +644,22 @@ export class City {
     housing.castShadow = true;
     group.add(housing);
 
-    // 3 lamps
-    const redMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0x220000, emissiveIntensity: 0.4 });
-    const ambMat = new THREE.MeshStandardMaterial({ color: 0x553f00, emissive: 0x221800, emissiveIntensity: 0.4 });
-    const grnMat = new THREE.MeshStandardMaterial({ color: 0x005522, emissive: 0x002211, emissiveIntensity: 0.4 });
-    const red = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), redMat);
-    red.position.set(0, 4.55, 0.26);
-    const amb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), ambMat);
-    amb.position.set(0, 4.05, 0.26);
-    const grn = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), grnMat);
-    grn.position.set(0, 3.55, 0.26);
+    // Lamp materials — brighter emissive when lit
+    const redMat = new THREE.MeshStandardMaterial({ color: 0x3a0a10, emissive: 0x180005, emissiveIntensity: 0.3, roughness: 0.4 });
+    const ambMat = new THREE.MeshStandardMaterial({ color: 0x3a2a05, emissive: 0x1a1200, emissiveIntensity: 0.3, roughness: 0.4 });
+    const grnMat = new THREE.MeshStandardMaterial({ color: 0x0a3a18, emissive: 0x00180a, emissiveIntensity: 0.3, roughness: 0.4 });
+
+    // Lens discs (flat, not spheres — looks more like real lights)
+    const lensGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 20);
+    const red = new THREE.Mesh(lensGeo, redMat);
+    red.rotation.x = Math.PI / 2;
+    red.position.set(0, 4.62, 0.59);
+    const amb = new THREE.Mesh(lensGeo, ambMat);
+    amb.rotation.x = Math.PI / 2;
+    amb.position.set(0, 4.0, 0.59);
+    const grn = new THREE.Mesh(lensGeo, grnMat);
+    grn.rotation.x = Math.PI / 2;
+    grn.position.set(0, 3.38, 0.59);
     group.add(red, amb, grn);
 
     // Visors / hoods over each lamp (half tubes)
@@ -1374,7 +1442,7 @@ export class City {
       strip.position.set(0, 0.07, -1.35);
       camGroup.add(strip);
 
-      // Red status LED
+      // Red status LED (small, on rear knuckle)
       const led = new THREE.Mesh(
         new THREE.SphereGeometry(0.05, 10, 8),
         new THREE.MeshBasicMaterial({ color: 0xff2233 }),
@@ -1471,6 +1539,220 @@ export class City {
     );
     head.position.set(x, 5.5, z);
     this.scene.add(head);
+  }
+
+  _createSignBoard(type) {
+    const boardGroup = new THREE.Group();
+
+    const createTriangleGeometry = (size, inverted = false) => {
+      const geom = new THREE.BufferGeometry();
+      const h = size * Math.sqrt(3) / 2;
+      const vertices = inverted ? new Float32Array([
+        -size/2, h/2, 0,
+        size/2, h/2, 0,
+        0, -h/2, 0
+      ]) : new Float32Array([
+        -size/2, -h/2, 0,
+        size/2, -h/2, 0,
+        0, h/2, 0
+      ]);
+      geom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      geom.computeVertexNormals();
+      return geom;
+    };
+
+    if (type === 'D-1') {
+      // Droga z pierwszeństwem (czarno-biało-żółty romb)
+      // Czarny tył i obwódka
+      const back = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.65, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+      );
+      back.rotation.z = Math.PI / 4;
+      boardGroup.add(back);
+
+      // Biały środek
+      const mid = new THREE.Mesh(
+        new THREE.BoxGeometry(0.58, 0.58, 0.022),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      mid.rotation.z = Math.PI / 4;
+      boardGroup.add(mid);
+
+      // Żółty kwadrat wewnętrzny
+      const front = new THREE.Mesh(
+        new THREE.BoxGeometry(0.38, 0.38, 0.024),
+        new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+      );
+      front.rotation.z = Math.PI / 4;
+      boardGroup.add(front);
+
+    } else if (type === 'A-7') {
+      // Ustąp pierwszeństwa (odwrócony żółty trójkąt z czerwoną obwódką)
+      const redTriangleGeo = createTriangleGeometry(0.75, true);
+      const redMesh = new THREE.Mesh(redTriangleGeo, new THREE.MeshBasicMaterial({ color: 0xcc2222, side: THREE.DoubleSide }));
+      boardGroup.add(redMesh);
+
+      const yellowTriangleGeo = createTriangleGeometry(0.53, true);
+      const yellowMesh = new THREE.Mesh(yellowTriangleGeo, new THREE.MeshBasicMaterial({ color: 0xffcc00, side: THREE.DoubleSide }));
+      yellowMesh.position.z = 0.005;
+      boardGroup.add(yellowMesh);
+
+    } else if (type === 'D-6') {
+      // Przejście dla pieszych (realistyczny polski znak D-6 ze zdjęcia)
+      
+      // 1. Biały prostopadłościan (tył / obwódka)
+      const whiteBack = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.65, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      boardGroup.add(whiteBack);
+
+      // 2. Niebieski kwadrat na wierzchu (mniejszy, aby odsłonić białą obwódkę)
+      const blueBox = new THREE.Mesh(
+        new THREE.BoxGeometry(0.61, 0.61, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0x0044aa })
+      );
+      blueBox.position.z = 0.002;
+      boardGroup.add(blueBox);
+
+      // 3. Duży biały trójkąt wpisany w niebieski kwadrat
+      const whiteTriGeo = createTriangleGeometry(0.56, false);
+      const whiteTri = new THREE.Mesh(
+        whiteTriGeo,
+        new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+      );
+      whiteTri.position.set(0, -0.05, 0.013);
+      boardGroup.add(whiteTri);
+
+      // 4. Trzy czarne poziome kreski (pasy zebry) na tle trójkąta pod nogami pieszego
+      const zebraGroup = new THREE.Group();
+      zebraGroup.position.set(0, -0.10, 0.015);
+      const zebraMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      
+      const stripeW = 0.09;
+      const stripeH = 0.015;
+      const stripeD = 0.002;
+      const stripeLeft = new THREE.Mesh(new THREE.BoxGeometry(stripeW, stripeH, stripeD), zebraMat);
+      stripeLeft.position.set(-0.13, 0, 0);
+      zebraGroup.add(stripeLeft);
+
+      const stripeMid = new THREE.Mesh(new THREE.BoxGeometry(stripeW, stripeH, stripeD), zebraMat);
+      stripeMid.position.set(0, 0, 0);
+      zebraGroup.add(stripeMid);
+
+      const stripeRight = new THREE.Mesh(new THREE.BoxGeometry(stripeW, stripeH, stripeD), zebraMat);
+      stripeRight.position.set(0.13, 0, 0);
+      zebraGroup.add(stripeRight);
+
+      boardGroup.add(zebraGroup);
+
+      // 5. Ulepszona czarna sylwetka pieszego
+      const pedGroup = new THREE.Group();
+      pedGroup.position.set(0, -0.05, 0.017); // Wyśrodkowana w układzie znaku
+      const blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+      // Głowa
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), blackMat);
+      head.position.set(-0.015, 0.13, 0);
+      pedGroup.add(head);
+
+      // Tułów
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.11, 0.005), blackMat);
+      torso.rotation.z = 0.15; // Pochylenie w lewo (do przodu)
+      torso.position.set(0, 0.05, 0);
+      pedGroup.add(torso);
+
+      // Lewa ręka (front, wysunięta w lewo/dół)
+      const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.005), blackMat);
+      leftArm.rotation.z = -0.65; // Kąt ujemny kieruje rękę w dół-lewo
+      leftArm.position.set(-0.035, 0.05, 0.001);
+      pedGroup.add(leftArm);
+
+      // Prawa ręka (back, idąca w dół/prawo)
+      const rightArm = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.005), blackMat);
+      rightArm.rotation.z = 0.15; // Kąt dodatni kieruje rękę w dół-prawo
+      rightArm.position.set(0.02, 0.05, -0.001);
+      pedGroup.add(rightArm);
+
+      // Lewa noga (przednia, wysunięta mocno w lewo/dół)
+      const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.10, 0.005), blackMat);
+      leftLeg.rotation.z = -0.5; // Kąt ujemny kieruje nogę w dół-lewo
+      leftLeg.position.set(-0.03, -0.04, 0.001);
+      pedGroup.add(leftLeg);
+
+      // Lewa stopa (pozioma kreska na końcu lewej nogi)
+      const leftFoot = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.012, 0.005), blackMat);
+      leftFoot.position.set(-0.055, -0.085, 0.001);
+      pedGroup.add(leftFoot);
+
+      // Prawa noga (tylna, wysunięta w prawo/dół)
+      const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.10, 0.005), blackMat);
+      rightLeg.rotation.z = 0.5; // Kąt dodatni kieruje nogę w dół-prawo
+      rightLeg.position.set(0.03, -0.04, -0.001);
+      pedGroup.add(rightLeg);
+
+      // Prawa stopa (pozioma kreska na końcu prawej nogi)
+      const rightFoot = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.012, 0.005), blackMat);
+      rightFoot.position.set(0.055, -0.085, -0.001);
+      pedGroup.add(rightFoot);
+
+      boardGroup.add(pedGroup);
+    }
+
+    return boardGroup;
+  }
+
+  _createSign(x, z, type, rotationY) {
+    const group = new THREE.Group();
+
+    // Słupek znaku (szary cylinder)
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6),
+      poleMat
+    );
+    pole.position.y = 1.4;
+    pole.castShadow = true;
+    group.add(pole);
+
+    const board = this._createSignBoard(type);
+    board.position.set(0, 2.5, 0.07); // Odsunięcie w osi Z, aby słupek nie przechodził przez środek znaku
+    group.add(board);
+
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+    this.scene.add(group);
+    return group;
+  }
+
+  _createDoubleSign(x, z, topType, bottomType, rotationY) {
+    const group = new THREE.Group();
+
+    // Słupek znaku (szary cylinder)
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6),
+      poleMat
+    );
+    pole.position.y = 1.4;
+    pole.castShadow = true;
+    group.add(pole);
+
+    // Górny znak (np. Ustąp pierwszeństwa A-7)
+    const topBoard = this._createSignBoard(topType);
+    topBoard.position.set(0, 2.5, 0.07); // Odsunięcie w osi Z
+    group.add(topBoard);
+
+    // Dolny znak (np. Przejście dla pieszych D-6)
+    const bottomBoard = this._createSignBoard(bottomType);
+    bottomBoard.position.set(0, 1.6, 0.07); // Odsunięcie w osi Z i obniżenie na słupku
+    group.add(bottomBoard);
+
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+    this.scene.add(group);
+    return group;
   }
 
   // ============================================================
