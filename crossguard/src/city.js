@@ -291,14 +291,17 @@ export class City {
             });
           }
 
-          // Znaki pionowe na skrzyżowaniach bez sygnalizacji (przesunięte przed przejście na odległość sigOff):
+          // Znaki pionowe na skrzyżowaniach bez sygnalizacji (przesunięte przed przejście dla pieszych i bardziej na bok):
+          const unsigSignOff = crossOff + crossWidth / 2 + 2.0; // 9.0 (odsunięcie przed przejście dla pieszych)
+          const unsigSignLat = roadHalf + 1.2; // 5.2 (bardziej na bok drogi, aby nie blokować wejścia na pasy)
+
           // Droga z pierwszeństwem (D-1) z podczepionym znakiem przejścia dla pieszych (D-6) na jednym słupku (oś pozioma)
-          this._createDoubleSign(x - sigOff, z + roadHalf + 0.5, 'D-1', 'D-6', -Math.PI / 2); // West approach & crossing
-          this._createDoubleSign(x + sigOff, z - roadHalf - 0.5, 'D-1', 'D-6', Math.PI / 2);  // East approach & crossing
+          this._createDoubleSign(x - unsigSignOff, z + unsigSignLat, 'D-1', 'D-6', -Math.PI / 2); // West approach & crossing
+          this._createDoubleSign(x + unsigSignOff, z - unsigSignLat, 'D-1', 'D-6', Math.PI / 2);  // East approach & crossing
 
           // Ustąp pierwszeństwa (A-7) z podczepionym znakiem przejścia dla pieszych (D-6) na jednym słupku (oś pionowa)
-          this._createDoubleSign(x - roadHalf - 0.5, z - sigOff, 'A-7', 'D-6', Math.PI); // North approach & crossing
-          this._createDoubleSign(x + roadHalf + 0.5, z + sigOff, 'A-7', 'D-6', 0);       // South approach & crossing
+          this._createDoubleSign(x - unsigSignLat, z - unsigSignOff, 'A-7', 'D-6', Math.PI); // North approach & crossing
+          this._createDoubleSign(x + unsigSignLat, z + unsigSignOff, 'A-7', 'D-6', 0);       // South approach & crossing
         }
       }
     }

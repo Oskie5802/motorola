@@ -234,7 +234,7 @@ export class GameLogic {
       // Weryfikacja zatrzymania (min. 0.5s) przed przejściem równorzędnym (bez sygnalizacji)
       if (tl === null && !alreadyDone) {
         if (this._timeStoppedNearCrossing < 0.5) {
-          this.addScore(SCORE.STOP_VIOLATION, '⛔ Brak zatrzymania przed przejściem!', 'bad');
+          this.addScore(SCORE.STOP_VIOLATION, '⛔ Brak zatrzymania i ostrożności przed przejściem!', 'bad');
           this.violations++;
           this.audio.warn();
         }
