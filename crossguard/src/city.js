@@ -379,33 +379,94 @@ export class City {
 
   _addTrafficLight(x, z, axis, rotationY = 0, intersectionX = x, intersectionZ = z) {
     const group = new THREE.Group();
-    // Pole
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.6, roughness: 0.5 });
+    const housingMat = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.4, roughness: 0.6 });
+    const backboardMat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, metalness: 0.3, roughness: 0.8 });
+
+    // Pole (taller, tapered)
     const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 4.2),
-      new THREE.MeshLambertMaterial({ color: 0x222a33 })
+      new THREE.CylinderGeometry(0.11, 0.16, 4.6, 12),
+      poleMat
     );
-    pole.position.y = 2.1;
+    pole.position.y = 2.3;
     pole.castShadow = true;
     group.add(pole);
-    // Housing
-    const housing = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 1.6, 0.5),
-      new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
+
+    // Pole base / foundation
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.32, 0.25, 12),
+      poleMat
     );
-    housing.position.y = 4.0;
+    base.position.y = 0.12;
+    group.add(base);
+
+    // Mounting bracket from pole to housing
+    const bracket = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.18, 0.35),
+      poleMat
+    );
+    bracket.position.set(0, 4.0, 0.17);
+    group.add(bracket);
+
+    // Backboard plate (yellow border style is common in PL, but we keep dark for night look)
+    const backboard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 2.05, 0.06),
+      backboardMat
+    );
+    backboard.position.set(0, 4.0, 0.31);
+    group.add(backboard);
+
+    // Housing (slimmer, taller)
+    const housing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.62, 1.85, 0.42),
+      housingMat
+    );
+    housing.position.set(0, 4.0, 0.36);
+    housing.castShadow = true;
     group.add(housing);
 
-    // 3 lamps
-    const redMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0x220000, emissiveIntensity: 0.4 });
-    const ambMat = new THREE.MeshStandardMaterial({ color: 0x553f00, emissive: 0x221800, emissiveIntensity: 0.4 });
-    const grnMat = new THREE.MeshStandardMaterial({ color: 0x005522, emissive: 0x002211, emissiveIntensity: 0.4 });
-    const red = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), redMat);
-    red.position.set(0, 4.55, 0.26);
-    const amb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), ambMat);
-    amb.position.set(0, 4.05, 0.26);
-    const grn = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), grnMat);
-    grn.position.set(0, 3.55, 0.26);
+    // Lamp materials — brighter emissive when lit
+    const redMat = new THREE.MeshStandardMaterial({ color: 0x3a0a10, emissive: 0x180005, emissiveIntensity: 0.3, roughness: 0.4 });
+    const ambMat = new THREE.MeshStandardMaterial({ color: 0x3a2a05, emissive: 0x1a1200, emissiveIntensity: 0.3, roughness: 0.4 });
+    const grnMat = new THREE.MeshStandardMaterial({ color: 0x0a3a18, emissive: 0x00180a, emissiveIntensity: 0.3, roughness: 0.4 });
+
+    // Lens discs (flat, not spheres — looks more like real lights)
+    const lensGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 20);
+    const red = new THREE.Mesh(lensGeo, redMat);
+    red.rotation.x = Math.PI / 2;
+    red.position.set(0, 4.62, 0.59);
+    const amb = new THREE.Mesh(lensGeo, ambMat);
+    amb.rotation.x = Math.PI / 2;
+    amb.position.set(0, 4.0, 0.59);
+    const grn = new THREE.Mesh(lensGeo, grnMat);
+    grn.rotation.x = Math.PI / 2;
+    grn.position.set(0, 3.38, 0.59);
     group.add(red, amb, grn);
+
+    // Visors / hoods over each lamp (half tubes)
+    const visorMat = housingMat;
+    const visorGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.22, 16, 1, true, -Math.PI / 2, Math.PI);
+    for (const y of [4.62, 4.0, 3.38]) {
+      const visor = new THREE.Mesh(visorGeo, visorMat);
+      visor.rotation.x = Math.PI / 2;
+      visor.position.set(0, y, 0.55);
+      visor.scale.set(1, 1.2, 1);
+      group.add(visor);
+    }
+
+    // Glow halo discs (visible only when lit; updated in _applyLightVisual)
+    const haloGeo = new THREE.CircleGeometry(0.32, 16);
+    const makeHalo = (col) => new THREE.Mesh(
+      haloGeo,
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    const redHalo = makeHalo(0xff2233);
+    redHalo.position.set(0, 4.62, 0.63);
+    const ambHalo = makeHalo(0xffaa00);
+    ambHalo.position.set(0, 4.0, 0.63);
+    const grnHalo = makeHalo(0x33ee55);
+    grnHalo.position.set(0, 3.38, 0.63);
+    group.add(redHalo, ambHalo, grnHalo);
 
     group.position.set(x, 0, z);
     group.rotation.y = rotationY;
@@ -419,6 +480,7 @@ export class City {
       cycleGreen: 5.0,
       cycleAmber: 1.2,
       redMat, ambMat, grnMat,
+      redHalo, ambHalo, grnHalo,
       pos: { x, z },
       intersection: { x: intersectionX, z: intersectionZ },
       pairedWith: null,
@@ -586,12 +648,15 @@ export class City {
         mat.color.setHex(on ? onCol : offCol);
         if (mat.emissive) {
           mat.emissive.setHex(on ? onCol : (offCol >> 2));
-          mat.emissiveIntensity = on ? 1.8 : 0.25;
+          mat.emissiveIntensity = on ? 2.4 : 0.2;
         }
       };
-      setLamp(t.redMat, t.state === 'red', 0xff2233, 0x550000);
-      setLamp(t.ambMat, t.state === 'amber', 0xffaa00, 0x553f00);
-      setLamp(t.grnMat, t.state === 'green', 0x33ee55, 0x005522);
+      setLamp(t.redMat, t.state === 'red', 0xff2233, 0x3a0a10);
+      setLamp(t.ambMat, t.state === 'amber', 0xffaa00, 0x3a2a05);
+      setLamp(t.grnMat, t.state === 'green', 0x33ee55, 0x0a3a18);
+      if (t.redHalo) t.redHalo.material.opacity = t.state === 'red' ? 0.55 : 0;
+      if (t.ambHalo) t.ambHalo.material.opacity = t.state === 'amber' ? 0.55 : 0;
+      if (t.grnHalo) t.grnHalo.material.opacity = t.state === 'green' ? 0.55 : 0;
     }
   }
 
@@ -1048,31 +1113,151 @@ export class City {
     positions.sort(() => Math.random() - 0.5);
 
     const camCount = Math.min(this.zone.cameras, positions.length);
+
+    // Shared materials for Avigilon H5A-style bullet camera
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.7, roughness: 0.4 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe8ebee, metalness: 0.35, roughness: 0.55 });
+    const shieldMat = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, metalness: 0.25, roughness: 0.5 });
+    const lensRingMat = new THREE.MeshStandardMaterial({ color: 0x1a1d22, metalness: 0.6, roughness: 0.35 });
+    const lensMat = new THREE.MeshStandardMaterial({ color: 0x05080c, metalness: 0.9, roughness: 0.08, emissive: 0x0a1a2a, emissiveIntensity: 0.4 });
+    const irMat = new THREE.MeshStandardMaterial({ color: 0x2a0a0a, emissive: 0x661111, emissiveIntensity: 0.6, roughness: 0.4 });
+
     for (let i = 0; i < camCount; i++) {
       const p = positions[i];
+      const cx = p.x + 4;
+      const cz = p.z + 4;
+
+      // Tall pole
       const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.1, 5),
-        new THREE.MeshLambertMaterial({ color: 0x333a44 }),
+        new THREE.CylinderGeometry(0.12, 0.16, 5.4, 12),
+        poleMat,
       );
-      pole.position.set(p.x + 4, 2.5, p.z + 4);
+      pole.position.set(cx, 2.7, cz);
+      pole.castShadow = true;
       this.scene.add(pole);
 
-      const cam = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 0.4, 0.8),
-        new THREE.MeshLambertMaterial({ color: 0xeeeeee }),
+      // Base flange
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.32, 0.36, 0.22, 12),
+        poleMat,
       );
-      cam.position.set(p.x + 4, 5.0, p.z + 4);
-      this.scene.add(cam);
+      base.position.set(cx, 0.11, cz);
+      this.scene.add(base);
 
-      // Red status LED
+      // Camera assembly group — mount on horizontal arm extending outward
+      const camGroup = new THREE.Group();
+      camGroup.position.set(cx, 5.2, cz);
+      // Aim camera into the intersection (toward -x,-z corner)
+      camGroup.rotation.y = Math.atan2(-1, -1) + Math.PI / 4;
+      this.scene.add(camGroup);
+
+      // Horizontal mounting arm
+      const arm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.12, 0.85),
+        poleMat,
+      );
+      arm.position.set(0, 0, -0.42);
+      camGroup.add(arm);
+
+      // Knuckle / pivot joint (sphere)
+      const knuckle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.13, 14, 10),
+        poleMat,
+      );
+      knuckle.position.set(0, 0, -0.85);
+      camGroup.add(knuckle);
+
+      // Bracket arm (angled down toward camera body)
+      const bracket = new THREE.Mesh(
+        new THREE.BoxGeometry(0.09, 0.09, 0.32),
+        poleMat,
+      );
+      bracket.position.set(0, -0.04, -1.05);
+      bracket.rotation.x = -0.15;
+      camGroup.add(bracket);
+
+      // Main bullet body — cylindrical, pointing forward (-z in local space)
+      const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.16, 0.16, 0.7, 20),
+        bodyMat,
+      );
+      body.rotation.x = Math.PI / 2;
+      body.position.set(0, -0.1, -1.35);
+      body.castShadow = true;
+      camGroup.add(body);
+
+      // Rear cap (slightly larger, rounded)
+      const rear = new THREE.Mesh(
+        new THREE.SphereGeometry(0.17, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+        bodyMat,
+      );
+      rear.rotation.x = -Math.PI / 2;
+      rear.position.set(0, -0.1, -1.02);
+      camGroup.add(rear);
+
+      // Sun shield / hood over top of bullet
+      const shield = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.19, 0.19, 0.5, 20, 1, true, -Math.PI / 2 - 0.5, Math.PI + 1),
+        shieldMat,
+      );
+      shield.rotation.x = Math.PI / 2;
+      shield.position.set(0, -0.05, -1.45);
+      shield.scale.set(1, 1, 1);
+      camGroup.add(shield);
+
+      // Lens ring (black bezel at front of bullet)
+      const lensRing = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.155, 0.155, 0.08, 20),
+        lensRingMat,
+      );
+      lensRing.rotation.x = Math.PI / 2;
+      lensRing.position.set(0, -0.1, -1.71);
+      camGroup.add(lensRing);
+
+      // Glass lens (dark)
+      const lens = new THREE.Mesh(
+        new THREE.CircleGeometry(0.12, 24),
+        lensMat,
+      );
+      lens.position.set(0, -0.1, -1.76);
+      lens.rotation.y = Math.PI; // face forward
+      camGroup.add(lens);
+
+      // IR LED ring around lens — small bumps (12 around)
+      const irGeo = new THREE.SphereGeometry(0.018, 6, 5);
+      for (let a = 0; a < 12; a++) {
+        const ang = (a / 12) * Math.PI * 2;
+        const ir = new THREE.Mesh(irGeo, irMat);
+        ir.position.set(Math.cos(ang) * 0.135, -0.1 + Math.sin(ang) * 0.135, -1.755);
+        camGroup.add(ir);
+      }
+
+      // "AVIGILON" / Motorola Solutions branding strip (dark band on side)
+      const strip = new THREE.Mesh(
+        new THREE.BoxGeometry(0.32, 0.06, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0x1a1d22, metalness: 0.5, roughness: 0.4 }),
+      );
+      strip.position.set(0, 0.07, -1.35);
+      camGroup.add(strip);
+
+      // Red status LED (small, on rear knuckle)
       const led = new THREE.Mesh(
-        new THREE.SphereGeometry(0.08, 8, 6),
+        new THREE.SphereGeometry(0.05, 10, 8),
         new THREE.MeshBasicMaterial({ color: 0xff2233 }),
       );
-      led.position.set(p.x + 4 + 0.3, 5.0, p.z + 4 + 0.35);
-      this.scene.add(led);
+      led.position.set(0.09, 0.02, -0.85);
+      camGroup.add(led);
 
-      this.cameras.push({ x: p.x + 4, z: p.z + 4, mesh: cam, led });
+      // Subtle glow halo around LED
+      const ledHalo = new THREE.Mesh(
+        new THREE.CircleGeometry(0.09, 12),
+        new THREE.MeshBasicMaterial({ color: 0xff3344, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }),
+      );
+      ledHalo.position.set(0.11, 0.02, -0.85);
+      ledHalo.rotation.y = Math.PI / 2;
+      camGroup.add(ledHalo);
+
+      this.cameras.push({ x: cx, z: cz, mesh: camGroup, led });
     }
   }
 
