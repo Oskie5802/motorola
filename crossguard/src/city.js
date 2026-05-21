@@ -217,56 +217,95 @@ export class City {
       }
     }
 
-    // === Skrzyzowania — tylko sygnalizowane z layoutu ===
+    // === Skrzyzowania — sygnalizowane lub ze znakami ===
     const crossOff = roadWidth / 2 + 1.5;
     const crossWidth = 3.0;
     const roadHalf = roadWidth / 2;
     const sigOff = crossOff + crossWidth / 2 + 0.5;
 
-    for (const [i, j] of this.layout.signals) {
-      // Walidacja ze indeksy sa w zakresie (wewnetrzne punkty siatki)
-      if (i < 1 || i >= g || j < 1 || j >= g) continue;
+    for (let i = 1; i < g; i++) {
+      for (let j = 1; j < g; j++) {
+        const x = xs[i];
+        const z = zs[j];
 
-      const x = xs[i];
-      const z = zs[j];
-      this.intersections.push({ x, z });
+        if (this._signalSet.has(`${i},${j}`)) {
+          // --- Skrzyżowanie z sygnalizacją świetlną ---
+          this.intersections.push({ x, z, signalized: true });
 
-      // Sygnalizacja pojazdowa (4 ramiona)
-      const tlForSouth = this._addTrafficLight(x + roadHalf + 0.5, z + sigOff, 'ns', 0, x, z);
-      const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
-      const tlForWest = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
-      const tlForEast = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', Math.PI / 2, x, z);
+          // Sygnalizacja pojazdowa (4 ramiona)
+          const tlForSouth = this._addTrafficLight(x + roadHalf + 0.5, z + sigOff, 'ns', 0, x, z);
+          const tlForNorth = this._addTrafficLight(x - roadHalf - 0.5, z - sigOff, 'ns', Math.PI, x, z);
+          const tlForWest = this._addTrafficLight(x - sigOff, z + roadHalf + 0.5, 'ew', -Math.PI / 2, x, z);
+          const tlForEast = this._addTrafficLight(x + sigOff, z - roadHalf - 0.5, 'ew', Math.PI / 2, x, z);
 
-      // Sygnalizacja piesza
-      const pedCorner = roadHalf + 3;
-      const pedOff = roadHalf + 0.5;
-      this._addPedestrianLight(x - pedOff, z - pedCorner, Math.PI / 2, tlForNorth);
-      this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth);
-      this._addPedestrianLight(x - pedOff, z + pedCorner, Math.PI / 2, tlForSouth);
-      this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth);
-      this._addPedestrianLight(x + pedCorner, z - pedOff, 0, tlForEast);
-      this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast);
-      this._addPedestrianLight(x - pedCorner, z - pedOff, 0, tlForWest);
-      this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest);
+          // Sygnalizacja piesza
+          const pedCorner = roadHalf + 3;
+          const pedOff = roadHalf + 0.5;
+          this._addPedestrianLight(x - pedOff, z - pedCorner, Math.PI / 2, tlForNorth);
+          this._addPedestrianLight(x + pedOff, z - pedCorner, -Math.PI / 2, tlForNorth);
+          this._addPedestrianLight(x - pedOff, z + pedCorner, Math.PI / 2, tlForSouth);
+          this._addPedestrianLight(x + pedOff, z + pedCorner, -Math.PI / 2, tlForSouth);
+          this._addPedestrianLight(x + pedCorner, z - pedOff, 0, tlForEast);
+          this._addPedestrianLight(x + pedCorner, z + pedOff, Math.PI, tlForEast);
+          this._addPedestrianLight(x - pedCorner, z - pedOff, 0, tlForWest);
+          this._addPedestrianLight(x - pedCorner, z + pedOff, Math.PI, tlForWest);
 
-      // Zebry
-      for (const dz of [-crossOff, +crossOff]) {
-        this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
-        const lightObj = dz < 0 ? tlForNorth : tlForSouth;
-        this.crossings.push({
-          x, z: z + dz, axis: 'h', light: lightObj,
-          x1: x - roadWidth / 2, z1: z + dz - crossWidth / 2,
-          x2: x + roadWidth / 2, z2: z + dz + crossWidth / 2,
-        });
-      }
-      for (const dx of [-crossOff, +crossOff]) {
-        this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
-        const lightObj = dx < 0 ? tlForWest : tlForEast;
-        this.crossings.push({
-          x: x + dx, z, axis: 'v', light: lightObj,
-          x1: x + dx - crossWidth / 2, z1: z - roadWidth / 2,
-          x2: x + dx + crossWidth / 2, z2: z + roadWidth / 2,
-        });
+          // Zebry
+          for (const dz of [-crossOff, +crossOff]) {
+            this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
+            const lightObj = dz < 0 ? tlForNorth : tlForSouth;
+            this.crossings.push({
+              x, z: z + dz, axis: 'h', light: lightObj,
+              x1: x - roadWidth / 2, z1: z + dz - crossWidth / 2,
+              x2: x + roadWidth / 2, z2: z + dz + crossWidth / 2,
+            });
+          }
+          for (const dx of [-crossOff, +crossOff]) {
+            this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
+            const lightObj = dx < 0 ? tlForWest : tlForEast;
+            this.crossings.push({
+              x: x + dx, z, axis: 'v', light: lightObj,
+              x1: x + dx - crossWidth / 2, z1: z - roadWidth / 2,
+              x2: x + dx + crossWidth / 2, z2: z + roadWidth / 2,
+            });
+          }
+        } else {
+          // --- Skrzyżowanie równorzędne ze znakami (bez sygnalizacji) ---
+          this.intersections.push({ x, z, signalized: false });
+
+          // Zebry bez sygnalizacji
+          for (const dz of [-crossOff, +crossOff]) {
+            this._addZebra(x, z + dz, 'x', roadWidth, crossWidth);
+            this.crossings.push({
+              x, z: z + dz, axis: 'h', light: null,
+              x1: x - roadWidth / 2, z1: z + dz - crossWidth / 2,
+              x2: x + roadWidth / 2, z2: z + dz + crossWidth / 2,
+            });
+          }
+          for (const dx of [-crossOff, +crossOff]) {
+            this._addZebra(x + dx, z, 'z', roadWidth, crossWidth);
+            this.crossings.push({
+              x: x + dx, z, axis: 'v', light: null,
+              x1: x + dx - crossWidth / 2, z1: z - roadWidth / 2,
+              x2: x + dx + crossWidth / 2, z2: z + roadWidth / 2,
+            });
+          }
+
+          // Znaki pionowe:
+          // Droga z pierwszeństwem (D-1) dla osi poziomej (ruch ew: wschód-zachód)
+          this._createSign(x - sigOff, z + roadHalf + 0.5, 'D-1', -Math.PI / 2); // West approach, east-bound
+          this._createSign(x + sigOff, z - roadHalf - 0.5, 'D-1', Math.PI / 2);  // East approach, west-bound
+
+          // Ustąp pierwszeństwa (A-7) dla osi pionowej (ruch ns: północ-południe)
+          this._createSign(x - roadHalf - 0.5, z - sigOff, 'A-7', Math.PI);      // North approach, south-bound
+          this._createSign(x + roadHalf + 0.5, z + sigOff, 'A-7', 0);            // South approach, north-bound
+
+          // Znaki przejścia dla pieszych (D-6)
+          this._createSign(x - roadHalf - 0.5, z - crossOff, 'D-6', Math.PI);     // North crossing, south-bound right side
+          this._createSign(x + roadHalf + 0.5, z + crossOff, 'D-6', 0);           // South crossing, north-bound right side
+          this._createSign(x - crossOff, z + roadHalf + 0.5, 'D-6', -Math.PI / 2); // West crossing, east-bound right side
+          this._createSign(x + crossOff, z - roadHalf - 0.5, 'D-6', Math.PI / 2);  // East crossing, west-bound right side
+        }
       }
     }
 
@@ -1317,6 +1356,134 @@ export class City {
     );
     head.position.set(x, 5.5, z);
     this.scene.add(head);
+  }
+
+  _createSign(x, z, type, rotationY) {
+    const group = new THREE.Group();
+
+    // Słupek znaku (szary cylinder)
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x777777 });
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 2.8, 6),
+      poleMat
+    );
+    pole.position.y = 1.4;
+    pole.castShadow = true;
+    group.add(pole);
+
+    const boardGroup = new THREE.Group();
+    boardGroup.position.set(0, 2.5, 0);
+
+    const createTriangleGeometry = (size, inverted = false) => {
+      const geom = new THREE.BufferGeometry();
+      const h = size * Math.sqrt(3) / 2;
+      const vertices = inverted ? new Float32Array([
+        -size/2, h/2, 0,
+        size/2, h/2, 0,
+        0, -h/2, 0
+      ]) : new Float32Array([
+        -size/2, -h/2, 0,
+        size/2, -h/2, 0,
+        0, h/2, 0
+      ]);
+      geom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      geom.computeVertexNormals();
+      return geom;
+    };
+
+    if (type === 'D-1') {
+      // Droga z pierwszeństwem (czarno-biało-żółty romb)
+      // Czarny tył i obwódka
+      const back = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.65, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+      );
+      back.rotation.z = Math.PI / 4;
+      boardGroup.add(back);
+
+      // Biały środek
+      const mid = new THREE.Mesh(
+        new THREE.BoxGeometry(0.58, 0.58, 0.022),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      mid.rotation.z = Math.PI / 4;
+      boardGroup.add(mid);
+
+      // Żółty kwadrat wewnętrzny
+      const front = new THREE.Mesh(
+        new THREE.BoxGeometry(0.38, 0.38, 0.024),
+        new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+      );
+      front.rotation.z = Math.PI / 4;
+      boardGroup.add(front);
+
+    } else if (type === 'A-7') {
+      // Ustąp pierwszeństwa (odwrócony żółty trójkąt z czerwoną obwódką)
+      const redTriangleGeo = createTriangleGeometry(0.75, true);
+      const redMesh = new THREE.Mesh(redTriangleGeo, new THREE.MeshBasicMaterial({ color: 0xcc2222, side: THREE.DoubleSide }));
+      boardGroup.add(redMesh);
+
+      const yellowTriangleGeo = createTriangleGeometry(0.53, true);
+      const yellowMesh = new THREE.Mesh(yellowTriangleGeo, new THREE.MeshBasicMaterial({ color: 0xffcc00, side: THREE.DoubleSide }));
+      yellowMesh.position.z = 0.005;
+      boardGroup.add(yellowMesh);
+
+    } else if (type === 'D-6') {
+      // Przejście dla pieszych (niebieski kwadrat z białym trójkątem i sylwetką pieszego)
+      const blueBox = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.65, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0x0044aa })
+      );
+      boardGroup.add(blueBox);
+
+      const whiteTriGeo = createTriangleGeometry(0.48, false);
+      const whiteTri = new THREE.Mesh(
+        whiteTriGeo,
+        new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+      );
+      whiteTri.position.set(0, -0.06, 0.005);
+      boardGroup.add(whiteTri);
+
+      // Czarna sylwetka pieszego
+      const pedGroup = new THREE.Group();
+      pedGroup.position.set(0, -0.06, 0.01);
+      const blackMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+      // Głowa
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), blackMat);
+      head.position.set(0, 0.15, 0);
+      pedGroup.add(head);
+
+      // Tułów
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.12, 0.01), blackMat);
+      torso.position.set(0, 0.06, 0);
+      pedGroup.add(torso);
+
+      // Nogi
+      const leg1 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.1, 0.01), blackMat);
+      leg1.rotation.z = 0.25;
+      leg1.position.set(-0.03, -0.03, 0);
+      pedGroup.add(leg1);
+
+      const leg2 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.1, 0.01), blackMat);
+      leg2.rotation.z = -0.3;
+      leg2.position.set(0.03, -0.03, 0);
+      pedGroup.add(leg2);
+
+      // Ręce
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.01), blackMat);
+      arm.rotation.z = 0.4;
+      arm.position.set(-0.03, 0.08, 0);
+      pedGroup.add(arm);
+
+      boardGroup.add(pedGroup);
+    }
+
+    group.add(boardGroup);
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+    this.scene.add(group);
+    return group;
   }
 
   // ============================================================
