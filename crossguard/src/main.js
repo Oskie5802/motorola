@@ -504,7 +504,7 @@ async function startGame(zone, opts = {}) {
     renderer.render(scene, camera);
 
     if (player && player.devMode) {
-      renderer.getContext().finish();
+      // Usunięto renderer.getContext().finish() - blokowało to potok renderowania i zbijało klatki do 30 FPS
       player.lastFrameTime = performance.now() - t0;
     }
   }
@@ -549,9 +549,12 @@ function showResults(result) {
   $('rViolations').textContent = result.violations;
   $('rZone').textContent = result.zone.name;
   $('rStatus').textContent = result.reason === 'success' ? 'CEL OSIĄGNIĘTY' :
-                             result.reason === 'timeout' ? 'CZAS MINĄŁ' : '-';
+                             result.reason === 'timeout' ? 'CZAS MINĄŁ' :
+                             result.reason === 'accident' ? 'POTRĄCENIE PRZEZ POJAZD' : '-';
   $('resultsHeader').textContent =
-    result.reason === 'success' ? 'RAPORT MISJI · SUKCES' : 'RAPORT MISJI · CZAS MINĄŁ';
+    result.reason === 'success' ? 'RAPORT MISJI · SUKCES' :
+    result.reason === 'accident' ? 'RAPORT MISJI · PORAŻKA (KOLIZJA)' :
+    'RAPORT MISJI · CZAS MINĄŁ';
   $('lessonBox').innerHTML = `
     <b>${result.grade.label}</b><br/>
     ${result.zone.lesson}

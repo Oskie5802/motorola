@@ -716,45 +716,108 @@ export class City {
 
   _addPedestrianLight(x, z, rotationY, linkedVehicle) {
     const group = new THREE.Group();
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.6, roughness: 0.5 });
+    const housingMat = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.4, roughness: 0.6 });
+    const backboardMat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, metalness: 0.3, roughness: 0.8 });
+
+    // Słupek (zwężany, metaliczny jak dla samochodów)
     const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.07, 0.07, 2.6),
-      new THREE.MeshLambertMaterial({ color: 0x222a33 })
+      new THREE.CylinderGeometry(0.06, 0.09, 2.6, 12),
+      poleMat
     );
     pole.position.y = 1.3;
     pole.castShadow = this.castShadows;
     group.add(pole);
-    const housing = new THREE.Mesh(
-      new THREE.BoxGeometry(0.42, 0.95, 0.32),
-      new THREE.MeshLambertMaterial({ color: 0x1a1f28 })
+
+    // Podstawa słupka
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.22, 0.15, 12),
+      poleMat
     );
-    housing.position.set(0, 2.85, 0);
+    base.position.y = 0.075;
+    group.add(base);
+
+    // Uchwyt montażowy ze słupka do obudowy
+    const bracket = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.12, 0.22),
+      poleMat
+    );
+    bracket.position.set(0, 2.85, 0.1);
+    group.add(bracket);
+
+    // Ekran kontrastowy (backboard)
+    const backboard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 1.15, 0.04),
+      backboardMat
+    );
+    backboard.position.set(0, 2.85, 0.21);
+    group.add(backboard);
+
+    // Obudowa sygnalizatora (czarny plastik/metal)
+    const housing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.38, 1.0, 0.24),
+      housingMat
+    );
+    housing.position.set(0, 2.85, 0.25);
+    housing.castShadow = this.castShadows;
     group.add(housing);
 
-    const redMat = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0x220000, emissiveIntensity: 0.4 });
-    const grnMat = new THREE.MeshStandardMaterial({ color: 0x005522, emissive: 0x002211, emissiveIntensity: 0.4 });
-    const redLamp = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 7), redMat);
-    redLamp.position.set(0, 3.1, 0.17);
-    const grnLamp = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 7), grnMat);
-    grnLamp.position.set(0, 2.65, 0.17);
+    // Materiały kloszy (zgaszone na start)
+    const redMat = new THREE.MeshStandardMaterial({ color: 0x3a0a10, emissive: 0x0e0204, emissiveIntensity: 0.2, roughness: 0.4 });
+    const grnMat = new THREE.MeshStandardMaterial({ color: 0x0a3a18, emissive: 0x020e06, emissiveIntensity: 0.2, roughness: 0.4 });
+
+    // Płaskie soczewki lamp (zamiast tanich kul)
+    const lensGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.03, 16);
+    const redLamp = new THREE.Mesh(lensGeo, redMat);
+    redLamp.rotation.x = Math.PI / 2;
+    redLamp.position.set(0, 3.1, 0.38);
+    const grnLamp = new THREE.Mesh(lensGeo, grnMat);
+    grnLamp.rotation.x = Math.PI / 2;
+    grnLamp.position.set(0, 2.6, 0.38);
     group.add(redLamp, grnLamp);
+
+    // Daszki ochronne (visors) nad każdą lampą
+    const visorMat = housingMat;
+    const visorGeo = new THREE.CylinderGeometry(0.145, 0.145, 0.14, 16, 1, true, -Math.PI / 2, Math.PI);
+    for (const y of [3.1, 2.6]) {
+      const visor = new THREE.Mesh(visorGeo, visorMat);
+      visor.rotation.x = Math.PI / 2;
+      visor.position.set(0, y, 0.36);
+      visor.scale.set(1, 1.2, 1);
+      group.add(visor);
+    }
+
+    // Dyski poświaty (halos) włączane przy aktywnym świetle
+    const haloGeo = new THREE.CircleGeometry(0.20, 16);
+    const makeHalo = (col) => new THREE.Mesh(
+      haloGeo,
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    const redHalo = makeHalo(0xff2233);
+    redHalo.position.set(0, 3.1, 0.405);
+    const grnHalo = makeHalo(0x33ee55);
+    grnHalo.position.set(0, 2.6, 0.405);
+    group.add(redHalo, grnHalo);
 
     group.position.set(x, 0, z);
     group.rotation.y = rotationY;
     this.scene.add(group);
 
-    const pedLight = { group, state: 'red', redMat, grnMat, linkedVehicle };
+    const pedLight = { group, state: 'red', redMat, grnMat, redHalo, grnHalo, linkedVehicle };
     this.pedestrianLights.push(pedLight);
     return pedLight;
   }
 
   _applyPedLightVisual(pl) {
     const on = pl.state === 'green';
-    pl.redMat.color.setHex(on ? 0x550000 : 0xff2233);
-    pl.redMat.emissive.setHex(on ? 0x220000 : 0xff1122);
-    pl.redMat.emissiveIntensity = on ? 0.25 : 1.8;
-    pl.grnMat.color.setHex(on ? 0x33ee55 : 0x005522);
-    pl.grnMat.emissive.setHex(on ? 0x22dd44 : 0x002211);
-    pl.grnMat.emissiveIntensity = on ? 1.8 : 0.25;
+    pl.redMat.color.setHex(on ? 0x3a0a10 : 0xff2233);
+    pl.redMat.emissive.setHex(on ? 0x0e0204 : 0xff2233);
+    pl.redMat.emissiveIntensity = on ? 0.2 : 2.4;
+    pl.grnMat.color.setHex(on ? 0x33ee55 : 0x0a3a18);
+    pl.grnMat.emissive.setHex(on ? 0x33ee55 : 0x020e06);
+    pl.grnMat.emissiveIntensity = on ? 2.4 : 0.2;
+    if (pl.redHalo) pl.redHalo.material.opacity = on ? 0 : 0.55;
+    if (pl.grnHalo) pl.grnHalo.material.opacity = on ? 0.55 : 0;
   }
 
   // ============================================================
@@ -891,12 +954,14 @@ export class City {
         pl.state = 'flashing';
         pl._flashTimer = (pl._flashTimer || 0) + dt;
         const on = Math.floor(pl._flashTimer / FLASH_INTERVAL) % 2 === 0;
-        pl.grnMat.color.setHex(on ? 0x33ee55 : 0x004018);
-        pl.grnMat.emissive.setHex(on ? 0x22dd44 : 0x001008);
-        pl.grnMat.emissiveIntensity = on ? 1.8 : 0.12;
-        pl.redMat.color.setHex(0x550000);
-        pl.redMat.emissive.setHex(0x220000);
-        pl.redMat.emissiveIntensity = 0.25;
+        pl.grnMat.color.setHex(on ? 0x33ee55 : 0x0a3a18);
+        pl.grnMat.emissive.setHex(on ? 0x33ee55 : 0x020e06);
+        pl.grnMat.emissiveIntensity = on ? 2.4 : 0.2;
+        pl.redMat.color.setHex(0x3a0a10);
+        pl.redMat.emissive.setHex(0x0e0204);
+        pl.redMat.emissiveIntensity = 0.2;
+        if (pl.redHalo) pl.redHalo.material.opacity = 0;
+        if (pl.grnHalo) pl.grnHalo.material.opacity = on ? 0.55 : 0;
       } else {
         pl._flashTimer = 0;
         if (pl.state !== 'green') { pl.state = 'green'; this._applyPedLightVisual(pl); }

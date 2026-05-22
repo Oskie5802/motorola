@@ -115,6 +115,21 @@ export class GameLogic {
 
   update(dt) {
     if (this.state !== 'playing') return;
+
+    // Obsługa opóźnienia zakończenia gry po śmierci gracza
+    if (this.player.isDead) {
+      if (this._deathTimer !== undefined) {
+        this._deathTimer -= dt;
+        if (this._deathTimer <= 0) {
+          this._finish('accident');
+        }
+      }
+      if (this._goalMarker) {
+        this._goalMarker.rotation.y += dt * 0.6;
+      }
+      return;
+    }
+
     this.elapsed += dt;
     const timeLeft = Math.max(0, this.timeLimit - this.elapsed);
     this.hud.setTimer(timeLeft);
@@ -296,16 +311,17 @@ export class GameLogic {
       this._lastJaywalkAt = this.elapsed;
     }
 
-        // Wypadki aut z graczem
-    const hit = this.traffic.vehicleHitting(pos);
-    if (hit && this.elapsed - (this._lastHitAt || -10) > 3) {
-      this._lastHitAt = this.elapsed;
-      this.addScore(SCORE.HIT_BY_CAR, '🚨 Potrącenie przez pojazd!', 'bad');
-      this.audio.crash();
-      this.violations++;
-            // Odrzuca gracza, ale w zlym kierunku i traci punkty
-      this.player.pos.x -= (hit.vx) * 2;
-      this.player.pos.z -= (hit.vz) * 2;
+        // Wypadki aut z graczem - śmierć i automatyczna przegrana (poza devMode z KeyC)
+    if (!this.player.isDead && !(this.player.devMode && this.player.keys && this.player.keys['KeyC'])) {
+      const hit = this.traffic.vehicleHitting(pos);
+      if (hit) {
+        this.player.isDead = true;
+        this.player.vel.set(0, 0, 0);
+        this._deathTimer = 2.0;
+        this.audio.crash();
+        this.addScore(SCORE.HIT_BY_CAR, '🚨 KATASTROFA! Potrącenie przez pojazd!', 'bad');
+        this.violations++;
+      }
     }
 
         // Eventy karetki (reagujesz = pkt, olewasz = minus)
@@ -610,7 +626,12 @@ export class GameLogic {
     this.audio.stopHeartbeat();
     this.audio.stopCrossingBeep();
     this.hud.showCrossPrompt(null);
-    const grade = gradeFor(this.score);
+    
+    let grade = gradeFor(this.score);
+    if (reason === 'accident') {
+      grade = { letter: 'F', color: '#e63946', label: 'POTRĄCENIE PRZEZ POJAZD (KURS BRD WYMAGANY)' };
+    }
+    
     const result = {
       reason,
       score: Math.round(this.score),

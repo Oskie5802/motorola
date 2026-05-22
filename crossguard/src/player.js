@@ -52,6 +52,8 @@ export class Player {
     this.onPhone = false;
     this.lastCrossingId = null;
     this.devMode = false;
+    this.isDead = false;
+    this.deathTime = 0;
   }
 
   _buildFromModel(characterData) {
@@ -198,6 +200,26 @@ export class Player {
   }
 
   update(dt, city, traffic) {
+    if (this.isDead) {
+      this.deathTime += dt;
+      const t = Math.min(1.0, this.deathTime / 0.8);
+      
+      this.group.position.x = this.pos.x;
+      this.group.position.z = this.pos.z;
+      
+      // Animacja upadku procedurowego
+      this.group.rotation.z = -Math.PI / 2 * t;
+      this.group.rotation.x = Math.PI / 6 * t;
+      this.group.rotation.y = this.facing + t * Math.PI;
+      this.group.position.y = Math.sin(t * Math.PI) * 0.8;
+      
+      if (this._softShadow) {
+        this._softShadow.material.opacity = 0.22 * (1 - t);
+      }
+      this.moving = false;
+      return;
+    }
+
     if (!this.keys) return;
     const running = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
     const stopping = this.keys['Space'];
