@@ -51,6 +51,7 @@ export class Player {
 
     this.onPhone = false;
     this.lastCrossingId = null;
+    this.devMode = false;
   }
 
   _buildFromModel(characterData) {
@@ -163,13 +164,24 @@ export class Player {
   setupInput(canvas) {
     this.keys = {};
     window.addEventListener('keydown', (e) => {
+      if (e.code === 'Tab') {
+        e.preventDefault();
+        this.devMode = !this.devMode;
+        return;
+      }
       this.keys[e.code] = true;
       if (e.code === 'KeyP') {
         this.onPhone = !this.onPhone;
         document.getElementById('phoneOverlay').classList.toggle('hidden', !this.onPhone);
       }
     });
-    window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Tab') {
+        e.preventDefault();
+        return;
+      }
+      this.keys[e.code] = false;
+    });
 
     this.mouseDown = false;
     canvas.addEventListener('mousedown', () => { this.mouseDown = true; });
@@ -189,7 +201,8 @@ export class Player {
     if (!this.keys) return;
     const running = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
     const stopping = this.keys['Space'];
-    const speed = stopping ? 0 : (running ? this.runSpeed : this.walkSpeed) * (this.onPhone ? 0.85 : 1);
+    const fastDev = this.devMode && this.keys['KeyC'];
+    const speed = stopping ? 0 : (fastDev ? 50.0 : (running ? this.runSpeed : this.walkSpeed) * (this.onPhone ? 0.85 : 1));
 
     let dx = 0, dz = 0;
     if (this.keys['KeyW'] || this.keys['ArrowUp']) dz -= 1;
@@ -211,9 +224,9 @@ export class Player {
     const newX = this.pos.x + mvX;
     const newZ = this.pos.z + mvZ;
 
-    const collidesVehicle = (x, z) => traffic && !!traffic.vehicleHitting({ x, z });
-    if (!city.collidesBuilding(newX, this.pos.z) && !collidesVehicle(newX, this.pos.z)) this.pos.x = newX;
-    if (!city.collidesBuilding(this.pos.x, newZ) && !collidesVehicle(this.pos.x, newZ)) this.pos.z = newZ;
+    const collidesVehicle = (x, z) => !fastDev && traffic && !!traffic.vehicleHitting({ x, z });
+    if (fastDev || (!city.collidesBuilding(newX, this.pos.z) && !collidesVehicle(newX, this.pos.z))) this.pos.x = newX;
+    if (fastDev || (!city.collidesBuilding(this.pos.x, newZ) && !collidesVehicle(this.pos.x, newZ))) this.pos.z = newZ;
 
     const b = city.bounds;
     this.pos.x = Math.max(b.min - 4, Math.min(b.max + 4, this.pos.x));

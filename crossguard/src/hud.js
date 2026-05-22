@@ -1,6 +1,7 @@
 // UI gry (hud)
 import * as THREE from 'three';
 import { RADIO_EVENTS, RADIO_FLAVOR, ASSIST_TIPS } from './config.js';
+import { settings } from './settings.js';
 
 export class HUD {
   constructor(city, zone) {
@@ -47,6 +48,19 @@ export class HUD {
         this.radioBox.classList.toggle('hidden', !this.radioVisible);
       }
     });
+
+    // Diagnostyka trybu deweloperskiego
+    this.fpsTimer = 0;
+    this.fpsCount = 0;
+    this.currentFPS = 0;
+    this.devOverlayEl = document.getElementById('devOverlay');
+    this.devFPSEl = document.getElementById('devFPS');
+    this.devCoordsEl = document.getElementById('devCoords');
+    this.devVehiclesEl = document.getElementById('devVehicles');
+    this.devPedsEl = document.getElementById('devPeds');
+    this.devQualityEl = document.getElementById('devQuality');
+    this.devShadowsEl = document.getElementById('devShadows');
+    this.devLODEl = document.getElementById('devLOD');
   }
 
   setMission(text) { this.missionEl.textContent = text; }
@@ -155,6 +169,32 @@ export class HUD {
       this.randomRadio();
     }
     this._renderMinimap(player, traffic, goalPos);
+
+    // Aktualizacja trybu deweloperskiego
+    this.fpsCount++;
+    this.fpsTimer += dt;
+    if (this.fpsTimer >= 0.5) {
+      this.currentFPS = Math.round(this.fpsCount / this.fpsTimer);
+      this.fpsCount = 0;
+      this.fpsTimer = 0;
+    }
+
+    if (player.devMode) {
+      if (this.devOverlayEl) {
+        this.devOverlayEl.classList.remove('hidden');
+        if (this.devFPSEl) this.devFPSEl.textContent = this.currentFPS;
+        if (this.devCoordsEl) this.devCoordsEl.textContent = `X: ${player.pos.x.toFixed(1)}, Z: ${player.pos.z.toFixed(1)}`;
+        if (this.devVehiclesEl) this.devVehiclesEl.textContent = traffic ? traffic.vehicles.length : 0;
+        if (this.devPedsEl) this.devPedsEl.textContent = traffic ? traffic.peds.length : 0;
+        
+        const qNames = { low: 'NISKA', medium: 'ŚREDNIA', high: 'WYSOKA' };
+        if (this.devQualityEl) this.devQualityEl.textContent = qNames[settings.current.quality] || settings.current.quality.toUpperCase();
+        if (this.devShadowsEl) this.devShadowsEl.textContent = settings.current.shadows ? 'TAK' : 'NIE';
+        if (this.devLODEl) this.devLODEl.textContent = settings.current.lod ? 'TAK' : 'NIE';
+      }
+    } else {
+      if (this.devOverlayEl) this.devOverlayEl.classList.add('hidden');
+    }
   }
 
   _renderMinimap(player, traffic, goalPos) {

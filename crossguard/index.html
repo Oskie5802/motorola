@@ -184,6 +184,43 @@
       <span id="crossPromptText">Przejście dla pieszych</span>
     </div>
 
+    <!-- Nakładka diagnostyczna trybu deweloperskiego -->
+    <div id="devOverlay" class="hidden">
+      <div class="dev-header">
+        <span>⚙️ TRYB DEWELOPERSKI</span>
+        <span class="dev-status-dot"></span>
+      </div>
+      <div class="dev-row">
+        <span>Klatki/s (FPS):</span>
+        <span id="devFPS">-</span>
+      </div>
+      <div class="dev-row">
+        <span>Pozycja gracza:</span>
+        <span id="devCoords">-</span>
+      </div>
+      <div class="dev-row">
+        <span>Aktywne auta:</span>
+        <span id="devVehicles">-</span>
+      </div>
+      <div class="dev-row">
+        <span>Aktywni piesi:</span>
+        <span id="devPeds">-</span>
+      </div>
+      <div class="dev-row">
+        <span>Profil grafiki:</span>
+        <span id="devQuality">-</span>
+      </div>
+      <div class="dev-row">
+        <span>Cienie:</span>
+        <span id="devShadows">-</span>
+      </div>
+      <div class="dev-row">
+        <span>Dynamiczny LOD:</span>
+        <span id="devLOD">-</span>
+      </div>
+      <div class="dev-footer">TRZYMAJ [C] ABY PRZENIKAĆ I BIEGAĆ</div>
+    </div>
+
     <!-- Elementy trzymane luzem do referencji w hud.js (brzydki hack, ale działa) -->
     <span id="zoneText" style="display:none"></span>
     <span id="weatherText" style="display:none"></span>
