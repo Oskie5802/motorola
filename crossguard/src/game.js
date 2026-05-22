@@ -517,9 +517,17 @@ export class GameLogic {
         this.hud.alert('AWARIA SYGNALIZACJI - zachowaj ostrożność', 'warn');
         this.audio.warn();
         const tl = this.city.trafficLights[Math.floor(Math.random() * this.city.trafficLights.length)];
-                // Wymuszamy żółte światło na sekundę
-        tl.state = 'amber'; tl.timer = 0;
-        this.city._applyLightVisual([tl]);
+        // Wymuszamy żółte światło na obu sygnalizatorach na tej samej osi (para)
+        const pairedLights = this.city.trafficLights.filter(
+          x => x.intersection.x === tl.intersection.x &&
+               x.intersection.z === tl.intersection.z &&
+               x.axis === tl.axis
+        );
+        for (const light of pairedLights) {
+          light.state = 'amber';
+          light.timer = 0;
+        }
+        this.city._applyLightVisual(pairedLights);
       },
       () => {
         this.hud.alert('LPR: skradzione auto namierzone', 'warn');

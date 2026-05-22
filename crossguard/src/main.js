@@ -478,6 +478,7 @@ async function startGame(zone, opts = {}) {
   const clock = new THREE.Clock();
   let raf = 0;
   function tick() {
+    const t0 = (player && player.devMode) ? performance.now() : 0;
     raf = requestAnimationFrame(tick);
     const dt = Math.min(0.1, clock.getDelta());
     if (cinematic) {
@@ -501,6 +502,11 @@ async function startGame(zone, opts = {}) {
       player.updateCamera(camera);
     }
     renderer.render(scene, camera);
+
+    if (player && player.devMode) {
+      renderer.getContext().finish();
+      player.lastFrameTime = performance.now() - t0;
+    }
   }
   tick();
 

@@ -125,8 +125,9 @@ export class TrafficSystem {
       group,
       type: def.type === 'emergency' ? 'car' : def.type,
       w: actualW, h: actualH, d: actualD,
-      baseSpeed: this.zone.vehicleSpeed * def.speed * 26,
-      speed: this.zone.vehicleSpeed * def.speed * 26,
+      baseSpeed: this.zone.vehicleSpeed * def.speed * 38,
+      speed: this.zone.vehicleSpeed * def.speed * 38,
+      speedFactor: def.speed,
       glbModel: true,
       vx, vz, axis, dir,
       pos: { x, z },
@@ -379,8 +380,9 @@ export class TrafficSystem {
       group,
       type: t.type,
       w: t.w, h: t.h, d: t.d,
-      baseSpeed: this.zone.vehicleSpeed * t.speed * 12,
-      speed: this.zone.vehicleSpeed * t.speed * 12,
+      baseSpeed: this.zone.vehicleSpeed * t.speed * 38,
+      speed: this.zone.vehicleSpeed * t.speed * 38,
+      speedFactor: t.speed,
       vx, vz, axis, dir,
       pos: { x, z },
       stopped: false,
@@ -676,6 +678,14 @@ export class TrafficSystem {
       for (const tl of this.city.trafficLights) {
         const controls = (v.axis === 'h' && tl.axis === 'ew') || (v.axis === 'v' && tl.axis === 'ns');
         if (!controls) continue;
+
+        // Sprawdzenie, czy sygnalizator kontroluje nasz kierunek wjazdu na skrzyżowanie.
+        // Odrzucamy te sygnalizatory, które są po drugiej stronie (zjazdowe) przy użyciu iloczynu skalarnego.
+        if (tl.pos && tl.intersection) {
+          const approachDir = v.vx * (tl.pos.x - tl.intersection.x) + v.vz * (tl.pos.z - tl.intersection.z);
+          if (approachDir >= 0) continue;
+        }
+
         if (tl.state !== 'red' && tl.state !== 'amber') continue;
         if (!tl.intersection) continue;
         const idx = tl.intersection.x - v.pos.x;
@@ -719,7 +729,8 @@ export class TrafficSystem {
             }
           }
           if (priorityCarApproaching) {
-            shouldStop = true;
+            const d = yieldDist - STOP_AHEAD;
+            if (d > -0.3 && d < distToStop) distToStop = d;
           }
         }
       }
@@ -783,8 +794,17 @@ export class TrafficSystem {
       target = Math.min(maxSpeed, Math.sqrt(2 * brakeA * distToStop));
     }
 
-    const accel = (target < v.speed) ? (v.glbModel ? 6.5 : 5.0) : (v.glbModel ? 3.5 : 2.5);
-    v.speed += (target - v.speed) * Math.min(1, dt * accel);
+    if (target > v.speed) {
+      // Płynne przyspieszanie liniowe z uwzględnieniem typu pojazdu i pogody
+      const baseAccel = 3.8;
+      const accelRate = baseAccel * (v.speedFactor || 1.0) * weatherMul;
+      v.speed = Math.min(target, v.speed + accelRate * dt);
+    } else if (target < v.speed) {
+      // Dynamiczne hamowanie liniowe z lepszym czasem reakcji dla uprzywilejowanych
+      const baseDecel = 12.0;
+      const decelRate = baseDecel * (v.isEmergency ? 1.3 : 1.0) * weatherMul;
+      v.speed = Math.max(target, v.speed - decelRate * dt);
+    }
     if (v.speed < 0) v.speed = 0;
     if (target === 0 && v.speed < 0.05) v.speed = 0;
 
@@ -804,7 +824,6 @@ export class TrafficSystem {
       v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
             // Wyrzuc ten prowizoryczny visual do smieci
       this.scene.remove(fresh.group);
-      this.vehicles.splice(this.vehicles.indexOf(fresh), 1);
     }
 
     v.group.position.set(v.pos.x, 0, v.pos.z);

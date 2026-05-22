@@ -175,6 +175,11 @@ export class HUD {
     this.fpsTimer += dt;
     if (this.fpsTimer >= 0.5) {
       this.currentFPS = Math.round(this.fpsCount / this.fpsTimer);
+      if (player.lastFrameTime > 0) {
+        this.potentialFPS = Math.round(1000 / player.lastFrameTime);
+      } else {
+        this.potentialFPS = 0;
+      }
       this.fpsCount = 0;
       this.fpsTimer = 0;
     }
@@ -182,7 +187,10 @@ export class HUD {
     if (player.devMode) {
       if (this.devOverlayEl) {
         this.devOverlayEl.classList.remove('hidden');
-        if (this.devFPSEl) this.devFPSEl.textContent = this.currentFPS;
+        if (this.devFPSEl) {
+          const rawFpsText = this.potentialFPS > 0 ? `${this.currentFPS} (RAW: ${this.potentialFPS})` : `${this.currentFPS}`;
+          this.devFPSEl.textContent = rawFpsText;
+        }
         if (this.devCoordsEl) this.devCoordsEl.textContent = `X: ${player.pos.x.toFixed(1)}, Z: ${player.pos.z.toFixed(1)}`;
         if (this.devVehiclesEl) this.devVehiclesEl.textContent = traffic ? traffic.vehicles.length : 0;
         if (this.devPedsEl) this.devPedsEl.textContent = traffic ? traffic.peds.length : 0;

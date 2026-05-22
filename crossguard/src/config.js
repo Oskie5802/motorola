@@ -230,8 +230,17 @@ export const RADIO_EVENTS = [
     event: (game) => {
       game.audio.radioMessage();
       const tl = game.city.trafficLights[Math.floor(Math.random() * game.city.trafficLights.length)];
-      tl.state = 'amber'; tl.timer = 0;
-      game.city._applyLightVisual([tl]);
+      // Wymuszamy żółte światło na obu sygnalizatorach na tej samej osi (para)
+      const pairedLights = game.city.trafficLights.filter(
+        x => x.intersection.x === tl.intersection.x &&
+             x.intersection.z === tl.intersection.z &&
+             x.axis === tl.axis
+      );
+      for (const light of pairedLights) {
+        light.state = 'amber';
+        light.timer = 0;
+      }
+      game.city._applyLightVisual(pairedLights);
     },
   },
   {
