@@ -49,6 +49,7 @@
         <p class="menu-tagline">Inteligentne miasto.<br>Realne zagrożenia.<br>Twoje decyzje ratują życie.</p>
         <div class="menu-ctas">
           <button id="startBtn" class="primary-btn">▶&nbsp;&nbsp;ROZPOCZNIJ MISJĘ</button>
+          <button id="settingsBtn" class="ghost-btn">USTAWIENIA</button>
           <button id="howToBtn" class="ghost-btn">JAK GRAĆ?</button>
         </div>
         <div class="brand-credit">
@@ -219,7 +220,40 @@
     <div class="menu-content">
       <h1>PAUZA</h1>
       <button id="resumeBtn" class="primary-btn">▶ WZNÓW</button>
+      <button id="pauseSettingsBtn" class="ghost-btn">USTAWIENIA</button>
       <button id="quitBtn" class="ghost-btn">◀ DO MENU</button>
+    </div>
+  </div>
+
+  <!-- Ekran Ustawień Grafiki -->
+  <div id="settings" class="screen hidden">
+    <div class="menu-content">
+      <h1>USTAWIENIA GRAFIKI</h1>
+      <h2>DOSTOSUJ JAKOŚĆ DLA LEPSZEJ WYDAJNOŚCI</h2>
+      <div class="settings-grid">
+        <div class="settings-card">
+          <h3>PROFIL JAKOŚCI</h3>
+          <div class="quality-buttons">
+            <button id="qualityLow" class="setting-btn">NISKA</button>
+            <button id="qualityMed" class="setting-btn">ŚREDNIA</button>
+            <button id="qualityHigh" class="setting-btn">WYSOKA</button>
+          </div>
+          <p class="quality-desc" id="qualityDesc">Uproszczona grafika, cienie wyłączone, brak modeli budynków/aut GLB.</p>
+        </div>
+        <div class="settings-card">
+          <h3>ZAAWANSOWANE</h3>
+          <label class="setting-toggle">
+            <input type="checkbox" id="settingShadows"> Cienie (Shadows)
+          </label>
+          <label class="setting-toggle">
+            <input type="checkbox" id="settingLOD"> Dynamiczny LOD (odległość budynków)
+          </label>
+          <label class="setting-toggle">
+            <input type="checkbox" id="settingParticles"> Efekty cząsteczkowe (pogoda)
+          </label>
+        </div>
+      </div>
+      <button id="settingsBack" class="primary-btn">◀ POWRÓT</button>
     </div>
   </div>
 

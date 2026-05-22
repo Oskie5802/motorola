@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from './config.js';
+import { settings } from './settings.js';
 
 export class TrafficSystem {
   constructor(scene, city, zone, carModels = null) {
@@ -23,7 +24,7 @@ export class TrafficSystem {
 
   _makeVehicle(forceType = null) {
         // Sciezki
-    if (this.carModels && Object.keys(this.carModels).length > 0) {
+    if (settings.current.quality !== 'low' && this.carModels && Object.keys(this.carModels).length > 0) {
       return this._makeVehicleGLB(forceType);
     }
         // To stary kod z boxami jak sie wywala glb, zostawiamy the failsafe
@@ -62,11 +63,12 @@ export class TrafficSystem {
 
         // Sklonuj autko, owin w grupe by przesunac pivot na srodek
     const inner = chosen.model.clone(true);
+    const hasShadows = settings.current.shadows;
     inner.traverse(child => {
       if (child.isMesh) {
         child.material = child.material.clone();
-        child.castShadow = true;
-        child.receiveShadow = true;
+        child.castShadow = hasShadows;
+        child.receiveShadow = hasShadows;
       }
     });
 
@@ -159,6 +161,9 @@ export class TrafficSystem {
     const color = t.color ?? PALETTE.vehicle[Math.floor(Math.random() * PALETTE.vehicle.length)];
 
     const group = new THREE.Group();
+    const isLow = settings.current.quality === 'low';
+    const hasShadows = settings.current.shadows;
+
     const bodyMat = new THREE.MeshStandardMaterial({
       color, roughness: 0.35, metalness: 0.55,
     });
@@ -178,7 +183,7 @@ export class TrafficSystem {
         bodyMat
       );
       lower.position.y = t.h * 0.34;
-      lower.castShadow = true;
+      lower.castShadow = hasShadows && !isLow;
       group.add(lower);
 
       const hood = new THREE.Mesh(
@@ -198,38 +203,40 @@ export class TrafficSystem {
       cabin.position.set(0, t.h * 0.78, 0);
       group.add(cabin);
 
-      const wsGeo = new THREE.PlaneGeometry(t.w * 0.78, t.h * 0.38);
-      const ws = new THREE.Mesh(wsGeo, glassMat);
-      ws.position.set(0, t.h * 0.78, -t.d * 0.22);
-      ws.rotation.x = -0.25;
-      group.add(ws);
-      const wsBack = ws.clone();
-      wsBack.position.z = t.d * 0.22;
-      wsBack.rotation.x = 0.25;
-      group.add(wsBack);
-      const sideGeo = new THREE.PlaneGeometry(t.d * 0.42, t.h * 0.32);
-      const sideL = new THREE.Mesh(sideGeo, glassMat);
-      sideL.position.set(-t.w * 0.43, t.h * 0.8, 0);
-      sideL.rotation.y = -Math.PI / 2;
-      group.add(sideL);
-      const sideR = sideL.clone();
-      sideR.position.x = t.w * 0.43;
-      sideR.rotation.y = Math.PI / 2;
-      group.add(sideR);
+      if (!isLow) {
+        const wsGeo = new THREE.PlaneGeometry(t.w * 0.78, t.h * 0.38);
+        const ws = new THREE.Mesh(wsGeo, glassMat);
+        ws.position.set(0, t.h * 0.78, -t.d * 0.22);
+        ws.rotation.x = -0.25;
+        group.add(ws);
+        const wsBack = ws.clone();
+        wsBack.position.z = t.d * 0.22;
+        wsBack.rotation.x = 0.25;
+        group.add(wsBack);
+        const sideGeo = new THREE.PlaneGeometry(t.d * 0.42, t.h * 0.32);
+        const sideL = new THREE.Mesh(sideGeo, glassMat);
+        sideL.position.set(-t.w * 0.43, t.h * 0.8, 0);
+        sideL.rotation.y = -Math.PI / 2;
+        group.add(sideL);
+        const sideR = sideL.clone();
+        sideR.position.x = t.w * 0.43;
+        sideR.rotation.y = Math.PI / 2;
+        group.add(sideR);
 
-      const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(t.w * 0.7, 0.05, t.d * 0.4),
-        new THREE.MeshStandardMaterial({ color: color, roughness: 0.4, metalness: 0.55 })
-      );
-      roof.position.set(0, t.h * 1.0, 0);
-      group.add(roof);
+        const roof = new THREE.Mesh(
+          new THREE.BoxGeometry(t.w * 0.7, 0.05, t.d * 0.4),
+          new THREE.MeshStandardMaterial({ color: color, roughness: 0.4, metalness: 0.55 })
+        );
+        roof.position.set(0, t.h * 1.0, 0);
+        group.add(roof);
+      }
     } else if (t.type === 'bus' || t.type === 'truck') {
       const lower = new THREE.Mesh(
         new THREE.BoxGeometry(t.w, t.h * 0.6, t.d),
         bodyMat
       );
       lower.position.y = t.h * 0.45;
-      lower.castShadow = true;
+      lower.castShadow = hasShadows && !isLow;
       group.add(lower);
       const cabin = new THREE.Mesh(
         new THREE.BoxGeometry(t.w * 0.95, t.h * 0.4, t.d * 0.55),
@@ -237,32 +244,34 @@ export class TrafficSystem {
       );
       cabin.position.set(0, t.h * 0.95, t.type === 'truck' ? -t.d * 0.18 : -t.d * 0.05);
       group.add(cabin);
-      for (let i = 0; i < (t.type === 'bus' ? 5 : 2); i++) {
-        const wn = new THREE.Mesh(
-          new THREE.PlaneGeometry(t.d * 0.13, t.h * 0.3),
+      if (!isLow) {
+        for (let i = 0; i < (t.type === 'bus' ? 5 : 2); i++) {
+          const wn = new THREE.Mesh(
+            new THREE.PlaneGeometry(t.d * 0.13, t.h * 0.3),
+            glassMat
+          );
+          wn.position.set(-t.w * 0.501, t.h * 0.65, -t.d * 0.35 + (i + 0.5) * (t.d * 0.7 / Math.max(1, (t.type==='bus'?5:2))));
+          wn.rotation.y = -Math.PI / 2;
+          group.add(wn);
+          const wnR = wn.clone();
+          wnR.position.x = t.w * 0.501;
+          wnR.rotation.y = Math.PI / 2;
+          group.add(wnR);
+        }
+        const fws = new THREE.Mesh(
+          new THREE.PlaneGeometry(t.w * 0.85, t.h * 0.35),
           glassMat
         );
-        wn.position.set(-t.w * 0.501, t.h * 0.65, -t.d * 0.35 + (i + 0.5) * (t.d * 0.7 / Math.max(1, (t.type==='bus'?5:2))));
-        wn.rotation.y = -Math.PI / 2;
-        group.add(wn);
-        const wnR = wn.clone();
-        wnR.position.x = t.w * 0.501;
-        wnR.rotation.y = Math.PI / 2;
-        group.add(wnR);
+        fws.position.set(0, t.h * 0.95, -t.d * 0.5);
+        group.add(fws);
       }
-      const fws = new THREE.Mesh(
-        new THREE.PlaneGeometry(t.w * 0.85, t.h * 0.35),
-        glassMat
-      );
-      fws.position.set(0, t.h * 0.95, -t.d * 0.5);
-      group.add(fws);
     } else if (t.type === 'tram') {
       const lower = new THREE.Mesh(
         new THREE.BoxGeometry(t.w, t.h * 0.5, t.d),
         bodyMat
       );
       lower.position.y = t.h * 0.4;
-      lower.castShadow = true;
+      lower.castShadow = hasShadows && !isLow;
       group.add(lower);
       const top = new THREE.Mesh(
         new THREE.BoxGeometry(t.w * 0.95, t.h * 0.45, t.d * 0.95),
@@ -270,46 +279,50 @@ export class TrafficSystem {
       );
       top.position.y = t.h * 0.88;
       group.add(top);
-      for (let i = 0; i < 6; i++) {
-        const wn = new THREE.Mesh(new THREE.PlaneGeometry(t.d * 0.12, t.h * 0.3), glassMat);
-        wn.position.set(-t.w * 0.501, t.h * 0.85, -t.d * 0.42 + (i + 0.5) * (t.d * 0.85 / 6));
-        wn.rotation.y = -Math.PI / 2;
-        group.add(wn);
-        const wnR = wn.clone();
-        wnR.position.x = t.w * 0.501;
-        wnR.rotation.y = Math.PI / 2;
-        group.add(wnR);
+      if (!isLow) {
+        for (let i = 0; i < 6; i++) {
+          const wn = new THREE.Mesh(new THREE.PlaneGeometry(t.d * 0.12, t.h * 0.3), glassMat);
+          wn.position.set(-t.w * 0.501, t.h * 0.85, -t.d * 0.42 + (i + 0.5) * (t.d * 0.85 / 6));
+          wn.rotation.y = -Math.PI / 2;
+          group.add(wn);
+          const wnR = wn.clone();
+          wnR.position.x = t.w * 0.501;
+          wnR.rotation.y = Math.PI / 2;
+          group.add(wnR);
+        }
+        const pole = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.04, 0.04, 0.8),
+          new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8 })
+        );
+        pole.position.y = t.h * 1.2;
+        group.add(pole);
       }
-      const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.04, 0.04, 0.8),
-        new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8 })
-      );
-      pole.position.y = t.h * 1.2;
-      group.add(pole);
     }
 
     if (t.type !== 'tram') {
       const wheelR = Math.min(0.36, t.h * 0.3);
-      const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, 0.22, 14);
-      const rimGeo = new THREE.CylinderGeometry(wheelR * 0.55, wheelR * 0.55, 0.24, 10);
+      const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, 0.22, isLow ? 6 : 14);
+      const rimGeo = isLow ? null : new THREE.CylinderGeometry(wheelR * 0.55, wheelR * 0.55, 0.24, 10);
       const axles = (t.type === 'car') ? [-t.d * 0.32, t.d * 0.32] : [-t.d * 0.36, t.d * 0.36];
       for (const az of axles) {
         for (const ax of [-t.w * 0.5, t.w * 0.5]) {
           const w = new THREE.Mesh(wheelGeo, wheelMat);
           w.rotation.z = Math.PI / 2;
           w.position.set(ax, wheelR, az);
-          w.castShadow = true;
+          w.castShadow = hasShadows && !isLow;
           group.add(w);
-          const rim = new THREE.Mesh(rimGeo, rimMat);
-          rim.rotation.z = Math.PI / 2;
-          rim.position.set(ax * 1.01, wheelR, az);
-          group.add(rim);
+          if (!isLow && rimGeo) {
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            rim.rotation.z = Math.PI / 2;
+            rim.position.set(ax * 1.01, wheelR, az);
+            group.add(rim);
+          }
         }
       }
     } else {
       for (const az of [-t.d * 0.35, t.d * 0.35]) {
         const w = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.28, 0.28, t.w * 1.05, 12),
+          new THREE.CylinderGeometry(0.28, 0.28, t.w * 1.05, isLow ? 6 : 12),
           wheelMat
         );
         w.rotation.z = Math.PI / 2;
@@ -321,7 +334,7 @@ export class TrafficSystem {
     const lightMat = new THREE.MeshStandardMaterial({
       color: 0xfff6d2, emissive: 0xfff2c8, emissiveIntensity: 1.4
     });
-    const hL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), lightMat);
+    const hL = new THREE.Mesh(new THREE.SphereGeometry(0.13, isLow ? 4 : 10, isLow ? 4 : 8), lightMat);
     hL.scale.set(1.2, 0.7, 0.5);
     hL.position.set(-t.w * 0.32, t.h * 0.45, -t.d / 2 - 0.02);
     group.add(hL);
@@ -384,6 +397,9 @@ export class TrafficSystem {
     const hairColors = [0x1a1108, 0x3c2210, 0x6b4423, 0xa67442, 0xd9b271, 0x2c2c2c];
     const pantsColors = [0x1a2540, 0x2a2f38, 0x3a3b48, 0x554938, 0x202833];
 
+    const isLow = settings.current.quality === 'low';
+    const hasShadows = settings.current.shadows;
+
     for (let i = 0; i < n; i++) {
       const p = this.city.randomSidewalkPoint();
       const group = new THREE.Group();
@@ -402,44 +418,44 @@ export class TrafficSystem {
             // cialko bota
       const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.28, 1, 2, 1), shirtMat);
       torso.position.y = 1.0;
-      torso.castShadow = true;
+      torso.castShadow = hasShadows && !isLow;
       group.add(torso);
             // kark
-      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 10), skinMat);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, isLow ? 4 : 10), skinMat);
       neck.position.y = 1.42;
       group.add(neck);
             // dynia
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.20, 14, 12), skinMat);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.20, isLow ? 6 : 14, isLow ? 6 : 12), skinMat);
       head.position.y = 1.6;
       head.scale.set(1, 1.08, 0.95);
-      head.castShadow = true;
+      head.castShadow = hasShadows && !isLow;
       group.add(head);
             // fryz
       if (Math.random() > 0.15) {
         const hair = new THREE.Mesh(
-          new THREE.SphereGeometry(0.21, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2.1),
+          new THREE.SphereGeometry(0.21, isLow ? 6 : 14, isLow ? 6 : 10, 0, Math.PI * 2, 0, Math.PI / 2.1),
           hairMat
         );
         hair.position.y = 1.64;
         group.add(hair);
       }
             // rączki
-      const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.6, 10), shirtMat);
+      const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.6, isLow ? 4 : 10), shirtMat);
       armL.position.set(-0.32, 1.05, 0);
-      armL.castShadow = true;
+      armL.castShadow = hasShadows && !isLow;
       group.add(armL);
       const armR = armL.clone(); armR.position.x = 0.32;
       group.add(armR);
             // łapy
-      const handL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), skinMat);
+      const handL = new THREE.Mesh(new THREE.SphereGeometry(0.08, isLow ? 4 : 8, isLow ? 4 : 6), skinMat);
       handL.position.set(-0.32, 0.74, 0);
       group.add(handL);
       const handR = handL.clone(); handR.position.x = 0.32;
       group.add(handR);
             // giry
-      const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.65, 10), pantsMat);
+      const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.65, isLow ? 4 : 10), pantsMat);
       legL.position.set(-0.12, 0.34, 0);
-      legL.castShadow = true;
+      legL.castShadow = hasShadows && !isLow;
       group.add(legL);
       const legR = legL.clone(); legR.position.x = 0.12;
       group.add(legR);
@@ -451,13 +467,15 @@ export class TrafficSystem {
       group.add(shoeR);
 
             // cien cieniutki
-      const sh = new THREE.Mesh(
-        new THREE.CircleGeometry(0.38, 18),
-        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 })
-      );
-      sh.rotation.x = -Math.PI / 2;
-      sh.position.y = 0.02;
-      group.add(sh);
+      if (hasShadows && !isLow) {
+        const sh = new THREE.Mesh(
+          new THREE.CircleGeometry(0.38, 10),
+          new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.18 })
+        );
+        sh.rotation.x = -Math.PI / 2;
+        sh.position.y = 0.02;
+        group.add(sh);
+      }
 
       group.scale.setScalar(heightScale);
 

@@ -3,6 +3,7 @@
 // selektywne skrzyzowania i rozne typy blokow (budynki, parki, place).
 import * as THREE from "three";
 import { PALETTE } from "./config.js";
+import { settings } from "./settings.js";
 
 export class City {
   constructor(scene, zone, isNight, models = null) {
@@ -10,6 +11,8 @@ export class City {
     this.zone = zone;
     this.isNight = isNight;
     this.models = models;
+    this.castShadows = settings.current.shadows;
+    this.receiveShadows = settings.current.shadows;
 
     // Layout z konfiguracji strefy
     const layout = zone.layout;
@@ -73,7 +76,7 @@ export class City {
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
+    ground.receiveShadow = this.receiveShadows;
     ground.position.y = -0.08;
     this.scene.add(ground);
 
@@ -108,7 +111,7 @@ export class City {
       );
       hRoad.rotation.x = -Math.PI / 2;
       hRoad.position.set(0, 0, coord);
-      hRoad.receiveShadow = true;
+      hRoad.receiveShadow = this.receiveShadows;
       this.scene.add(hRoad);
       this.roadSegments.push({
         x1: -sizeX / 2, z1: coord, x2: sizeX / 2, z2: coord, axis: "h",
@@ -125,7 +128,7 @@ export class City {
       );
       vRoad.rotation.x = -Math.PI / 2;
       vRoad.position.set(coord, 0, 0);
-      vRoad.receiveShadow = true;
+      vRoad.receiveShadow = this.receiveShadows;
       this.scene.add(vRoad);
       this.roadSegments.push({
         x1: coord, z1: -sizeZ / 2, x2: coord, z2: sizeZ / 2, axis: "v",
@@ -152,7 +155,7 @@ export class City {
           sidewalkMat,
         );
         sw.position.set(cx, 0.06, cz);
-        sw.receiveShadow = true;
+        sw.receiveShadow = this.receiveShadows;
         this.scene.add(sw);
         this.sidewalks.push({
           x1: cx - sidewalkW / 2,
@@ -333,7 +336,7 @@ export class City {
     );
     parkGround.rotation.x = -Math.PI / 2;
     parkGround.position.set(cx, 0.13, cz);
-    parkGround.receiveShadow = true;
+    parkGround.receiveShadow = this.receiveShadows;
     this.scene.add(parkGround);
 
     // Sciezka przez srodek parku (jasniejszy pasek)
@@ -349,7 +352,7 @@ export class City {
     );
     pathH.rotation.x = -Math.PI / 2;
     pathH.position.set(cx, 0.135, cz);
-    pathH.receiveShadow = true;
+    pathH.receiveShadow = this.receiveShadows;
     this.scene.add(pathH);
     // Sciezka pionowa (krzyz)
     const pathV = new THREE.Mesh(
@@ -358,7 +361,7 @@ export class City {
     )
     pathV.rotation.x = -Math.PI / 2;
     pathV.position.set(cx, 0.135, cz);
-    pathV.receiveShadow = true;
+    pathV.receiveShadow = this.receiveShadows;
     this.scene.add(pathV);
 
     // Zywoploty wzdluz krawedzi (niskie zielone boksy)
@@ -379,7 +382,7 @@ export class City {
         hedgeMat,
       );
       hedge.position.set(cx + dx, hedgeH / 2 + 0.12, cz + dz);
-      hedge.castShadow = true;
+      hedge.castShadow = this.castShadows;
       this.scene.add(hedge);
     }
 
@@ -432,7 +435,7 @@ export class City {
     );
     plazaGround.rotation.x = -Math.PI / 2;
     plazaGround.position.set(cx, 0.13, cz);
-    plazaGround.receiveShadow = true;
+    plazaGround.receiveShadow = this.receiveShadows;
     this.scene.add(plazaGround);
 
     // Centralna fontanna
@@ -447,7 +450,7 @@ export class City {
       fountainMat,
     );
     basin.position.set(cx, 0.42, cz);
-    basin.castShadow = true;
+    basin.castShadow = this.castShadows;
     this.scene.add(basin);
 
     // Woda w basenie
@@ -483,7 +486,7 @@ export class City {
       }),
     );
     ball.position.set(cx, 2.6, cz);
-    ball.castShadow = true;
+    ball.castShadow = this.castShadows;
     this.scene.add(ball);
 
     // Fontanna to kolizja (nie mozna przez nia przejsc)
@@ -611,7 +614,7 @@ export class City {
       poleMat
     );
     pole.position.y = 2.3;
-    pole.castShadow = true;
+    pole.castShadow = this.castShadows;
     group.add(pole);
 
     // Pole base / foundation
@@ -644,7 +647,7 @@ export class City {
       housingMat
     );
     housing.position.set(0, 4.0, 0.36);
-    housing.castShadow = true;
+    housing.castShadow = this.castShadows;
     group.add(housing);
 
     // Lamp materials — brighter emissive when lit
@@ -718,7 +721,7 @@ export class City {
       new THREE.MeshLambertMaterial({ color: 0x222a33 })
     );
     pole.position.y = 1.3;
-    pole.castShadow = true;
+    pole.castShadow = this.castShadows;
     group.add(pole);
     const housing = new THREE.Mesh(
       new THREE.BoxGeometry(0.42, 0.95, 0.32),
@@ -934,6 +937,7 @@ export class City {
     const targetFill = count === 1 ? 0.92 : 0.62;
 
     const placed = [];
+    const hasShadows = settings.current.shadows;
 
     for (let i = 0; i < count; i++) {
       const useSkyscraper =
@@ -990,13 +994,13 @@ export class City {
 
       const obj = template.clone(true);
       obj.scale.set(fitScale, fitScale, fitScale);
-      obj.position.set(cx + offX, 0.12, cz + offZ);
-      obj.rotation.y = Math.floor(Math.random() * 4) * (Math.PI / 2);
+      const rotationY = Math.floor(Math.random() * 4) * (Math.PI / 2);
+      obj.rotation.y = rotationY;
 
       obj.traverse((child) => {
         if (child.isMesh) {
-          child.castShadow = true;
-          child.receiveShadow = true;
+          child.castShadow = hasShadows;
+          child.receiveShadow = hasShadows;
           const mats = Array.isArray(child.material) ? child.material : [child.material];
           for (const m of mats) {
             if (!m || m.userData.__cgLit) continue;
@@ -1014,7 +1018,38 @@ export class City {
         }
       });
 
-      this.scene.add(obj);
+      if (settings.current.lod) {
+        const lod = new THREE.LOD();
+        
+        // Detailed level (0m to 120m)
+        lod.addLevel(obj, 0);
+        obj.position.set(0, 0, 0);
+        obj.rotation.y = 0; // reset local rotation as LOD will carry it
+        
+        // Low-poly level (120m+)
+        const h = nativeSize.y * fitScale;
+        const fallbackMat = new THREE.MeshStandardMaterial({
+          color: 0x7a8296,
+          roughness: 0.8,
+          metalness: 0.1,
+        });
+        const fallbackBldg = new THREE.Mesh(new THREE.BoxGeometry(actualW, h, actualD), fallbackMat);
+        fallbackBldg.position.y = h / 2;
+        fallbackBldg.castShadow = hasShadows;
+        fallbackBldg.receiveShadow = hasShadows;
+        
+        const lowPolyGroup = new THREE.Group();
+        lowPolyGroup.add(fallbackBldg);
+        
+        lod.addLevel(lowPolyGroup, 120);
+        lod.position.set(cx + offX, 0.12, cz + offZ);
+        lod.rotation.y = rotationY;
+        
+        this.scene.add(lod);
+      } else {
+        obj.position.set(cx + offX, 0.12, cz + offZ);
+        this.scene.add(obj);
+      }
 
       const box = {
         x1: cx + offX - actualW / 2,
@@ -1049,8 +1084,8 @@ export class City {
       });
       const bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       bldg.position.set(cx + offX, h / 2 + 0.12, cz + offZ);
-      bldg.castShadow = true;
-      bldg.receiveShadow = true;
+      bldg.castShadow = this.castShadows;
+      bldg.receiveShadow = this.receiveShadows;
       this.scene.add(bldg);
 
       // Cokol (ciemniejszy parter)
@@ -1062,7 +1097,7 @@ export class City {
         }),
       );
       base.position.set(cx + offX, 0.75 + 0.12, cz + offZ);
-      base.receiveShadow = true;
+      base.receiveShadow = this.receiveShadows;
       this.scene.add(base);
 
       // Gzyms na gorze
@@ -1149,7 +1184,10 @@ export class City {
     const halfZ = sidewalkD / 2 - treeR;
     if (halfX < 0.5 || halfZ < 0.5) return;
     const plantable = Math.max(0, halfX * 2) * Math.max(0, halfZ * 2);
-    const target = Math.min(10, Math.max(2, Math.round(plantable / 14)));
+    let target = Math.min(10, Math.max(2, Math.round(plantable / 14)));
+    if (settings.current.quality === 'low') {
+      target = Math.max(1, Math.round(target * 0.3));
+    }
     let placed = 0;
     for (let attempt = 0; attempt < target * 6 && placed < target; attempt++) {
       const tx = cx + (Math.random() - 0.5) * 2 * halfX;
@@ -1161,27 +1199,30 @@ export class City {
   }
 
   _spawnTree(tx, tz, trunkMat, leafMat) {
+    const isLow = settings.current.quality === 'low';
     const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.22, 1.6, 8),
+      new THREE.CylinderGeometry(0.18, 0.22, 1.6, isLow ? 5 : 8),
       trunkMat,
     );
     trunk.position.set(tx, 0.92, tz);
-    trunk.castShadow = true;
+    trunk.castShadow = this.castShadows;
     this.scene.add(trunk);
     const r = 0.9 + Math.random() * 0.5;
     const leaves = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(r, 1),
+      new THREE.IcosahedronGeometry(r, isLow ? 0 : 1),
       leafMat,
     );
     leaves.position.set(tx, 2.3, tz);
-    leaves.castShadow = true;
+    leaves.castShadow = this.castShadows;
     this.scene.add(leaves);
-    const leaves2 = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(r * 0.65, 1),
-      leafMat,
-    );
-    leaves2.position.set(tx + 0.4, 2.6, tz - 0.3);
-    this.scene.add(leaves2);
+    if (!isLow) {
+      const leaves2 = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(r * 0.65, 1),
+        leafMat,
+      );
+      leaves2.position.set(tx + 0.4, 2.6, tz - 0.3);
+      this.scene.add(leaves2);
+    }
   }
 
   _addStreetFurniture(cx, cz, area) {
@@ -1193,36 +1234,21 @@ export class City {
       color: this.isNight ? 0x142820 : 0x4a8a3f,
       roughness: 0.85,
     });
-    const trees = 1 + Math.floor(Math.random() * 3);
+    const isLow = settings.current.quality === 'low';
+    let trees = 1 + Math.floor(Math.random() * 3);
+    if (isLow) {
+      trees = Math.random() < 0.4 ? 1 : 0;
+    }
     for (let i = 0; i < trees; i++) {
       const tx = cx + (Math.random() - 0.5) * area * 0.95;
       const tz = cz + (Math.random() - 0.5) * area * 0.95;
       if (this.collidesBuilding(tx, tz, 1)) continue;
-      const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.22, 1.6, 8),
-        trunkMat,
-      );
-      trunk.position.set(tx, 0.92, tz);
-      trunk.castShadow = true;
-      this.scene.add(trunk);
-      const r = 1.0 + Math.random() * 0.6;
-      const leaves = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(r, 1),
-        leafMat,
-      );
-      leaves.position.set(tx, 2.3, tz);
-      leaves.castShadow = true;
-      this.scene.add(leaves);
-      const leaves2 = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(r * 0.65, 1),
-        leafMat,
-      );
-      leaves2.position.set(tx + 0.4, 2.6, tz - 0.3);
-      this.scene.add(leaves2);
+      this._spawnTree(tx, tz, trunkMat, leafMat);
     }
 
     // Lawka
-    if (Math.random() > 0.55) {
+    const benchChance = isLow ? 0.15 : 0.55;
+    if (Math.random() < benchChance) {
       const bx = cx + (Math.random() - 0.5) * area * 0.7;
       const bz = cz + (Math.random() - 0.5) * area * 0.7;
       if (!this.collidesBuilding(bx, bz, 1)) {
@@ -1245,7 +1271,7 @@ export class City {
       benchMat,
     );
     seat.position.set(bx, 0.5, bz);
-    seat.castShadow = true;
+    seat.castShadow = this.castShadows;
     this.scene.add(seat);
     const back = new THREE.Mesh(
       new THREE.BoxGeometry(1.8, 0.5, 0.08),
@@ -1268,6 +1294,7 @@ export class City {
   // ============================================================
 
   _addWindows(parent, w, h, d) {
+    if (settings.current.quality === 'low') return;
     const winMat = this.isNight
       ? new THREE.MeshStandardMaterial({
         color: 0xffe9a8,
@@ -1338,7 +1365,7 @@ export class City {
         poleMat,
       );
       pole.position.set(cx, 2.7, cz);
-      pole.castShadow = true;
+      pole.castShadow = this.castShadows;
       this.scene.add(pole);
 
       // Base flange
@@ -1388,7 +1415,7 @@ export class City {
       );
       body.rotation.x = Math.PI / 2;
       body.position.set(0, -0.1, -1.35);
-      body.castShadow = true;
+      body.castShadow = this.castShadows;
       camGroup.add(body);
 
       // Rear cap (slightly larger, rounded)
@@ -1482,7 +1509,7 @@ export class City {
           coneMat,
         );
         cone.position.set(x + c * 0.8, 0.45, z);
-        cone.castShadow = true;
+        cone.castShadow = this.castShadows;
         this.scene.add(cone);
         const band = new THREE.Mesh(
           new THREE.CylinderGeometry(0.18, 0.22, 0.1, 8),
@@ -1534,7 +1561,7 @@ export class City {
       poleMat
     );
     pole.position.set(x, 2.75, z);
-    pole.castShadow = true;
+    pole.castShadow = this.castShadows;
     this.scene.add(pole);
     const head = new THREE.Mesh(
       new THREE.BoxGeometry(0.6, 0.15, 0.35),
@@ -1716,7 +1743,7 @@ export class City {
       poleMat
     );
     pole.position.y = 1.4;
-    pole.castShadow = true;
+    pole.castShadow = this.castShadows;
     group.add(pole);
 
     const board = this._createSignBoard(type);
@@ -1739,7 +1766,7 @@ export class City {
       poleMat
     );
     pole.position.y = 1.4;
-    pole.castShadow = true;
+    pole.castShadow = this.castShadows;
     group.add(pole);
 
     // Górny znak (np. Ustąp pierwszeństwa A-7)

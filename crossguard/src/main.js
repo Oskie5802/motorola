@@ -11,6 +11,7 @@ import { Environment } from './environment.js';
 import { GameLogic } from './game.js';
 import { loadBuildingModels, loadCharacterModel, loadCarModels } from './modelLoader.js';
 import { CinematicDirector, buildCinematicOverlay, showFinaleMosaic, hideCinemaOverlay } from './cinematic.js';
+import { settings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -122,19 +123,20 @@ $('startBtn').onclick = () => {
 };
 
 async function ensureModels() {
-  if (cachedModels && cachedCharacter && cachedCars) return cachedModels;
+  const isLow = settings.current.quality === 'low';
+  if (cachedCharacter && (isLow || (cachedModels && cachedCars && Object.keys(cachedCars).length > 0))) return cachedModels;
   const bar = document.querySelector('.bar-fill');
   if (bar) { bar.style.width = '0%'; bar.classList.remove('anim'); }
   showLoading();
   const [models, character, cars] = await Promise.all([
-    cachedModels || loadBuildingModels((p) => {
+    (isLow || cachedModels) ? Promise.resolve(cachedModels || { buildings: [], skyscrapers: [] }) : loadBuildingModels((p) => {
       if (bar) bar.style.width = (p * 50).toFixed(0) + '%';
     }),
     cachedCharacter || loadCharacterModel().catch((e) => {
       console.warn('Character model failed to load, using fallback:', e);
       return null;
     }),
-    cachedCars || loadCarModels((p) => {
+    (isLow || cachedCars) ? Promise.resolve(cachedCars || {}) : loadCarModels((p) => {
       if (bar) bar.style.width = (50 + p * 50).toFixed(0) + '%';
     }),
   ]);
@@ -145,6 +147,132 @@ async function ensureModels() {
   await hideLoading();
   return cachedModels;
 }
+
+// Setup dynamic graphics setting updates at runtime
+async function applySettingsDynamically() {
+  if (!currentSession) return;
+
+  const hasShadows = settings.current.shadows;
+  
+  // Update renderer settings
+  currentSession.renderer.shadowMap.enabled = hasShadows;
+  currentSession.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.current.pixelRatioLimit));
+  
+  // Trigger environment settings update
+  if (currentSession.env && typeof currentSession.env.applyDynamicSettings === 'function') {
+    currentSession.env.applyDynamicSettings();
+  }
+
+  // Update object cast/receive shadow flags dynamically
+  currentSession.scene.traverse(obj => {
+    if (obj.isMesh) {
+      if (obj.userData && (obj.userData.isHUDElement || obj.userData.isMarker)) return;
+      obj.castShadow = hasShadows;
+      obj.receiveShadow = hasShadows;
+    }
+  });
+
+  // Pre-load assets in background if settings upgraded to Med/High and not loaded yet
+  if (settings.current.quality !== 'low') {
+    if (!cachedModels || !cachedCars || Object.keys(cachedCars).length === 0) {
+      console.log('[Settings] Upgraded quality in-game. Pre-loading models in the background...');
+      const [models, cars] = await Promise.all([
+        (cachedModels && cachedModels.buildings.length > 0) ? Promise.resolve(cachedModels) : loadBuildingModels().catch(() => ({ buildings: [], skyscrapers: [] })),
+        (cachedCars && Object.keys(cachedCars).length > 0) ? Promise.resolve(cachedCars) : loadCarModels().catch(() => ({}))
+      ]);
+      cachedModels = models;
+      cachedCars = cars;
+      if (currentSession && currentSession.traffic) {
+        currentSession.traffic.carModels = cachedCars;
+      }
+    }
+  }
+}
+
+// Settings UI event bindings
+function initSettingsUI() {
+  const qualityLow = $('qualityLow');
+  const qualityMed = $('qualityMed');
+  const qualityHigh = $('qualityHigh');
+  const settingShadows = $('settingShadows');
+  const settingLOD = $('settingLOD');
+  const settingParticles = $('settingParticles');
+  const qualityDesc = $('qualityDesc');
+
+  let settingsOrigin = 'menu';
+
+  function updateUI() {
+    qualityLow.classList.toggle('active', settings.current.quality === 'low');
+    qualityMed.classList.toggle('active', settings.current.quality === 'medium');
+    qualityHigh.classList.toggle('active', settings.current.quality === 'high');
+
+    settingShadows.checked = settings.current.shadows;
+    settingLOD.checked = settings.current.lod;
+    settingParticles.checked = settings.current.particles;
+
+    if (settings.current.quality === 'low') {
+      qualityDesc.textContent = 'Uproszczona grafika, cienie wyłączone, brak modeli budynków/aut GLB.';
+    } else if (settings.current.quality === 'medium') {
+      qualityDesc.textContent = 'Standardowa grafika, uproszczone cienie, włączony dynamiczny LOD dla budynków.';
+    } else if (settings.current.quality === 'high') {
+      qualityDesc.textContent = 'Najlepsza grafika, pełne cienie, pełne modele, włączony dynamiczny LOD.';
+    }
+  }
+
+  $('settingsBtn').onclick = () => {
+    settingsOrigin = 'menu';
+    $('menu').classList.add('hidden');
+    $('settings').classList.remove('hidden');
+    updateUI();
+  };
+
+  $('pauseSettingsBtn').onclick = () => {
+    settingsOrigin = 'pause';
+    $('pause').classList.add('hidden');
+    $('settings').classList.remove('hidden');
+    updateUI();
+  };
+
+  $('settingsBack').onclick = () => {
+    $('settings').classList.add('hidden');
+    if (settingsOrigin === 'pause') {
+      $('pause').classList.remove('hidden');
+    } else {
+      $('menu').classList.remove('hidden');
+    }
+    applySettingsDynamically();
+  };
+
+  qualityLow.onclick = () => {
+    settings.setQuality('low');
+    updateUI();
+  };
+  qualityMed.onclick = () => {
+    settings.setQuality('medium');
+    updateUI();
+  };
+  qualityHigh.onclick = () => {
+    settings.setQuality('high');
+    updateUI();
+  };
+
+  settingShadows.onchange = () => {
+    settings.current.shadows = settingShadows.checked;
+    settings.save();
+  };
+
+  settingLOD.onchange = () => {
+    settings.current.lod = settingLOD.checked;
+    settings.save();
+  };
+
+  settingParticles.onchange = () => {
+    settings.current.particles = settingParticles.checked;
+    settings.save();
+  };
+}
+
+initSettingsUI();
 // F9 odpala demo w kazdym miejscu
 window.addEventListener('keydown', (e) => {
   if (e.code === 'F9') {
@@ -278,9 +406,9 @@ async function startGame(zone, opts = {}) {
     // Scena
   const canvas = $('game');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.current.pixelRatioLimit));
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = settings.current.shadows;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;

@@ -1,6 +1,7 @@
 // Pogoda, niebo, oswietlenie itp
 import * as THREE from 'three';
 import { PALETTE } from './config.js';
+import { settings } from './settings.js';
 
 export class Environment {
   constructor(scene, zone) {
@@ -71,8 +72,9 @@ export class Environment {
       this.isNight ? 0.12 : 1.15
     );
     this.sun.position.set(60, 100, 40);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.castShadow = settings.current.shadows;
+    const shadowMapSize = settings.current.quality === 'high' ? 2048 : (settings.current.quality === 'medium' ? 1024 : 512);
+    this.sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
     this.sun.shadow.bias = -0.0005;
     this.sun.shadow.normalBias = 0.04;
     this.sun.shadow.radius = 2.5;
@@ -90,10 +92,25 @@ export class Environment {
 
         // Gwiazdki
     if (this.isNight) this._initStars();
+
+    this.applyDynamicSettings();
+  }
+
+  applyDynamicSettings() {
+    this.sun.castShadow = settings.current.shadows;
+    if (this.rain) {
+      this.rain.visible = settings.current.particles;
+    }
+    if (this.snow) {
+      this.snow.visible = settings.current.particles;
+    }
+    if (this.stars) {
+      this.stars.visible = settings.current.particles;
+    }
   }
 
   _initRain() {
-    const count = 1800;
+    const count = settings.current.quality === 'low' ? 200 : (settings.current.quality === 'medium' ? 800 : 1800);
     const geom = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     this.rainSpeed = new Float32Array(count);
@@ -112,7 +129,7 @@ export class Environment {
   }
 
   _initSnow() {
-    const count = 700;
+    const count = settings.current.quality === 'low' ? 100 : (settings.current.quality === 'medium' ? 350 : 700);
     const geom = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     this.snowSpeed = new Float32Array(count);
@@ -131,7 +148,7 @@ export class Environment {
   }
 
   _initStars() {
-    const count = 600;
+    const count = settings.current.quality === 'low' ? 100 : (settings.current.quality === 'medium' ? 300 : 600);
     const g = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
@@ -154,11 +171,11 @@ export class Environment {
     }
     g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const stars = new THREE.Points(g, new THREE.PointsMaterial({
+    this.stars = new THREE.Points(g, new THREE.PointsMaterial({
       size: 1.0, transparent: true, opacity: 0.9,
       vertexColors: true, sizeAttenuation: false,
     }));
-    this.scene.add(stars);
+    this.scene.add(this.stars);
 
         // Ksiezyc z poświata
     const moonGroup = new THREE.Group();
