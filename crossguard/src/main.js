@@ -346,7 +346,12 @@ document.addEventListener('pointerlockchange', () => {
     }
   }
 });
-$('resumeBtn').onclick = () => { isPaused = false; $('pause').classList.add('hidden'); audio.pauseOut(); };
+$('resumeBtn').onclick = () => { 
+  isPaused = false; 
+  $('pause').classList.add('hidden'); 
+  audio.pauseOut(); 
+  requestGamePointerLock();
+};
 $('quitBtn').onclick = () => {
   isPaused = false; $('pause').classList.add('hidden');
   endSession();
@@ -438,6 +443,19 @@ async function startCinematic() {
   $('menu').classList.remove('hidden');
 }
 
+function requestGamePointerLock() {
+  if (currentSession && currentSession.player && currentSession.player.cameraMode === 'firstperson' && !currentSession.cinematic) {
+    const isMenuOpen = !$('menu').classList.contains('hidden') || 
+                       !$('pause').classList.contains('hidden') || 
+                       !$('settings').classList.contains('hidden') || 
+                       !$('tutorial').classList.contains('hidden') || 
+                       !$('results').classList.contains('hidden');
+    if (!isMenuOpen) {
+      $('game').requestPointerLock();
+    }
+  }
+}
+
 // Inicjalizacja swiata
 async function startGame(zone, opts = {}) {
   const cinematic = !!opts.cinematic;
@@ -497,6 +515,7 @@ async function startGame(zone, opts = {}) {
       isPaused = false;
       progress._seenTutorial = true;
       saveProgress(progress);
+      requestGamePointerLock();
     };
   }
 
@@ -568,6 +587,11 @@ async function startGame(zone, opts = {}) {
       audio.stop();
     },
   };
+
+  // Jeśli samouczek został już zaliczony i nie jesteśmy w trybie cinematic, zablokuj kursor
+  if (!cinematic && progress._seenTutorial) {
+    requestGamePointerLock();
+  }
 }
 
 function endSession() {

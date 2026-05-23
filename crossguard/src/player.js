@@ -44,7 +44,7 @@ export class Player {
     this.cameraYaw = 0;
     this.cameraPitch = 0.55;
     this.cameraDistance = 12;
-    this.cameraMode = 'thirdperson'; // 'thirdperson' | 'firstperson'
+    this.cameraMode = 'firstperson'; // 'thirdperson' | 'firstperson'
     this.cameraPitchFPP = 0.0;
 
     this.walkSpeed = 4.0;
@@ -56,6 +56,16 @@ export class Player {
     this.devMode = false;
     this.isDead = false;
     this.deathTime = 0;
+
+    // Ukrywamy model domyślnie, ponieważ zaczynamy w FPP
+    const isFPP = this.cameraMode === 'firstperson';
+    if (this._model) this._model.visible = !isFPP;
+    if (this._fallbackBody) this._fallbackBody.visible = !isFPP;
+    if (this._fallbackHead) this._fallbackHead.visible = !isFPP;
+
+    this.bobTime = 0;
+    this.bobY = 0;
+    this.bobX = 0;
   }
 
   _buildFromModel(characterData) {
@@ -341,6 +351,31 @@ export class Player {
 
     this.moving = len > 0 && speed > 0;
 
+    // Obliczanie head bobbingu w FPP
+    if (this.cameraMode === 'firstperson') {
+      const bobAmountY = running ? 0.08 : 0.04;
+      const bobAmountX = running ? 0.04 : 0.02;
+      
+      if (this.moving) {
+        const bobSpeed = running ? 15 : 10;
+        this.bobTime = (this.bobTime || 0) + dt * bobSpeed;
+        this.targetBobY = Math.sin(this.bobTime) * bobAmountY;
+        this.targetBobX = Math.sin(this.bobTime * 0.5) * bobAmountX;
+      } else {
+        this.targetBobY = 0;
+        this.targetBobX = 0;
+        this.bobTime = 0;
+      }
+      
+      // Interpolacja
+      this.bobY = THREE.MathUtils.lerp(this.bobY || 0, this.targetBobY, Math.min(1, dt * 8));
+      this.bobX = THREE.MathUtils.lerp(this.bobX || 0, this.targetBobX, Math.min(1, dt * 8));
+    } else {
+      this.bobY = 0;
+      this.bobX = 0;
+      this.bobTime = 0;
+    }
+
         // przelicznik szybkosci animacji na bazie predkosci wektora poruszania
     if (this.mixer) {
       const targetFraction = !this.moving ? 0 : running ? 1.0 : 0.5;
@@ -356,15 +391,25 @@ export class Player {
 
   updateCamera(camera) {
     if (this.cameraMode === 'firstperson') {
-      // Position the camera at the head level (y = 1.65)
-      camera.position.set(this.pos.x, 1.65, this.pos.z);
+      // Obliczanie kierunku kołysania na boki (prostopadle do kierunku patrzenia)
+      const sy = Math.sin(this.cameraYaw);
+      const cy = Math.cos(this.cameraYaw);
+      
+      const bx = this.bobX || 0;
+      const by = this.bobY || 0;
+      
+      const swayX = cy * bx;
+      const swayZ = -sy * bx;
+      
+      // Position the camera at the head level (y = 1.65) with bobbing offsets
+      camera.position.set(this.pos.x + swayX, 1.65 + by, this.pos.z + swayZ);
       
       const cp = Math.cos(this.cameraPitchFPP);
       const sp = Math.sin(this.cameraPitchFPP);
       
-      const targetX = this.pos.x - Math.sin(this.cameraYaw) * cp;
-      const targetY = 1.65 + sp;
-      const targetZ = this.pos.z - Math.cos(this.cameraYaw) * cp;
+      const targetX = this.pos.x + swayX - Math.sin(this.cameraYaw) * cp;
+      const targetY = 1.65 + by + sp;
+      const targetZ = this.pos.z + swayZ - Math.cos(this.cameraYaw) * cp;
       
       camera.lookAt(targetX, targetY, targetZ);
     } else {
