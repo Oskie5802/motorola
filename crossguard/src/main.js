@@ -317,10 +317,33 @@ window.addEventListener('keydown', (e) => {
       $('settingsBack').click();
       return;
     }
+    
+    // Jeśli wskaźnik był zablokowany, pozwól przeglądarce go odblokować i spauzuj grę
+    if (document.pointerLockElement) {
+      if (!isPaused) {
+        isPaused = true;
+        $('pause').classList.remove('hidden');
+        audio.pauseIn();
+      }
+      return;
+    }
+
     isPaused = !isPaused;
     $('pause').classList.toggle('hidden', !isPaused);
     if (isPaused) audio.pauseIn();
     else audio.pauseOut();
+  }
+});
+
+// Automatyczne pauzowanie gry przy utracie Pointer Locka w trybie FPP
+document.addEventListener('pointerlockchange', () => {
+  if (currentSession && currentSession.player && currentSession.player.cameraMode === 'firstperson') {
+    const canvas = $('game');
+    if (document.pointerLockElement !== canvas && !isPaused && currentSession.game.state === 'playing') {
+      isPaused = true;
+      $('pause').classList.remove('hidden');
+      audio.pauseIn();
+    }
   }
 });
 $('resumeBtn').onclick = () => { isPaused = false; $('pause').classList.add('hidden'); audio.pauseOut(); };
@@ -549,6 +572,9 @@ async function startGame(zone, opts = {}) {
 
 function endSession() {
   if (currentSession) {
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
     currentSession.cleanup();
     currentSession = null;
   }

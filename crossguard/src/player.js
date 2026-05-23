@@ -44,6 +44,8 @@ export class Player {
     this.cameraYaw = 0;
     this.cameraPitch = 0.55;
     this.cameraDistance = 12;
+    this.cameraMode = 'thirdperson'; // 'thirdperson' | 'firstperson'
+    this.cameraPitchFPP = 0.0;
 
     this.walkSpeed = 4.0;
     this.runSpeed = 7.5;
@@ -104,6 +106,7 @@ export class Player {
     body.position.y = 0.9;
     body.castShadow = true;
     this.group.add(body);
+    this._fallbackBody = body;
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(0.25, 16, 12),
       new THREE.MeshStandardMaterial({ color: 0xf6c8a0, roughness: 0.75 })
@@ -111,6 +114,7 @@ export class Player {
     head.position.y = 2.0;
     head.castShadow = true;
     this.group.add(head);
+    this._fallbackHead = head;
   }
 
   _setupLocomotionBlend() {
@@ -176,6 +180,37 @@ export class Player {
         this.onPhone = !this.onPhone;
         document.getElementById('phoneOverlay').classList.toggle('hidden', !this.onPhone);
       }
+      if (e.code === 'KeyV') {
+        const isMenuOpen = !document.getElementById('menu').classList.contains('hidden') || 
+                           !document.getElementById('pause').classList.contains('hidden') || 
+                           !document.getElementById('settings').classList.contains('hidden') || 
+                           !document.getElementById('tutorial').classList.contains('hidden') || 
+                           !document.getElementById('results').classList.contains('hidden');
+        if (isMenuOpen) return;
+
+        this.cameraMode = this.cameraMode === 'thirdperson' ? 'firstperson' : 'thirdperson';
+        const isFPP = this.cameraMode === 'firstperson';
+
+        // Update model visibility
+        if (this._model) this._model.visible = !isFPP;
+        if (this._fallbackBody) this._fallbackBody.visible = !isFPP;
+        if (this._fallbackHead) this._fallbackHead.visible = !isFPP;
+
+        // Update HUD text
+        const cameraTextEl = document.getElementById('hudCameraText');
+        if (cameraTextEl) {
+          cameraTextEl.textContent = isFPP ? 'FPP [V]' : 'TPP [V]';
+        }
+
+        // Handle Pointer Lock
+        if (isFPP) {
+          canvas.requestPointerLock();
+        } else {
+          if (document.pointerLockElement === canvas) {
+            document.exitPointerLock();
+          }
+        }
+      }
     });
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Tab') {
@@ -189,18 +224,56 @@ export class Player {
     canvas.addEventListener('mousedown', () => { this.mouseDown = true; });
     window.addEventListener('mouseup', () => { this.mouseDown = false; });
     window.addEventListener('mousemove', (e) => {
-      if (!this.mouseDown) return;
-      this.cameraYaw -= e.movementX * 0.005;
-      this.cameraPitch = Math.max(0.2, Math.min(1.2, this.cameraPitch - e.movementY * 0.003));
+      const isPointerLocked = document.pointerLockElement === canvas;
+      if (this.cameraMode === 'firstperson') {
+        if (isPointerLocked || this.mouseDown) {
+          this.cameraYaw -= e.movementX * 0.003;
+          this.cameraPitchFPP = Math.max(-0.9, Math.min(0.9, this.cameraPitchFPP - e.movementY * 0.003));
+        }
+      } else {
+        if (this.mouseDown) {
+          this.cameraYaw -= e.movementX * 0.005;
+          this.cameraPitch = Math.max(0.2, Math.min(1.2, this.cameraPitch - e.movementY * 0.003));
+        }
+      }
     });
     canvas.addEventListener('wheel', (e) => {
-      this.cameraDistance = Math.max(6, Math.min(22, this.cameraDistance + e.deltaY * 0.01));
+      if (this.cameraMode !== 'firstperson') {
+        this.cameraDistance = Math.max(6, Math.min(22, this.cameraDistance + e.deltaY * 0.01));
+      }
       e.preventDefault();
     }, { passive: false });
+
+    // Request pointer lock again on click if in FPP
+    canvas.addEventListener('click', () => {
+      if (this.cameraMode === 'firstperson') {
+        const isMenuOpen = !document.getElementById('menu').classList.contains('hidden') || 
+                           !document.getElementById('pause').classList.contains('hidden') || 
+                           !document.getElementById('settings').classList.contains('hidden') || 
+                           !document.getElementById('tutorial').classList.contains('hidden') || 
+                           !document.getElementById('results').classList.contains('hidden');
+        if (!isMenuOpen) {
+          canvas.requestPointerLock();
+        }
+      }
+    });
   }
 
   update(dt, city, traffic) {
     if (this.isDead) {
+      if (this.cameraMode === 'firstperson') {
+        this.cameraMode = 'thirdperson';
+        if (this._model) this._model.visible = true;
+        if (this._fallbackBody) this._fallbackBody.visible = true;
+        if (this._fallbackHead) this._fallbackHead.visible = true;
+        const cameraTextEl = document.getElementById('hudCameraText');
+        if (cameraTextEl) {
+          cameraTextEl.textContent = 'TPP [V]';
+        }
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
+        }
+      }
       this.deathTime += dt;
       const t = Math.min(1.0, this.deathTime / 0.8);
       
@@ -254,12 +327,16 @@ export class Player {
     this.pos.x = Math.max(b.min - 4, Math.min(b.max + 4, this.pos.x));
     this.pos.z = Math.max(b.min - 4, Math.min(b.max + 4, this.pos.z));
 
-    if (len > 0) {
-      const target = Math.atan2(wx, wz);
-      let diff = target - this.facing;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      this.facing += diff * Math.min(1, dt * 12);
+    if (this.cameraMode === 'firstperson') {
+      this.facing = this.cameraYaw + Math.PI;
+    } else {
+      if (len > 0) {
+        const target = Math.atan2(wx, wz);
+        let diff = target - this.facing;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        this.facing += diff * Math.min(1, dt * 12);
+      }
     }
 
     this.moving = len > 0 && speed > 0;
@@ -278,13 +355,27 @@ export class Player {
   }
 
   updateCamera(camera) {
-    const r = this.cameraDistance;
-    const cp = Math.cos(this.cameraPitch);
-    const sp = Math.sin(this.cameraPitch);
-    const x = this.pos.x + Math.sin(this.cameraYaw) * r * cp;
-    const z = this.pos.z + Math.cos(this.cameraYaw) * r * cp;
-    const y = 1.5 + r * sp;
-    camera.position.set(x, y, z);
-    camera.lookAt(this.pos.x, 1.2, this.pos.z);
+    if (this.cameraMode === 'firstperson') {
+      // Position the camera at the head level (y = 1.65)
+      camera.position.set(this.pos.x, 1.65, this.pos.z);
+      
+      const cp = Math.cos(this.cameraPitchFPP);
+      const sp = Math.sin(this.cameraPitchFPP);
+      
+      const targetX = this.pos.x - Math.sin(this.cameraYaw) * cp;
+      const targetY = 1.65 + sp;
+      const targetZ = this.pos.z - Math.cos(this.cameraYaw) * cp;
+      
+      camera.lookAt(targetX, targetY, targetZ);
+    } else {
+      const r = this.cameraDistance;
+      const cp = Math.cos(this.cameraPitch);
+      const sp = Math.sin(this.cameraPitch);
+      const x = this.pos.x + Math.sin(this.cameraYaw) * r * cp;
+      const z = this.pos.z + Math.cos(this.cameraYaw) * r * cp;
+      const y = 1.5 + r * sp;
+      camera.position.set(x, y, z);
+      camera.lookAt(this.pos.x, 1.2, this.pos.z);
+    }
   }
 }
