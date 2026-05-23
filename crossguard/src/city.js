@@ -13,11 +13,12 @@ export class City {
 
   static _textureCache = {};
 
-  static _createAsphaltTexture(isNight) {
-    const key = `asphalt_${isNight}`;
+  static _createAsphaltTexture(isNight, quality = 'high') {
+    const key = `asphalt_${isNight}_${quality}`;
     if (City._textureCache[key]) return City._textureCache[key];
 
-    const size = 512;
+    const isMedium = quality === 'medium';
+    const size = isMedium ? 256 : 512;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -31,7 +32,8 @@ export class City {
     ctx.fillRect(0, 0, size, size);
 
     // Aggregate/grain noise - small random speckles simulating asphalt aggregate
-    for (let i = 0; i < 18000; i++) {
+    const noiseCount = isMedium ? 6000 : 18000;
+    for (let i = 0; i < noiseCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const brightness = Math.random();
@@ -40,12 +42,13 @@ export class City {
       const b = baseB + (brightness - 0.5) * 20;
       const alpha = 0.15 + Math.random() * 0.35;
       ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha})`;
-      const s = 0.5 + Math.random() * 2.5;
+      const s = 0.5 + Math.random() * (isMedium ? 1.5 : 2.5);
       ctx.fillRect(x, y, s, s);
     }
 
     // Larger aggregate stones
-    for (let i = 0; i < 800; i++) {
+    const stoneCount = isMedium ? 250 : 800;
+    for (let i = 0; i < stoneCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const brightness = 0.3 + Math.random() * 0.7;
@@ -53,66 +56,72 @@ export class City {
       const g = baseG + brightness * 18 + Math.random() * 10;
       const b = baseB + brightness * 14 + Math.random() * 8;
       ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},0.3)`;
-      const s = 1.5 + Math.random() * 3;
+      const s = (1.5 + Math.random() * 3) * (isMedium ? 0.75 : 1.0);
       ctx.beginPath();
       ctx.ellipse(x, y, s, s * (0.7 + Math.random() * 0.6), Math.random() * Math.PI, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Subtle cracks
-    ctx.strokeStyle = `rgba(${baseR - 10},${baseG - 10},${baseB - 10}, 0.25)`;
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i < 8; i++) {
-      ctx.beginPath();
-      let cx = Math.random() * size;
-      let cy = Math.random() * size;
-      ctx.moveTo(cx, cy);
-      const segs = 4 + Math.floor(Math.random() * 8);
-      for (let j = 0; j < segs; j++) {
-        cx += (Math.random() - 0.5) * 40;
-        cy += (Math.random() - 0.3) * 30;
-        ctx.lineTo(cx, cy);
+    // Subtle cracks - skipped on medium
+    if (!isMedium) {
+      ctx.strokeStyle = `rgba(${baseR - 10},${baseG - 10},${baseB - 10}, 0.25)`;
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < 8; i++) {
+        ctx.beginPath();
+        let cx = Math.random() * size;
+        let cy = Math.random() * size;
+        ctx.moveTo(cx, cy);
+        const segs = 4 + Math.floor(Math.random() * 8);
+        for (let j = 0; j < segs; j++) {
+          cx += (Math.random() - 0.5) * 40;
+          cy += (Math.random() - 0.3) * 30;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
     }
 
     // Tar/repair patches (darker irregular rectangles)
-    for (let i = 0; i < 3; i++) {
+    const patchCount = isMedium ? 1 : 3;
+    for (let i = 0; i < patchCount; i++) {
       const px = Math.random() * size;
       const py = Math.random() * size;
-      const pw = 15 + Math.random() * 40;
-      const ph = 10 + Math.random() * 30;
+      const pw = (15 + Math.random() * 40) * (isMedium ? 0.6 : 1.0);
+      const ph = (10 + Math.random() * 30) * (isMedium ? 0.6 : 1.0);
       ctx.fillStyle = `rgba(${baseR - 8},${baseG - 8},${baseB - 6}, 0.25)`;
       ctx.fillRect(px, py, pw, ph);
     }
 
-    // Oil stains (very subtle)
-    for (let i = 0; i < 4; i++) {
-      const ox = Math.random() * size;
-      const oy = Math.random() * size;
-      const or = 5 + Math.random() * 18;
-      const grad = ctx.createRadialGradient(ox, oy, 0, ox, oy, or);
-      grad.addColorStop(0, `rgba(${baseR + 5},${baseG + 3},${baseB - 2}, 0.12)`);
-      grad.addColorStop(1, `rgba(${baseR},${baseG},${baseB}, 0)`);
-      ctx.fillStyle = grad;
-      ctx.fillRect(ox - or, oy - or, or * 2, or * 2);
+    // Oil stains (very subtle) - skipped on medium
+    if (!isMedium) {
+      for (let i = 0; i < 4; i++) {
+        const ox = Math.random() * size;
+        const oy = Math.random() * size;
+        const or = 5 + Math.random() * 18;
+        const grad = ctx.createRadialGradient(ox, oy, 0, ox, oy, or);
+        grad.addColorStop(0, `rgba(${baseR + 5},${baseG + 3},${baseB - 2}, 0.12)`);
+        grad.addColorStop(1, `rgba(${baseR},${baseG},${baseB}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(ox - or, oy - or, or * 2, or * 2);
+      }
     }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(4, 4);
-    tex.anisotropy = 4;
+    tex.anisotropy = isMedium ? 2 : 4;
 
     City._textureCache[key] = tex;
     return tex;
   }
 
-  static _createAsphaltBumpMap(isNight) {
-    const key = `asphalt_bump_${isNight}`;
+  static _createAsphaltBumpMap(isNight, quality = 'high') {
+    const key = `asphalt_bump_${isNight}_${quality}`;
     if (City._textureCache[key]) return City._textureCache[key];
 
-    const size = 512;
+    const isMedium = quality === 'medium';
+    const size = isMedium ? 256 : 512;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -123,58 +132,63 @@ export class City {
     ctx.fillRect(0, 0, size, size);
 
     // Surface variation (aggregate bumps)
-    for (let i = 0; i < 12000; i++) {
+    const noiseCount = isMedium ? 4000 : 12000;
+    for (let i = 0; i < noiseCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const val = 118 + Math.floor(Math.random() * 20);
       ctx.fillStyle = `rgb(${val},${val},${val})`;
-      const s = 0.5 + Math.random() * 2;
+      const s = 0.5 + Math.random() * (isMedium ? 1.2 : 2.0);
       ctx.fillRect(x, y, s, s);
     }
 
     // Larger bumps
-    for (let i = 0; i < 400; i++) {
+    const stoneCount = isMedium ? 150 : 400;
+    for (let i = 0; i < stoneCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const val = 115 + Math.floor(Math.random() * 30);
       ctx.fillStyle = `rgb(${val},${val},${val})`;
-      const s = 2 + Math.random() * 4;
+      const s = (2 + Math.random() * 4) * (isMedium ? 0.75 : 1.0);
       ctx.beginPath();
       ctx.arc(x, y, s, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Cracks as dark grooves
-    ctx.strokeStyle = 'rgba(60,60,60,0.3)';
-    ctx.lineWidth = 0.8;
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath();
-      let cx = Math.random() * size;
-      let cy = Math.random() * size;
-      ctx.moveTo(cx, cy);
-      for (let j = 0; j < 6; j++) {
-        cx += (Math.random() - 0.5) * 35;
-        cy += (Math.random() - 0.3) * 25;
-        ctx.lineTo(cx, cy);
+    // Cracks as dark grooves - skipped on medium
+    if (!isMedium) {
+      ctx.strokeStyle = 'rgba(60,60,60,0.3)';
+      ctx.lineWidth = 0.8;
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        let cx = Math.random() * size;
+        let cy = Math.random() * size;
+        ctx.moveTo(cx, cy);
+        for (let j = 0; j < 6; j++) {
+          cx += (Math.random() - 0.5) * 35;
+          cy += (Math.random() - 0.3) * 25;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
     }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(4, 4);
-    tex.anisotropy = 4;
+    tex.anisotropy = isMedium ? 2 : 4;
 
     City._textureCache[key] = tex;
     return tex;
   }
 
-  static _createSidewalkTexture(isNight) {
-    const key = `sidewalk_${isNight}`;
+  static _createSidewalkTexture(isNight, quality = 'high') {
+    const key = `sidewalk_${isNight}_${quality}`;
     if (City._textureCache[key]) return City._textureCache[key];
 
-    const size = 512;
+    const isMedium = quality === 'medium';
+    const size = isMedium ? 256 : 512;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -188,8 +202,8 @@ export class City {
     ctx.fillRect(0, 0, size, size);
 
     // Draw paving stone grid pattern (concrete slabs)
-    const tileSize = 64;
-    const groutWidth = 2;
+    const tileSize = isMedium ? 32 : 64;
+    const groutWidth = isMedium ? 1 : 2;
     const groutColor = isNight ? 'rgba(35,38,44,0.7)' : 'rgba(55,58,68,0.7)';
 
     // Horizontal grout lines
@@ -221,7 +235,8 @@ export class City {
     }
 
     // Surface texture noise on each tile
-    for (let i = 0; i < 8000; i++) {
+    const noiseCount = isMedium ? 2500 : 8000;
+    for (let i = 0; i < noiseCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const brightness = Math.random();
@@ -232,10 +247,11 @@ export class City {
     }
 
     // Occasional stains/weathering
-    for (let i = 0; i < 6; i++) {
+    const stainCount = isMedium ? 2 : 6;
+    for (let i = 0; i < stainCount; i++) {
       const sx = Math.random() * size;
       const sy = Math.random() * size;
-      const sr = 8 + Math.random() * 25;
+      const sr = (8 + Math.random() * 25) * (isMedium ? 0.7 : 1.0);
       const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
       const darker = isNight ? 10 : 15;
       grad.addColorStop(0, `rgba(${baseR - darker},${baseG - darker},${baseB - darker}, 0.15)`);
@@ -248,17 +264,18 @@ export class City {
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(3, 3);
-    tex.anisotropy = 4;
+    tex.anisotropy = isMedium ? 2 : 4;
 
     City._textureCache[key] = tex;
     return tex;
   }
 
-  static _createSidewalkBumpMap(isNight) {
-    const key = `sidewalk_bump_${isNight}`;
+  static _createSidewalkBumpMap(isNight, quality = 'high') {
+    const key = `sidewalk_bump_${isNight}_${quality}`;
     if (City._textureCache[key]) return City._textureCache[key];
 
-    const size = 512;
+    const isMedium = quality === 'medium';
+    const size = isMedium ? 256 : 512;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -268,8 +285,8 @@ export class City {
     ctx.fillStyle = '#8a8a8a';
     ctx.fillRect(0, 0, size, size);
 
-    const tileSize = 64;
-    const groutWidth = 2;
+    const tileSize = isMedium ? 32 : 64;
+    const groutWidth = isMedium ? 1 : 2;
 
     // Grooves between tiles (dark = lower)
     ctx.fillStyle = '#505050';
@@ -283,19 +300,22 @@ export class City {
       }
     }
 
-    // Slight raised edges on tiles (lighter = higher)
-    for (let row = 0; row < size / tileSize; row++) {
-      const offset = (row % 2 === 0) ? 0 : tileSize / 2;
-      for (let x = offset; x < size + tileSize; x += tileSize) {
-        const inset = groutWidth + 1;
-        ctx.strokeStyle = 'rgba(170,170,170,0.3)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x + inset, row * tileSize + inset, tileSize - inset * 2, tileSize - inset * 2);
+    // Slight raised edges on tiles (lighter = higher) - skipped on medium
+    if (!isMedium) {
+      for (let row = 0; row < size / tileSize; row++) {
+        const offset = (row % 2 === 0) ? 0 : tileSize / 2;
+        for (let x = offset; x < size + tileSize; x += tileSize) {
+          const inset = groutWidth + 1;
+          ctx.strokeStyle = 'rgba(170,170,170,0.3)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x + inset, row * tileSize + inset, tileSize - inset * 2, tileSize - inset * 2);
+        }
       }
     }
 
     // Surface roughness
-    for (let i = 0; i < 5000; i++) {
+    const roughnessCount = isMedium ? 1500 : 5000;
+    for (let i = 0; i < roughnessCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const val = 128 + Math.floor((Math.random() - 0.5) * 20);
@@ -307,17 +327,18 @@ export class City {
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(3, 3);
-    tex.anisotropy = 4;
+    tex.anisotropy = isMedium ? 2 : 4;
 
     City._textureCache[key] = tex;
     return tex;
   }
 
-  static _createCurbTexture(isNight) {
-    const key = `curb_${isNight}`;
+  static _createCurbTexture(isNight, quality = 'high') {
+    const key = `curb_${isNight}_${quality}`;
     if (City._textureCache[key]) return City._textureCache[key];
 
-    const size = 256;
+    const isMedium = quality === 'medium';
+    const size = isMedium ? 128 : 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -331,9 +352,9 @@ export class City {
     ctx.fillRect(0, 0, size, size);
 
     // Segment lines (curb stones are typically ~1m long)
-    const segSize = 48;
+    const segSize = isMedium ? 24 : 48;
     ctx.strokeStyle = isNight ? 'rgba(90,94,104,0.5)' : 'rgba(130,134,150,0.5)';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = isMedium ? 1.0 : 1.5;
     for (let x = segSize; x < size; x += segSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -342,7 +363,8 @@ export class City {
     }
 
     // Surface grain
-    for (let i = 0; i < 6000; i++) {
+    const grainCount = isMedium ? 1500 : 6000;
+    for (let i = 0; i < grainCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const variation = (Math.random() - 0.5) * 18;
@@ -360,31 +382,34 @@ export class City {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, size * 0.7, size, size * 0.3);
 
-    // Small chips/damage
-    for (let i = 0; i < 5; i++) {
-      const cx = Math.random() * size;
-      const cy = Math.random() * size;
-      ctx.fillStyle = `rgba(${baseR - 20},${baseG - 20},${baseB - 15}, 0.2)`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 2 + Math.random() * 4, 0, Math.PI * 2);
-      ctx.fill();
+    // Small chips/damage - skipped on medium
+    if (!isMedium) {
+      for (let i = 0; i < 5; i++) {
+        const cx = Math.random() * size;
+        const cy = Math.random() * size;
+        ctx.fillStyle = `rgba(${baseR - 20},${baseG - 20},${baseB - 15}, 0.2)`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2 + Math.random() * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(2, 2);
-    tex.anisotropy = 4;
+    tex.anisotropy = isMedium ? 2 : 4;
 
     City._textureCache[key] = tex;
     return tex;
   }
 
-  static _createCurbBumpMap(isNight) {
-    const key = `curb_bump_${isNight}`;
+  static _createCurbBumpMap(isNight, quality = 'high') {
+    const key = `curb_bump_${isNight}_${quality}`;
     if (City._textureCache[key]) return City._textureCache[key];
 
-    const size = 256;
+    const isMedium = quality === 'medium';
+    const size = isMedium ? 128 : 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -394,9 +419,9 @@ export class City {
     ctx.fillRect(0, 0, size, size);
 
     // Segment grooves
-    const segSize = 48;
+    const segSize = isMedium ? 24 : 48;
     ctx.strokeStyle = '#606060';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = isMedium ? 1.0 : 1.5;
     for (let x = segSize; x < size; x += segSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -405,7 +430,8 @@ export class City {
     }
 
     // Surface roughness
-    for (let i = 0; i < 4000; i++) {
+    const roughnessCount = isMedium ? 1000 : 4000;
+    for (let i = 0; i < roughnessCount; i++) {
       const x = Math.random() * size;
       const y = Math.random() * size;
       const val = 128 + Math.floor((Math.random() - 0.5) * 16);
@@ -413,21 +439,23 @@ export class City {
       ctx.fillRect(x, y, 1, 1);
     }
 
-    // Chipped edges
-    for (let i = 0; i < 5; i++) {
-      const cx = Math.random() * size;
-      const cy = Math.random() * size;
-      ctx.fillStyle = '#707070';
-      ctx.beginPath();
-      ctx.arc(cx, cy, 2 + Math.random() * 3, 0, Math.PI * 2);
-      ctx.fill();
+    // Chipped edges - skipped on medium
+    if (!isMedium) {
+      for (let i = 0; i < 5; i++) {
+        const cx = Math.random() * size;
+        const cy = Math.random() * size;
+        ctx.fillStyle = '#707070';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2 + Math.random() * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(2, 2);
-    tex.anisotropy = 4;
+    tex.anisotropy = isMedium ? 2 : 4;
 
     City._textureCache[key] = tex;
     return tex;
@@ -539,13 +567,15 @@ export class City {
     this.scene.add(ground);
 
     // === Materialy ===
-    const isHighQuality = settings.current.quality === 'high';
+    const quality = settings.current.quality;
+    const isHighQuality = quality === 'high';
+    const isMediumQuality = quality === 'medium';
 
     let roadMat, sidewalkMat, curbMat;
     if (isHighQuality) {
       // High quality: procedural canvas textures with bump maps
-      const asphaltTex = City._createAsphaltTexture(this.isNight);
-      const asphaltBump = City._createAsphaltBumpMap(this.isNight);
+      const asphaltTex = City._createAsphaltTexture(this.isNight, 'high');
+      const asphaltBump = City._createAsphaltBumpMap(this.isNight, 'high');
       roadMat = new THREE.MeshStandardMaterial({
         map: asphaltTex,
         bumpMap: asphaltBump,
@@ -555,8 +585,8 @@ export class City {
         roughnessMap: asphaltBump,
       });
 
-      const sidewalkTex = City._createSidewalkTexture(this.isNight);
-      const sidewalkBump = City._createSidewalkBumpMap(this.isNight);
+      const sidewalkTex = City._createSidewalkTexture(this.isNight, 'high');
+      const sidewalkBump = City._createSidewalkBumpMap(this.isNight, 'high');
       sidewalkMat = new THREE.MeshStandardMaterial({
         map: sidewalkTex,
         bumpMap: sidewalkBump,
@@ -565,27 +595,53 @@ export class City {
         roughnessMap: sidewalkBump,
       });
 
-      const curbTex = City._createCurbTexture(this.isNight);
-      const curbBump = City._createCurbBumpMap(this.isNight);
+      const curbTex = City._createCurbTexture(this.isNight, 'high');
+      const curbBump = City._createCurbBumpMap(this.isNight, 'high');
       curbMat = new THREE.MeshStandardMaterial({
         map: curbTex,
         bumpMap: curbBump,
         bumpScale: 0.12,
         roughness: 0.75,
       });
-    } else {
+    } else if (isMediumQuality) {
+      // Medium quality: simpler procedural textures WITH subtle bump maps, NO roughness maps
+      const asphaltTex = City._createAsphaltTexture(this.isNight, 'medium');
+      const asphaltBump = City._createAsphaltBumpMap(this.isNight, 'medium');
       roadMat = new THREE.MeshStandardMaterial({
-        color: PALETTE.road,
+        map: asphaltTex,
+        bumpMap: asphaltBump,
+        bumpScale: 0.06,
         roughness: 0.85,
         metalness: 0.05,
       });
+
+      const sidewalkTex = City._createSidewalkTexture(this.isNight, 'medium');
+      const sidewalkBump = City._createSidewalkBumpMap(this.isNight, 'medium');
       sidewalkMat = new THREE.MeshStandardMaterial({
-        color: PALETTE.sidewalk,
+        map: sidewalkTex,
+        bumpMap: sidewalkBump,
+        bumpScale: 0.08,
         roughness: 0.9,
       });
+
+      const curbTex = City._createCurbTexture(this.isNight, 'medium');
+      const curbBump = City._createCurbBumpMap(this.isNight, 'medium');
       curbMat = new THREE.MeshStandardMaterial({
-        color: PALETTE.curb,
+        map: curbTex,
+        bumpMap: curbBump,
+        bumpScale: 0.05,
         roughness: 0.8,
+      });
+    } else {
+      // Low quality: flat colors, cheaper Lambert materials
+      roadMat = new THREE.MeshLambertMaterial({
+        color: PALETTE.road,
+      });
+      sidewalkMat = new THREE.MeshLambertMaterial({
+        color: PALETTE.sidewalk,
+      });
+      curbMat = new THREE.MeshLambertMaterial({
+        color: PALETTE.curb,
       });
     }
 
@@ -1232,45 +1288,61 @@ export class City {
   // ============================================================
 
   _addTrafficLight(x, z, axis, rotationY = 0, intersectionX = x, intersectionZ = z) {
+    const quality = settings.current.quality;
     const group = new THREE.Group();
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.6, roughness: 0.5 });
-    const housingMat = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.4, roughness: 0.6 });
-    const backboardMat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, metalness: 0.3, roughness: 0.8 });
 
-    // Pole (taller, tapered)
+    // --- Materials: LOW uses Lambert for pole/housing to save GPU ---
+    let poleMat, housingMat;
+    if (quality === 'low') {
+      poleMat = new THREE.MeshLambertMaterial({ color: 0x2a3038 });
+      housingMat = new THREE.MeshLambertMaterial({ color: 0x14181f });
+    } else {
+      poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.6, roughness: 0.5 });
+      housingMat = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.4, roughness: 0.6 });
+    }
+
+    // --- Pole ---
+    const poleSegs = quality === 'low' ? 6 : (quality === 'medium' ? 8 : 12);
     const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.11, 0.16, 4.6, 12),
+      new THREE.CylinderGeometry(0.11, 0.16, 4.6, poleSegs),
       poleMat
     );
     pole.position.y = 2.3;
     pole.castShadow = this.castShadows;
     group.add(pole);
 
-    // Pole base / foundation
-    const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28, 0.32, 0.25, 12),
-      poleMat
-    );
-    base.position.y = 0.12;
-    group.add(base);
+    // --- Base: medium & high only ---
+    if (quality !== 'low') {
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.32, 0.25, poleSegs),
+        poleMat
+      );
+      base.position.y = 0.12;
+      group.add(base);
+    }
 
-    // Mounting bracket from pole to housing
-    const bracket = new THREE.Mesh(
-      new THREE.BoxGeometry(0.18, 0.18, 0.35),
-      poleMat
-    );
-    bracket.position.set(0, 4.0, 0.17);
-    group.add(bracket);
+    // --- Bracket: high only ---
+    if (quality === 'high') {
+      const bracket = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, 0.18, 0.35),
+        poleMat
+      );
+      bracket.position.set(0, 4.0, 0.17);
+      group.add(bracket);
+    }
 
-    // Backboard plate (yellow border style is common in PL, but we keep dark for night look)
-    const backboard = new THREE.Mesh(
-      new THREE.BoxGeometry(0.95, 2.05, 0.06),
-      backboardMat
-    );
-    backboard.position.set(0, 4.0, 0.31);
-    group.add(backboard);
+    // --- Backboard: high only ---
+    if (quality === 'high') {
+      const backboardMat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, metalness: 0.3, roughness: 0.8 });
+      const backboard = new THREE.Mesh(
+        new THREE.BoxGeometry(0.95, 2.05, 0.06),
+        backboardMat
+      );
+      backboard.position.set(0, 4.0, 0.31);
+      group.add(backboard);
+    }
 
-    // Housing (slimmer, taller)
+    // --- Housing ---
     const housing = new THREE.Mesh(
       new THREE.BoxGeometry(0.62, 1.85, 0.42),
       housingMat
@@ -1279,48 +1351,65 @@ export class City {
     housing.castShadow = this.castShadows;
     group.add(housing);
 
-    // Lamp materials — brighter emissive when lit
+    // --- Lamp materials — brighter emissive when lit ---
     const redMat = new THREE.MeshStandardMaterial({ color: 0x3a0a10, emissive: 0x180005, emissiveIntensity: 0.3, roughness: 0.4 });
     const ambMat = new THREE.MeshStandardMaterial({ color: 0x3a2a05, emissive: 0x1a1200, emissiveIntensity: 0.3, roughness: 0.4 });
     const grnMat = new THREE.MeshStandardMaterial({ color: 0x0a3a18, emissive: 0x00180a, emissiveIntensity: 0.3, roughness: 0.4 });
 
-    // Lens discs (flat, not spheres — looks more like real lights)
-    const lensGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 20);
-    const red = new THREE.Mesh(lensGeo, redMat);
-    red.rotation.x = Math.PI / 2;
-    red.position.set(0, 4.62, 0.59);
-    const amb = new THREE.Mesh(lensGeo, ambMat);
-    amb.rotation.x = Math.PI / 2;
-    amb.position.set(0, 4.0, 0.59);
-    const grn = new THREE.Mesh(lensGeo, grnMat);
-    grn.rotation.x = Math.PI / 2;
-    grn.position.set(0, 3.38, 0.59);
-    group.add(red, amb, grn);
-
-    // Visors / hoods over each lamp (half tubes)
-    const visorMat = housingMat;
-    const visorGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.22, 16, 1, true, -Math.PI / 2, Math.PI);
-    for (const y of [4.62, 4.0, 3.38]) {
-      const visor = new THREE.Mesh(visorGeo, visorMat);
-      visor.rotation.x = Math.PI / 2;
-      visor.position.set(0, y, 0.55);
-      visor.scale.set(1, 1.2, 1);
-      group.add(visor);
+    // --- Lamps: LOW uses spheres, MEDIUM/HIGH use lens discs ---
+    if (quality === 'low') {
+      const lampGeo = new THREE.SphereGeometry(0.16, 8, 6);
+      const red = new THREE.Mesh(lampGeo, redMat);
+      red.position.set(0, 4.62, 0.58);
+      const amb = new THREE.Mesh(lampGeo, ambMat);
+      amb.position.set(0, 4.0, 0.58);
+      const grn = new THREE.Mesh(lampGeo, grnMat);
+      grn.position.set(0, 3.38, 0.58);
+      group.add(red, amb, grn);
+    } else {
+      const lensSegs = quality === 'medium' ? 12 : 20;
+      const lensGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, lensSegs);
+      const red = new THREE.Mesh(lensGeo, redMat);
+      red.rotation.x = Math.PI / 2;
+      red.position.set(0, 4.62, 0.59);
+      const amb = new THREE.Mesh(lensGeo, ambMat);
+      amb.rotation.x = Math.PI / 2;
+      amb.position.set(0, 4.0, 0.59);
+      const grn = new THREE.Mesh(lensGeo, grnMat);
+      grn.rotation.x = Math.PI / 2;
+      grn.position.set(0, 3.38, 0.59);
+      group.add(red, amb, grn);
     }
 
-    // Glow halo discs (visible only when lit; updated in _applyLightVisual)
-    const haloGeo = new THREE.CircleGeometry(0.32, 16);
-    const makeHalo = (col) => new THREE.Mesh(
-      haloGeo,
-      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
-    );
-    const redHalo = makeHalo(0xff2233);
-    redHalo.position.set(0, 4.62, 0.63);
-    const ambHalo = makeHalo(0xffaa00);
-    ambHalo.position.set(0, 4.0, 0.63);
-    const grnHalo = makeHalo(0x33ee55);
-    grnHalo.position.set(0, 3.38, 0.63);
-    group.add(redHalo, ambHalo, grnHalo);
+    // --- Visors: high only ---
+    if (quality === 'high') {
+      const visorMat = housingMat;
+      const visorGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.22, 16, 1, true, -Math.PI / 2, Math.PI);
+      for (const y of [4.62, 4.0, 3.38]) {
+        const visor = new THREE.Mesh(visorGeo, visorMat);
+        visor.rotation.x = Math.PI / 2;
+        visor.position.set(0, y, 0.55);
+        visor.scale.set(1, 1.2, 1);
+        group.add(visor);
+      }
+    }
+
+    // --- Halos: high only ---
+    let redHalo = null, ambHalo = null, grnHalo = null;
+    if (quality === 'high') {
+      const haloGeo = new THREE.CircleGeometry(0.32, 16);
+      const makeHalo = (col) => new THREE.Mesh(
+        haloGeo,
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
+      );
+      redHalo = makeHalo(0xff2233);
+      redHalo.position.set(0, 4.62, 0.63);
+      ambHalo = makeHalo(0xffaa00);
+      ambHalo.position.set(0, 4.0, 0.63);
+      grnHalo = makeHalo(0x33ee55);
+      grnHalo.position.set(0, 3.38, 0.63);
+      group.add(redHalo, ambHalo, grnHalo);
+    }
 
     group.position.set(x, 0, z);
     group.rotation.y = rotationY;
@@ -1344,14 +1433,23 @@ export class City {
   }
 
   _addPedestrianLight(x, z, rotationY, linkedVehicle) {
+    const quality = settings.current.quality;
     const group = new THREE.Group();
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.6, roughness: 0.5 });
-    const housingMat = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.4, roughness: 0.6 });
-    const backboardMat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, metalness: 0.3, roughness: 0.8 });
+
+    // --- Materials: LOW uses Lambert for pole/housing to save GPU ---
+    let poleMat, housingMat;
+    if (quality === 'low') {
+      poleMat = new THREE.MeshLambertMaterial({ color: 0x2a3038 });
+      housingMat = new THREE.MeshLambertMaterial({ color: 0x14181f });
+    } else {
+      poleMat = new THREE.MeshStandardMaterial({ color: 0x2a3038, metalness: 0.6, roughness: 0.5 });
+      housingMat = new THREE.MeshStandardMaterial({ color: 0x14181f, metalness: 0.4, roughness: 0.6 });
+    }
 
     // Słupek (zwężany, metaliczny jak dla samochodów)
+    const poleSegs = quality === 'low' ? 6 : (quality === 'medium' ? 8 : 12);
     const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.06, 0.09, 2.6, 12),
+      new THREE.CylinderGeometry(0.06, 0.09, 2.6, poleSegs),
       poleMat
     );
     pole.position.y = 1.3;
@@ -1359,28 +1457,35 @@ export class City {
     group.add(pole);
 
     // Podstawa słupka
-    const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.22, 0.15, 12),
-      poleMat
-    );
-    base.position.y = 0.075;
-    group.add(base);
+    if (quality !== 'low') {
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.22, 0.15, poleSegs),
+        poleMat
+      );
+      base.position.y = 0.075;
+      group.add(base);
+    }
 
     // Uchwyt montażowy ze słupka do obudowy
-    const bracket = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 0.12, 0.22),
-      poleMat
-    );
-    bracket.position.set(0, 2.85, 0.1);
-    group.add(bracket);
+    if (quality === 'high') {
+      const bracket = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.12, 0.22),
+        poleMat
+      );
+      bracket.position.set(0, 2.85, 0.1);
+      group.add(bracket);
+    }
 
     // Ekran kontrastowy (backboard)
-    const backboard = new THREE.Mesh(
-      new THREE.BoxGeometry(0.55, 1.15, 0.04),
-      backboardMat
-    );
-    backboard.position.set(0, 2.85, 0.21);
-    group.add(backboard);
+    if (quality === 'high') {
+      const backboardMat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, metalness: 0.3, roughness: 0.8 });
+      const backboard = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 1.15, 0.04),
+        backboardMat
+      );
+      backboard.position.set(0, 2.85, 0.21);
+      group.add(backboard);
+    }
 
     // Obudowa sygnalizatora (czarny plastik/metal)
     const housing = new THREE.Mesh(
@@ -1395,38 +1500,53 @@ export class City {
     const redMat = new THREE.MeshStandardMaterial({ color: 0x3a0a10, emissive: 0x0e0204, emissiveIntensity: 0.2, roughness: 0.4 });
     const grnMat = new THREE.MeshStandardMaterial({ color: 0x0a3a18, emissive: 0x020e06, emissiveIntensity: 0.2, roughness: 0.4 });
 
-    // Płaskie soczewki lamp (zamiast tanich kul)
-    const lensGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.03, 16);
-    const redLamp = new THREE.Mesh(lensGeo, redMat);
-    redLamp.rotation.x = Math.PI / 2;
-    redLamp.position.set(0, 3.1, 0.38);
-    const grnLamp = new THREE.Mesh(lensGeo, grnMat);
-    grnLamp.rotation.x = Math.PI / 2;
-    grnLamp.position.set(0, 2.6, 0.38);
-    group.add(redLamp, grnLamp);
+    // Klosze: LOW uses spheres, MEDIUM/HIGH use lens discs
+    if (quality === 'low') {
+      const lampGeo = new THREE.SphereGeometry(0.1, 8, 6);
+      const redLamp = new THREE.Mesh(lampGeo, redMat);
+      redLamp.position.set(0, 3.1, 0.37);
+      const grnLamp = new THREE.Mesh(lampGeo, grnMat);
+      grnLamp.position.set(0, 2.6, 0.37);
+      group.add(redLamp, grnLamp);
+    } else {
+      const lensSegs = quality === 'medium' ? 10 : 16;
+      const lensGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.03, lensSegs);
+      const redLamp = new THREE.Mesh(lensGeo, redMat);
+      redLamp.rotation.x = Math.PI / 2;
+      redLamp.position.set(0, 3.1, 0.38);
+      const grnLamp = new THREE.Mesh(lensGeo, grnMat);
+      grnLamp.rotation.x = Math.PI / 2;
+      grnLamp.position.set(0, 2.6, 0.38);
+      group.add(redLamp, grnLamp);
+    }
 
     // Daszki ochronne (visors) nad każdą lampą
-    const visorMat = housingMat;
-    const visorGeo = new THREE.CylinderGeometry(0.145, 0.145, 0.14, 16, 1, true, -Math.PI / 2, Math.PI);
-    for (const y of [3.1, 2.6]) {
-      const visor = new THREE.Mesh(visorGeo, visorMat);
-      visor.rotation.x = Math.PI / 2;
-      visor.position.set(0, y, 0.36);
-      visor.scale.set(1, 1.2, 1);
-      group.add(visor);
+    if (quality === 'high') {
+      const visorMat = housingMat;
+      const visorGeo = new THREE.CylinderGeometry(0.145, 0.145, 0.14, 16, 1, true, -Math.PI / 2, Math.PI);
+      for (const y of [3.1, 2.6]) {
+        const visor = new THREE.Mesh(visorGeo, visorMat);
+        visor.rotation.x = Math.PI / 2;
+        visor.position.set(0, y, 0.36);
+        visor.scale.set(1, 1.2, 1);
+        group.add(visor);
+      }
     }
 
     // Dyski poświaty (halos) włączane przy aktywnym świetle
-    const haloGeo = new THREE.CircleGeometry(0.20, 16);
-    const makeHalo = (col) => new THREE.Mesh(
-      haloGeo,
-      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
-    );
-    const redHalo = makeHalo(0xff2233);
-    redHalo.position.set(0, 3.1, 0.405);
-    const grnHalo = makeHalo(0x33ee55);
-    grnHalo.position.set(0, 2.6, 0.405);
-    group.add(redHalo, grnHalo);
+    let redHalo = null, grnHalo = null;
+    if (quality === 'high') {
+      const haloGeo = new THREE.CircleGeometry(0.20, 16);
+      const makeHalo = (col) => new THREE.Mesh(
+        haloGeo,
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
+      );
+      redHalo = makeHalo(0xff2233);
+      redHalo.position.set(0, 3.1, 0.405);
+      grnHalo = makeHalo(0x33ee55);
+      grnHalo.position.set(0, 2.6, 0.405);
+      group.add(redHalo, grnHalo);
+    }
 
     group.position.set(x, 0, z);
     group.rotation.y = rotationY;

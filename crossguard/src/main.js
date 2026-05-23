@@ -200,6 +200,7 @@ function initSettingsUI() {
   const qualityDesc = $('qualityDesc');
 
   let settingsOrigin = 'menu';
+  let qualityOnOpen = settings.current.quality; // Track quality when settings opened
 
   function updateUI() {
     qualityLow.classList.toggle('active', settings.current.quality === 'low');
@@ -211,16 +212,17 @@ function initSettingsUI() {
     settingParticles.checked = settings.current.particles;
 
     if (settings.current.quality === 'low') {
-      qualityDesc.textContent = 'Uproszczona grafika, cienie wyłączone, brak modeli budynków/aut GLB.';
+      qualityDesc.textContent = 'Uproszczona grafika, cienie wyłączone, brak modeli budynków/aut GLB. Uproszczone sygnalizatory i płaskie kolory nawierzchni.';
     } else if (settings.current.quality === 'medium') {
-      qualityDesc.textContent = 'Standardowa grafika, uproszczone cienie, włączony dynamiczny LOD dla budynków.';
+      qualityDesc.textContent = 'Standardowa grafika, uproszczone cienie, włączony dynamiczny LOD. Sygnalizatory bez daszków, nawierzchnie z podstawowymi teksturami.';
     } else if (settings.current.quality === 'high') {
-      qualityDesc.textContent = 'Najlepsza grafika, pełne cienie, pełne modele, włączony dynamiczny LOD.';
+      qualityDesc.textContent = 'Najlepsza grafika, pełne cienie, pełne modele, pełny LOD. Realistyczne tekstury asfaltu, chodników i krawężników. Detale skrzyżowań.';
     }
   }
 
   $('settingsBtn').onclick = () => {
     settingsOrigin = 'menu';
+    qualityOnOpen = settings.current.quality;
     $('menu').classList.add('hidden');
     $('settings').classList.remove('hidden');
     updateUI();
@@ -228,19 +230,30 @@ function initSettingsUI() {
 
   $('pauseSettingsBtn').onclick = () => {
     settingsOrigin = 'pause';
+    qualityOnOpen = settings.current.quality;
     $('pause').classList.add('hidden');
     $('settings').classList.remove('hidden');
     updateUI();
   };
 
-  $('settingsBack').onclick = () => {
+  $('settingsBack').onclick = async () => {
     $('settings').classList.add('hidden');
-    if (settingsOrigin === 'pause') {
+    const qualityChanged = qualityOnOpen !== settings.current.quality;
+
+    if (settingsOrigin === 'pause' && currentSession && qualityChanged) {
+      // Quality changed during gameplay — rebuild the session to regenerate
+      // city textures, traffic lights, and all quality-dependent elements
+      const zone = currentSession.zone;
+      const wasCinematic = currentSession.cinematic;
+      isPaused = false;
+      endSession();
+      await startGame(zone, { cinematic: wasCinematic });
+    } else if (settingsOrigin === 'pause') {
       $('pause').classList.remove('hidden');
+      applySettingsDynamically();
     } else {
       $('menu').classList.remove('hidden');
     }
-    applySettingsDynamically();
   };
 
   qualityLow.onclick = () => {
@@ -300,6 +313,10 @@ $('howtoBack').onclick = () => {
 let isPaused = false;
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape' && currentSession && !currentSession.cinematic) {
+    if (!$('settings').classList.contains('hidden')) {
+      $('settingsBack').click();
+      return;
+    }
     isPaused = !isPaused;
     $('pause').classList.toggle('hidden', !isPaused);
     if (isPaused) audio.pauseIn();
