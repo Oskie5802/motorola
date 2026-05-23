@@ -6,6 +6,464 @@ import { PALETTE } from "./config.js";
 import { settings } from "./settings.js";
 
 export class City {
+
+  // ============================================================
+  // Procedural texture generators (high quality mode only)
+  // ============================================================
+
+  static _textureCache = {};
+
+  static _createAsphaltTexture(isNight) {
+    const key = `asphalt_${isNight}`;
+    if (City._textureCache[key]) return City._textureCache[key];
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Base asphalt color
+    const baseR = isNight ? 22 : 34;
+    const baseG = isNight ? 26 : 38;
+    const baseB = isNight ? 32 : 46;
+    ctx.fillStyle = `rgb(${baseR},${baseG},${baseB})`;
+    ctx.fillRect(0, 0, size, size);
+
+    // Aggregate/grain noise - small random speckles simulating asphalt aggregate
+    for (let i = 0; i < 18000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const brightness = Math.random();
+      const r = baseR + (brightness - 0.5) * 28;
+      const g = baseG + (brightness - 0.5) * 24;
+      const b = baseB + (brightness - 0.5) * 20;
+      const alpha = 0.15 + Math.random() * 0.35;
+      ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},${alpha})`;
+      const s = 0.5 + Math.random() * 2.5;
+      ctx.fillRect(x, y, s, s);
+    }
+
+    // Larger aggregate stones
+    for (let i = 0; i < 800; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const brightness = 0.3 + Math.random() * 0.7;
+      const r = baseR + brightness * 20 + Math.random() * 12;
+      const g = baseG + brightness * 18 + Math.random() * 10;
+      const b = baseB + brightness * 14 + Math.random() * 8;
+      ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},0.3)`;
+      const s = 1.5 + Math.random() * 3;
+      ctx.beginPath();
+      ctx.ellipse(x, y, s, s * (0.7 + Math.random() * 0.6), Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Subtle cracks
+    ctx.strokeStyle = `rgba(${baseR - 10},${baseG - 10},${baseB - 10}, 0.25)`;
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 8; i++) {
+      ctx.beginPath();
+      let cx = Math.random() * size;
+      let cy = Math.random() * size;
+      ctx.moveTo(cx, cy);
+      const segs = 4 + Math.floor(Math.random() * 8);
+      for (let j = 0; j < segs; j++) {
+        cx += (Math.random() - 0.5) * 40;
+        cy += (Math.random() - 0.3) * 30;
+        ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+    }
+
+    // Tar/repair patches (darker irregular rectangles)
+    for (let i = 0; i < 3; i++) {
+      const px = Math.random() * size;
+      const py = Math.random() * size;
+      const pw = 15 + Math.random() * 40;
+      const ph = 10 + Math.random() * 30;
+      ctx.fillStyle = `rgba(${baseR - 8},${baseG - 8},${baseB - 6}, 0.25)`;
+      ctx.fillRect(px, py, pw, ph);
+    }
+
+    // Oil stains (very subtle)
+    for (let i = 0; i < 4; i++) {
+      const ox = Math.random() * size;
+      const oy = Math.random() * size;
+      const or = 5 + Math.random() * 18;
+      const grad = ctx.createRadialGradient(ox, oy, 0, ox, oy, or);
+      grad.addColorStop(0, `rgba(${baseR + 5},${baseG + 3},${baseB - 2}, 0.12)`);
+      grad.addColorStop(1, `rgba(${baseR},${baseG},${baseB}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(ox - or, oy - or, or * 2, or * 2);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 4);
+    tex.anisotropy = 4;
+
+    City._textureCache[key] = tex;
+    return tex;
+  }
+
+  static _createAsphaltBumpMap(isNight) {
+    const key = `asphalt_bump_${isNight}`;
+    if (City._textureCache[key]) return City._textureCache[key];
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Medium gray base
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, size, size);
+
+    // Surface variation (aggregate bumps)
+    for (let i = 0; i < 12000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const val = 118 + Math.floor(Math.random() * 20);
+      ctx.fillStyle = `rgb(${val},${val},${val})`;
+      const s = 0.5 + Math.random() * 2;
+      ctx.fillRect(x, y, s, s);
+    }
+
+    // Larger bumps
+    for (let i = 0; i < 400; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const val = 115 + Math.floor(Math.random() * 30);
+      ctx.fillStyle = `rgb(${val},${val},${val})`;
+      const s = 2 + Math.random() * 4;
+      ctx.beginPath();
+      ctx.arc(x, y, s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Cracks as dark grooves
+    ctx.strokeStyle = 'rgba(60,60,60,0.3)';
+    ctx.lineWidth = 0.8;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      let cx = Math.random() * size;
+      let cy = Math.random() * size;
+      ctx.moveTo(cx, cy);
+      for (let j = 0; j < 6; j++) {
+        cx += (Math.random() - 0.5) * 35;
+        cy += (Math.random() - 0.3) * 25;
+        ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 4);
+    tex.anisotropy = 4;
+
+    City._textureCache[key] = tex;
+    return tex;
+  }
+
+  static _createSidewalkTexture(isNight) {
+    const key = `sidewalk_${isNight}`;
+    if (City._textureCache[key]) return City._textureCache[key];
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Base concrete/paver color
+    const baseR = isNight ? 56 : 82;
+    const baseG = isNight ? 60 : 86;
+    const baseB = isNight ? 68 : 96;
+    ctx.fillStyle = `rgb(${baseR},${baseG},${baseB})`;
+    ctx.fillRect(0, 0, size, size);
+
+    // Draw paving stone grid pattern (concrete slabs)
+    const tileSize = 64;
+    const groutWidth = 2;
+    const groutColor = isNight ? 'rgba(35,38,44,0.7)' : 'rgba(55,58,68,0.7)';
+
+    // Horizontal grout lines
+    ctx.fillStyle = groutColor;
+    for (let y = 0; y < size; y += tileSize) {
+      ctx.fillRect(0, y, size, groutWidth);
+    }
+
+    // Vertical grout lines (offset every other row for brick pattern)
+    for (let row = 0; row < size / tileSize; row++) {
+      const yStart = row * tileSize;
+      const offset = (row % 2 === 0) ? 0 : tileSize / 2;
+      for (let x = offset; x < size; x += tileSize) {
+        ctx.fillRect(x, yStart, groutWidth, tileSize);
+      }
+    }
+
+    // Per-tile color variation
+    for (let row = 0; row < size / tileSize; row++) {
+      const offset = (row % 2 === 0) ? 0 : tileSize / 2;
+      for (let x = offset; x < size + tileSize; x += tileSize) {
+        const variation = (Math.random() - 0.5) * 16;
+        const r = baseR + variation;
+        const g = baseG + variation + (Math.random() - 0.5) * 6;
+        const b = baseB + variation + (Math.random() - 0.5) * 4;
+        ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},0.35)`;
+        ctx.fillRect(x + groutWidth, row * tileSize + groutWidth, tileSize - groutWidth * 2, tileSize - groutWidth * 2);
+      }
+    }
+
+    // Surface texture noise on each tile
+    for (let i = 0; i < 8000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const brightness = Math.random();
+      const val = baseR + (brightness - 0.5) * 22;
+      ctx.fillStyle = `rgba(${val|0},${val|0},${(val + 2)|0}, 0.12)`;
+      const s = 0.5 + Math.random() * 1.5;
+      ctx.fillRect(x, y, s, s);
+    }
+
+    // Occasional stains/weathering
+    for (let i = 0; i < 6; i++) {
+      const sx = Math.random() * size;
+      const sy = Math.random() * size;
+      const sr = 8 + Math.random() * 25;
+      const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      const darker = isNight ? 10 : 15;
+      grad.addColorStop(0, `rgba(${baseR - darker},${baseG - darker},${baseB - darker}, 0.15)`);
+      grad.addColorStop(1, `rgba(${baseR},${baseG},${baseB}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 3);
+    tex.anisotropy = 4;
+
+    City._textureCache[key] = tex;
+    return tex;
+  }
+
+  static _createSidewalkBumpMap(isNight) {
+    const key = `sidewalk_bump_${isNight}`;
+    if (City._textureCache[key]) return City._textureCache[key];
+
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Light gray base (flat surface)
+    ctx.fillStyle = '#8a8a8a';
+    ctx.fillRect(0, 0, size, size);
+
+    const tileSize = 64;
+    const groutWidth = 2;
+
+    // Grooves between tiles (dark = lower)
+    ctx.fillStyle = '#505050';
+    for (let y = 0; y < size; y += tileSize) {
+      ctx.fillRect(0, y, size, groutWidth);
+    }
+    for (let row = 0; row < size / tileSize; row++) {
+      const offset = (row % 2 === 0) ? 0 : tileSize / 2;
+      for (let x = offset; x < size; x += tileSize) {
+        ctx.fillRect(x, row * tileSize, groutWidth, tileSize);
+      }
+    }
+
+    // Slight raised edges on tiles (lighter = higher)
+    for (let row = 0; row < size / tileSize; row++) {
+      const offset = (row % 2 === 0) ? 0 : tileSize / 2;
+      for (let x = offset; x < size + tileSize; x += tileSize) {
+        const inset = groutWidth + 1;
+        ctx.strokeStyle = 'rgba(170,170,170,0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + inset, row * tileSize + inset, tileSize - inset * 2, tileSize - inset * 2);
+      }
+    }
+
+    // Surface roughness
+    for (let i = 0; i < 5000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const val = 128 + Math.floor((Math.random() - 0.5) * 20);
+      ctx.fillStyle = `rgb(${val},${val},${val})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(3, 3);
+    tex.anisotropy = 4;
+
+    City._textureCache[key] = tex;
+    return tex;
+  }
+
+  static _createCurbTexture(isNight) {
+    const key = `curb_${isNight}`;
+    if (City._textureCache[key]) return City._textureCache[key];
+
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Base concrete color (lighter than sidewalk)
+    const baseR = isNight ? 140 : 178;
+    const baseG = isNight ? 144 : 182;
+    const baseB = isNight ? 156 : 196;
+    ctx.fillStyle = `rgb(${baseR},${baseG},${baseB})`;
+    ctx.fillRect(0, 0, size, size);
+
+    // Segment lines (curb stones are typically ~1m long)
+    const segSize = 48;
+    ctx.strokeStyle = isNight ? 'rgba(90,94,104,0.5)' : 'rgba(130,134,150,0.5)';
+    ctx.lineWidth = 1.5;
+    for (let x = segSize; x < size; x += segSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, size);
+      ctx.stroke();
+    }
+
+    // Surface grain
+    for (let i = 0; i < 6000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const variation = (Math.random() - 0.5) * 18;
+      const r = baseR + variation;
+      const g = baseG + variation;
+      const b = baseB + variation;
+      ctx.fillStyle = `rgba(${r|0},${g|0},${b|0},0.15)`;
+      ctx.fillRect(x, y, Math.random() * 2, Math.random() * 2);
+    }
+
+    // Weathering/dirt at bottom edge (typically where curb meets road)
+    const gradient = ctx.createLinearGradient(0, size * 0.7, 0, size);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, `rgba(${baseR - 30},${baseG - 30},${baseB - 25}, 0.25)`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, size * 0.7, size, size * 0.3);
+
+    // Small chips/damage
+    for (let i = 0; i < 5; i++) {
+      const cx = Math.random() * size;
+      const cy = Math.random() * size;
+      ctx.fillStyle = `rgba(${baseR - 20},${baseG - 20},${baseB - 15}, 0.2)`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2 + Math.random() * 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 2);
+    tex.anisotropy = 4;
+
+    City._textureCache[key] = tex;
+    return tex;
+  }
+
+  static _createCurbBumpMap(isNight) {
+    const key = `curb_bump_${isNight}`;
+    if (City._textureCache[key]) return City._textureCache[key];
+
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#8a8a8a';
+    ctx.fillRect(0, 0, size, size);
+
+    // Segment grooves
+    const segSize = 48;
+    ctx.strokeStyle = '#606060';
+    ctx.lineWidth = 1.5;
+    for (let x = segSize; x < size; x += segSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, size);
+      ctx.stroke();
+    }
+
+    // Surface roughness
+    for (let i = 0; i < 4000; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      const val = 128 + Math.floor((Math.random() - 0.5) * 16);
+      ctx.fillStyle = `rgb(${val},${val},${val})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+
+    // Chipped edges
+    for (let i = 0; i < 5; i++) {
+      const cx = Math.random() * size;
+      const cy = Math.random() * size;
+      ctx.fillStyle = '#707070';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2 + Math.random() * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 2);
+    tex.anisotropy = 4;
+
+    City._textureCache[key] = tex;
+    return tex;
+  }
+
+  static _createRoadEdgeLineTexture() {
+    const key = 'road_edge';
+    if (City._textureCache[key]) return City._textureCache[key];
+
+    const w = 256, h = 16;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    // Worn white paint line
+    ctx.fillStyle = '#cccccc';
+    ctx.fillRect(0, 0, w, h);
+
+    // Wear/fade
+    for (let i = 0; i < 200; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      ctx.fillStyle = `rgba(100,104,112,${0.1 + Math.random() * 0.2})`;
+      ctx.fillRect(x, y, 1 + Math.random() * 3, 1);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.repeat.set(8, 1);
+
+    City._textureCache[key] = tex;
+    return tex;
+  }
+
   constructor(scene, zone, isNight, models = null) {
     this.scene = scene;
     this.zone = zone;
@@ -81,19 +539,55 @@ export class City {
     this.scene.add(ground);
 
     // === Materialy ===
-    const roadMat = new THREE.MeshStandardMaterial({
-      color: PALETTE.road,
-      roughness: 0.85,
-      metalness: 0.05,
-    });
-    const sidewalkMat = new THREE.MeshStandardMaterial({
-      color: PALETTE.sidewalk,
-      roughness: 0.9,
-    });
-    const curbMat = new THREE.MeshStandardMaterial({
-      color: PALETTE.curb,
-      roughness: 0.8,
-    });
+    const isHighQuality = settings.current.quality === 'high';
+
+    let roadMat, sidewalkMat, curbMat;
+    if (isHighQuality) {
+      // High quality: procedural canvas textures with bump maps
+      const asphaltTex = City._createAsphaltTexture(this.isNight);
+      const asphaltBump = City._createAsphaltBumpMap(this.isNight);
+      roadMat = new THREE.MeshStandardMaterial({
+        map: asphaltTex,
+        bumpMap: asphaltBump,
+        bumpScale: 0.15,
+        roughness: 0.82,
+        metalness: 0.05,
+        roughnessMap: asphaltBump,
+      });
+
+      const sidewalkTex = City._createSidewalkTexture(this.isNight);
+      const sidewalkBump = City._createSidewalkBumpMap(this.isNight);
+      sidewalkMat = new THREE.MeshStandardMaterial({
+        map: sidewalkTex,
+        bumpMap: sidewalkBump,
+        bumpScale: 0.2,
+        roughness: 0.88,
+        roughnessMap: sidewalkBump,
+      });
+
+      const curbTex = City._createCurbTexture(this.isNight);
+      const curbBump = City._createCurbBumpMap(this.isNight);
+      curbMat = new THREE.MeshStandardMaterial({
+        map: curbTex,
+        bumpMap: curbBump,
+        bumpScale: 0.12,
+        roughness: 0.75,
+      });
+    } else {
+      roadMat = new THREE.MeshStandardMaterial({
+        color: PALETTE.road,
+        roughness: 0.85,
+        metalness: 0.05,
+      });
+      sidewalkMat = new THREE.MeshStandardMaterial({
+        color: PALETTE.sidewalk,
+        roughness: 0.9,
+      });
+      curbMat = new THREE.MeshStandardMaterial({
+        color: PALETTE.curb,
+        roughness: 0.8,
+      });
+    }
 
     const xs = this.xCoords;
     const zs = this.zCoords;
@@ -181,6 +675,57 @@ export class City {
           );
           c.position.set(cx + dx, curbT / 2 + 0.12, cz + dz);
           this.scene.add(c);
+        }
+
+        // === Detale high quality: linie krawędziowe i rynsztok ===
+        if (isHighQuality) {
+          const edgeLineMat = new THREE.MeshBasicMaterial({
+            color: 0xd8dce4,
+            transparent: true,
+            opacity: 0.7,
+          });
+          const gutterMat = new THREE.MeshStandardMaterial({
+            color: this.isNight ? 0x181c24 : 0x2a2e38,
+            roughness: 0.95,
+            metalness: 0.1,
+          });
+          const edgeLineW = 0.15;
+          const gutterW = 0.25;
+          const edgeOff = curbW / 2 + edgeLineW / 2 + 0.05;
+          const gutterOff = curbW / 2 + gutterW / 2 + edgeLineW + 0.08;
+
+          // Road edge lines (white paint) and gutter strips
+          for (const [dx, dz, len, isH] of [
+            [0, -curbOffZ - edgeOff, sidewalkW, true],  // South edge
+            [0, curbOffZ + edgeOff, sidewalkW, true],   // North edge
+            [-curbOffX - edgeOff, 0, sidewalkD, false],  // West edge
+            [curbOffX + edgeOff, 0, sidewalkD, false],   // East edge
+          ]) {
+            // White road edge line
+            const lineGeo = isH
+              ? new THREE.PlaneGeometry(len, edgeLineW)
+              : new THREE.PlaneGeometry(edgeLineW, len);
+            const line = new THREE.Mesh(lineGeo, edgeLineMat);
+            line.rotation.x = -Math.PI / 2;
+            line.position.set(cx + dx, 0.012, cz + dz);
+            this.scene.add(line);
+          }
+
+          // Gutter strips (darker strip where road meets curb)
+          for (const [dx, dz, len, isH] of [
+            [0, -curbOffZ - gutterOff, sidewalkW, true],
+            [0, curbOffZ + gutterOff, sidewalkW, true],
+            [-curbOffX - gutterOff, 0, sidewalkD, false],
+            [curbOffX + gutterOff, 0, sidewalkD, false],
+          ]) {
+            const gutterGeo = isH
+              ? new THREE.PlaneGeometry(len, gutterW)
+              : new THREE.PlaneGeometry(gutterW, len);
+            const gutter = new THREE.Mesh(gutterGeo, gutterMat);
+            gutter.rotation.x = -Math.PI / 2;
+            gutter.position.set(cx + dx, 0.005, cz + dz);
+            this.scene.add(gutter);
+          }
         }
 
         // Zawartosc bloku w zaleznosci od typu w layoucie
@@ -305,6 +850,77 @@ export class City {
           // Ustąp pierwszeństwa (A-7) z podczepionym znakiem przejścia dla pieszych (D-6) na jednym słupku (oś pionowa)
           this._createDoubleSign(x - unsigSignLat, z - unsigSignOff, 'A-7', 'D-6', Math.PI); // North approach & crossing
           this._createDoubleSign(x + unsigSignLat, z + unsigSignOff, 'A-7', 'D-6', 0);       // South approach & crossing
+        }
+
+        // === High quality intersection details: drain grates & stop lines ===
+        if (isHighQuality) {
+          const grateMat = new THREE.MeshStandardMaterial({
+            color: 0x1a1e26,
+            metalness: 0.7,
+            roughness: 0.4,
+          });
+          const grateSlotMat = new THREE.MeshStandardMaterial({
+            color: 0x0a0c10,
+            metalness: 0.5,
+            roughness: 0.6,
+          });
+          // Drain grates at 4 corners of intersection
+          for (const [dx, dz] of [
+            [roadHalf + 1.2, roadHalf + 1.2],
+            [-roadHalf - 1.2, roadHalf + 1.2],
+            [roadHalf + 1.2, -roadHalf - 1.2],
+            [-roadHalf - 1.2, -roadHalf - 1.2],
+          ]) {
+            const grateGroup = new THREE.Group();
+            // Frame
+            const frame = new THREE.Mesh(
+              new THREE.BoxGeometry(0.8, 0.04, 0.5),
+              grateMat,
+            );
+            frame.position.y = 0.02;
+            grateGroup.add(frame);
+            // Slots
+            for (let s = -3; s <= 3; s++) {
+              const slot = new THREE.Mesh(
+                new THREE.BoxGeometry(0.65, 0.02, 0.03),
+                grateSlotMat,
+              );
+              slot.position.set(0, 0.05, s * 0.06);
+              grateGroup.add(slot);
+            }
+            grateGroup.position.set(x + dx, 0.005, z + dz);
+            grateGroup.rotation.x = 0;
+            this.scene.add(grateGroup);
+          }
+
+          // Stop lines before crossings (thick white lines)
+          const stopLineMat = new THREE.MeshBasicMaterial({
+            color: 0xd8dce4,
+            transparent: true,
+            opacity: 0.75,
+          });
+          const stopLineThick = 0.4;
+          const stopLineDist = crossOff + crossWidth / 2 + 0.8;
+          // NS stop lines (horizontal, on vertical road approach)
+          for (const dz of [-stopLineDist, stopLineDist]) {
+            const stopLine = new THREE.Mesh(
+              new THREE.PlaneGeometry(roadWidth * 0.8, stopLineThick),
+              stopLineMat,
+            );
+            stopLine.rotation.x = -Math.PI / 2;
+            stopLine.position.set(x, 0.013, z + dz);
+            this.scene.add(stopLine);
+          }
+          // EW stop lines (vertical, on horizontal road approach)
+          for (const dx of [-stopLineDist, stopLineDist]) {
+            const stopLine = new THREE.Mesh(
+              new THREE.PlaneGeometry(stopLineThick, roadWidth * 0.8),
+              stopLineMat,
+            );
+            stopLine.rotation.x = -Math.PI / 2;
+            stopLine.position.set(x + dx, 0.013, z);
+            this.scene.add(stopLine);
+          }
         }
       }
     }
@@ -531,7 +1147,10 @@ export class City {
   // ============================================================
 
   _addLaneLines(cx, cz, w, d, axis) {
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const isHQ = settings.current.quality === 'high';
+    const lineMat = isHQ
+      ? new THREE.MeshBasicMaterial({ color: 0xe8ecf0, transparent: true, opacity: 0.85 })
+      : new THREE.MeshBasicMaterial({ color: 0xffffff });
     const excludeR = 8.5;
 
     const roadPositions = axis === "h" ? this.xCoords : this.zCoords;
@@ -576,13 +1195,23 @@ export class City {
   // ============================================================
 
   _addZebra(cx, cz, pedAxis, roadW, footprint) {
-    const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const isHQ = settings.current.quality === 'high';
     const stripeCount = 8;
     const stripeLen = footprint;
     const totalSpan = roadW * 0.85;
     const stripeThick = totalSpan / (stripeCount * 2 - 1);
     for (let i = 0; i < stripeCount; i++) {
       const off = -totalSpan / 2 + stripeThick / 2 + i * stripeThick * 2;
+
+      // In high quality, vary stripe opacity slightly to simulate wear
+      const stripeMat = isHQ
+        ? new THREE.MeshBasicMaterial({
+            color: 0xeef0f4,
+            transparent: true,
+            opacity: 0.78 + Math.random() * 0.18,
+          })
+        : new THREE.MeshBasicMaterial({ color: 0xffffff });
+
       let geo, pos;
       if (pedAxis === 'x') {
         geo = new THREE.PlaneGeometry(stripeThick, stripeLen);
