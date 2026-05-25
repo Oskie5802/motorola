@@ -760,6 +760,12 @@ export class City {
       ? new THREE.MeshBasicMaterial({ color: 0xe8ecf0, transparent: true, opacity: 0.85 })
       : new THREE.MeshBasicMaterial({ color: 0xffffff });
 
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0x7a828c, // light stone gray
+      roughness: 0.8,
+      metalness: 0.2,
+    });
+
     const createRampSegment = (w, h, d, x, y, z, rotX, rotZ, customMat = null) => {
       const geom = new THREE.BoxGeometry(w, h, d);
       const mesh = new THREE.Mesh(geom, customMat || roadMat);
@@ -795,6 +801,10 @@ export class City {
         if (i % 2 === 0) {
           createRampSegment(segmentLength, 0.16, 0.25, x_mid, y_mid + 0.01, coord, 0, angle, lineMat);
         }
+
+        // Stone guardrails on the sides
+        createRampSegment(segmentLength, 0.8, 0.4, x_mid, y_mid + 0.4, coord - 3.8, 0, angle, wallMat);
+        createRampSegment(segmentLength, 0.8, 0.4, x_mid, y_mid + 0.4, coord + 3.8, 0, angle, wallMat);
       }
 
       // Right Ramp (extending right from maxX + 4)
@@ -816,6 +826,10 @@ export class City {
         if (i % 2 === 0) {
           createRampSegment(segmentLength, 0.16, 0.25, x_mid, y_mid + 0.01, coord, 0, angle, lineMat);
         }
+
+        // Stone guardrails on the sides
+        createRampSegment(segmentLength, 0.8, 0.4, x_mid, y_mid + 0.4, coord - 3.8, 0, angle, wallMat);
+        createRampSegment(segmentLength, 0.8, 0.4, x_mid, y_mid + 0.4, coord + 3.8, 0, angle, wallMat);
       }
     }
 
@@ -842,6 +856,10 @@ export class City {
         if (j % 2 === 0) {
           createRampSegment(0.25, 0.16, segmentLength, coord, y_mid + 0.01, z_mid, -angle, 0, lineMat);
         }
+
+        // Stone guardrails on the sides
+        createRampSegment(0.4, 0.8, segmentLength, coord - 3.8, y_mid + 0.4, z_mid, -angle, 0, wallMat);
+        createRampSegment(0.4, 0.8, segmentLength, coord + 3.8, y_mid + 0.4, z_mid, -angle, 0, wallMat);
       }
 
       // Bottom Ramp (extending bottom from maxZ + 4)
@@ -863,7 +881,310 @@ export class City {
         if (j % 2 === 0) {
           createRampSegment(0.25, 0.16, segmentLength, coord, y_mid + 0.01, z_mid, -angle, 0, lineMat);
         }
+
+        // Stone guardrails on the sides
+        createRampSegment(0.4, 0.8, segmentLength, coord - 3.8, y_mid + 0.4, z_mid, -angle, 0, wallMat);
+        createRampSegment(0.4, 0.8, segmentLength, coord + 3.8, y_mid + 0.4, z_mid, -angle, 0, wallMat);
       }
+    }
+
+    // === Wypelnienie skalne miedzy drogami i lekki mur obwodowy ===
+    const grassMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.grass,
+      roughness: 0.95,
+    });
+    const trunkMat = new THREE.MeshStandardMaterial({
+      color: this.isNight ? 0x2a1c0e : 0x5b3a1d,
+      roughness: 0.9,
+    });
+    const leafMat = new THREE.MeshStandardMaterial({
+      color: this.isNight ? 0x142820 : 0x4a8a3f,
+      roughness: 0.85,
+    });
+
+    const spawnSlopedTree = (tx, ty, tz) => {
+      const isLow = settings.current.quality === 'low';
+      const group = new THREE.Group();
+      group.position.set(tx, ty, tz);
+
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.22, 1.6, isLow ? 5 : 8),
+        trunkMat,
+      );
+      trunk.position.y = 0.92;
+      trunk.castShadow = this.castShadows;
+      group.add(trunk);
+      const r = 0.9 + Math.random() * 0.5;
+      const leaves = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(r, isLow ? 0 : 1),
+        leafMat,
+      );
+      leaves.position.y = 2.3;
+      leaves.castShadow = this.castShadows;
+      group.add(leaves);
+      if (!isLow) {
+        const leaves2 = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(r * 0.65, 1),
+          leafMat,
+        );
+        leaves2.position.set(0.4, 2.6, -0.3);
+        group.add(leaves2);
+      }
+
+      this.scene.add(group);
+      this.trees.push({ x: tx, z: tz, mesh: group });
+    };
+
+    const spawnHouse = (x, y, z, rotY) => {
+      const houseMat = new THREE.MeshStandardMaterial({
+        color: PALETTE.building[Math.floor(Math.random() * PALETTE.building.length)],
+        roughness: 0.8,
+      });
+      const roofMat = new THREE.MeshStandardMaterial({
+        color: 0xaa3333, // red roof
+        roughness: 0.6,
+      });
+
+      const houseGeo = new THREE.BoxGeometry(3, 3, 3);
+      const house = new THREE.Mesh(houseGeo, houseMat);
+      house.position.set(x, y + 1.5, z);
+      house.rotation.y = rotY;
+      house.castShadow = this.castShadows;
+      house.receiveShadow = this.receiveShadows;
+      this.scene.add(house);
+      this.buildings.push({ mesh: house, x1: x-1.5, z1: z-1.5, x2: x+1.5, z2: z+1.5, height: 3 });
+
+      // Roof (Cone)
+      const roofGeo = new THREE.ConeGeometry(2.5, 2, 4);
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.set(x, y + 3.5, z);
+      roof.rotation.y = rotY + Math.PI / 4;
+      roof.castShadow = this.castShadows;
+      this.scene.add(roof);
+    };
+    
+    // 1. Lewa krawedź wyspy (Left)
+    for (let j = 0; j < g; j++) {
+      const z1 = zs[j] + 4;
+      const z2 = zs[j+1] - 4;
+      const z_mid = (z1 + z2) / 2;
+      const depth = z2 - z1;
+
+      // Build sloped grass hillside with rocks underneath
+      for (let i = 0; i < numSegments; i++) {
+        const t1 = i / numSegments;
+        const t2 = (i + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const x_mid = (minX - 4 - rampLength) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.sin(t_mid * Math.PI / 2));
+
+        const dy_dx = (rampDepth / rampLength) * (Math.PI / 2) * Math.cos(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dx);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        // Grass surface segment
+        createRampSegment(segmentLength, 0.2, depth, x_mid, y_mid, z_mid, 0, angle, grassMat);
+
+        // Rocky base segment
+        createRampSegment(segmentLength, 4.0, depth, x_mid, y_mid - 2.0, z_mid, 0, angle, layer2Mat);
+
+        // Spawn trees and cottages on the slope
+        if (Math.random() < 0.25) {
+          const z_off = (Math.random() - 0.5) * (depth - 6);
+          spawnSlopedTree(x_mid, y_mid, z_mid + z_off);
+        }
+        if (Math.random() < 0.12 && i > 2 && i < numSegments - 2) {
+          const z_off = (Math.random() - 0.5) * (depth - 8);
+          spawnHouse(x_mid, y_mid, z_mid + z_off, -Math.PI / 2);
+        }
+      }
+
+      // Stone wall at top edge
+      const wGeo = new THREE.BoxGeometry(0.4, 0.8, depth);
+      const w = new THREE.Mesh(wGeo, wallMat);
+      w.position.set(minX - 4, 0.4, z_mid);
+      w.receiveShadow = this.receiveShadows;
+      w.castShadow = this.receiveShadows;
+      this.scene.add(w);
+    }
+
+    // 2. Prawa krawedź wyspy (Right)
+    for (let j = 0; j < g; j++) {
+      const z1 = zs[j] + 4;
+      const z2 = zs[j+1] - 4;
+      const z_mid = (z1 + z2) / 2;
+      const depth = z2 - z1;
+
+      // Build sloped grass hillside with rocks underneath
+      for (let i = 0; i < numSegments; i++) {
+        const t1 = i / numSegments;
+        const t2 = (i + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const x_mid = (maxX + 4) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.cos(t_mid * Math.PI / 2));
+
+        const dy_dx = - (rampDepth / rampLength) * (Math.PI / 2) * Math.sin(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dx);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        // Grass surface segment
+        createRampSegment(segmentLength, 0.2, depth, x_mid, y_mid, z_mid, 0, angle, grassMat);
+
+        // Rocky base segment
+        createRampSegment(segmentLength, 4.0, depth, x_mid, y_mid - 2.0, z_mid, 0, angle, layer2Mat);
+
+        // Spawn trees and cottages on the slope
+        if (Math.random() < 0.25) {
+          const z_off = (Math.random() - 0.5) * (depth - 6);
+          spawnSlopedTree(x_mid, y_mid, z_mid + z_off);
+        }
+        if (Math.random() < 0.12 && i > 2 && i < numSegments - 2) {
+          const z_off = (Math.random() - 0.5) * (depth - 8);
+          spawnHouse(x_mid, y_mid, z_mid + z_off, Math.PI / 2);
+        }
+      }
+
+      // Stone wall at top edge
+      const wGeo = new THREE.BoxGeometry(0.4, 0.8, depth);
+      const w = new THREE.Mesh(wGeo, wallMat);
+      w.position.set(maxX + 4, 0.4, z_mid);
+      w.receiveShadow = this.receiveShadows;
+      w.castShadow = this.receiveShadows;
+      this.scene.add(w);
+    }
+
+    // 3. Gorna krawedź wyspy (Top)
+    for (let i = 0; i < g; i++) {
+      const x1 = xs[i] + 4;
+      const x2 = xs[i+1] - 4;
+      const x_mid = (x1 + x2) / 2;
+      const width = x2 - x1;
+
+      // Build sloped grass hillside with rocks underneath
+      for (let j = 0; j < numSegments; j++) {
+        const t1 = j / numSegments;
+        const t2 = (j + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const z_mid = (minZ - 4 - rampLength) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.sin(t_mid * Math.PI / 2));
+
+        const dy_dz = (rampDepth / rampLength) * (Math.PI / 2) * Math.cos(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dz);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        // Grass surface segment
+        createRampSegment(width, 0.2, segmentLength, x_mid, y_mid, z_mid, -angle, 0, grassMat);
+
+        // Rocky base segment
+        createRampSegment(width, 4.0, segmentLength, x_mid, y_mid - 2.0, z_mid, -angle, 0, layer2Mat);
+
+        // Spawn trees and cottages on the slope
+        if (Math.random() < 0.25) {
+          const x_off = (Math.random() - 0.5) * (width - 6);
+          spawnSlopedTree(x_mid + x_off, y_mid, z_mid);
+        }
+        if (Math.random() < 0.12 && j > 2 && j < numSegments - 2) {
+          const x_off = (Math.random() - 0.5) * (width - 8);
+          spawnHouse(x_mid + x_off, y_mid, z_mid, 0);
+        }
+      }
+
+      // Stone wall at top edge
+      const wGeo = new THREE.BoxGeometry(width, 0.8, 0.4);
+      const w = new THREE.Mesh(wGeo, wallMat);
+      w.position.set(x_mid, 0.4, minZ - 4);
+      w.receiveShadow = this.receiveShadows;
+      w.castShadow = this.receiveShadows;
+      this.scene.add(w);
+    }
+
+    // 4. Dolna krawedź wyspy (Bottom)
+    for (let i = 0; i < g; i++) {
+      const x1 = xs[i] + 4;
+      const x2 = xs[i+1] - 4;
+      const x_mid = (x1 + x2) / 2;
+      const width = x2 - x1;
+
+      // Build sloped grass hillside with rocks underneath
+      for (let j = 0; j < numSegments; j++) {
+        const t1 = j / numSegments;
+        const t2 = (j + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const z_mid = (maxZ + 4) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.cos(t_mid * Math.PI / 2));
+
+        const dy_dz = - (rampDepth / rampLength) * (Math.PI / 2) * Math.sin(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dz);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        // Grass surface segment
+        createRampSegment(width, 0.2, segmentLength, x_mid, y_mid, z_mid, -angle, 0, grassMat);
+
+        // Rocky base segment
+        createRampSegment(width, 4.0, segmentLength, x_mid, y_mid - 2.0, z_mid, -angle, 0, layer2Mat);
+
+        // Spawn trees and cottages on the slope
+        if (Math.random() < 0.25) {
+          const x_off = (Math.random() - 0.5) * (width - 6);
+          spawnSlopedTree(x_mid + x_off, y_mid, z_mid);
+        }
+        if (Math.random() < 0.12 && j > 2 && j < numSegments - 2) {
+          const x_off = (Math.random() - 0.5) * (width - 8);
+          spawnHouse(x_mid + x_off, y_mid, z_mid, Math.PI);
+        }
+      }
+
+      // Stone wall at top edge
+      const wGeo = new THREE.BoxGeometry(width, 0.8, 0.4);
+      const w = new THREE.Mesh(wGeo, wallMat);
+      w.position.set(x_mid, 0.4, maxZ + 4);
+      w.receiveShadow = this.receiveShadows;
+      w.castShadow = this.receiveShadows;
+      this.scene.add(w);
+    }
+
+    // 5. Narożniki (Corners)
+    const cornerW = 25;
+    const cornerD = 25;
+    const corners = [
+      [minX - 4 - cornerW/2, minZ - 4 - cornerD/2, -Math.PI / 4], // Top-Left
+      [maxX + 4 + cornerW/2, minZ - 4 - cornerD/2, Math.PI / 4],  // Top-Right
+      [minX - 4 - cornerW/2, maxZ + 4 + cornerD/2, -3 * Math.PI / 4], // Bottom-Left
+      [maxX + 4 + cornerW/2, maxZ + 4 + cornerD/2, 3 * Math.PI / 4],  // Bottom-Right
+    ];
+
+    for (const [cx, cz, rotY] of corners) {
+      const c1Geo = new THREE.BoxGeometry(cornerW, 12, cornerD);
+      const c1 = new THREE.Mesh(c1Geo, layer2Mat);
+      c1.position.set(cx, -6.08, cz);
+      c1.receiveShadow = this.receiveShadows;
+      c1.castShadow = this.receiveShadows;
+      this.scene.add(c1);
+
+      const c2Geo = new THREE.BoxGeometry(cornerW * 0.9, 8, cornerD * 0.9);
+      const c2 = new THREE.Mesh(c2Geo, layer3Mat);
+      c2.position.set(cx, -16.08, cz);
+      c2.receiveShadow = this.receiveShadows;
+      c2.castShadow = this.receiveShadows;
+      this.scene.add(c2);
+
+      // Grass top layer on the corner
+      const cgGeo = new THREE.BoxGeometry(cornerW, 0.2, cornerD);
+      const cg = new THREE.Mesh(cgGeo, grassMat);
+      cg.position.set(cx, -0.08 + 0.1, cz);
+      cg.receiveShadow = this.receiveShadows;
+      this.scene.add(cg);
+
+      // Spawn a house and some trees on the corner
+      spawnHouse(cx, -0.08 + 0.2, cz, rotY);
+      spawnSlopedTree(cx - 5, -0.08 + 0.2, cz - 5);
+      spawnSlopedTree(cx + 5, -0.08 + 0.2, cz + 5);
+      spawnSlopedTree(cx - 5, -0.08 + 0.2, cz + 5);
+      spawnSlopedTree(cx + 5, -0.08 + 0.2, cz - 5);
     }
 
     // === Bloki: chodnik + zawartosc w zaleznosci od typu ===
