@@ -44,7 +44,7 @@ export class Player {
     this.cameraYaw = 0;
     this.cameraPitch = 0.55;
     this.cameraDistance = 12;
-    this.cameraMode = 'firstperson'; // 'thirdperson' | 'firstperson'
+    this.cameraMode = 'thirdperson'; // 'thirdperson' | 'firstperson'
     this.cameraPitchFPP = 0.0;
 
     this.walkSpeed = 4.0;
@@ -353,8 +353,8 @@ export class Player {
 
     // Obliczanie head bobbingu w FPP
     if (this.cameraMode === 'firstperson') {
-      const bobAmountY = running ? 0.08 : 0.04;
-      const bobAmountX = running ? 0.04 : 0.02;
+      const bobAmountY = running ? 0.18 : 0.08;
+      const bobAmountX = running ? 0.09 : 0.04;
       
       if (this.moving) {
         const bobSpeed = running ? 15 : 10;

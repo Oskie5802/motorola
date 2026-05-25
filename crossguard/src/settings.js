@@ -2,7 +2,7 @@
 const SETTINGS_KEY = 'crossguard_graphics_settings_v1';
 
 const DEFAULT_SETTINGS = {
-  quality: 'medium', // 'low', 'medium', 'high'
+  quality: 'high', // 'low', 'medium', 'high'
   shadows: true,
   lod: true,
   particles: true,

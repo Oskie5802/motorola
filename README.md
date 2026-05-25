@@ -39,14 +39,14 @@ Pętla opiera się na standardowym `requestAnimationFrame`. W każdej klatce wyl
 
 ## 2. Szczegółowy Opis Plików Projektu
 
-### [src/main.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/main.js)
+### [src/main.js]
 Główny punkt wejścia aplikacji. Odpowiada za:
 *   **Inicjalizację Three.js**: Tworzenie instancji `WebGLRenderer`, `Scene`, oraz `PerspectiveCamera`.
 *   **Obsługę ekranów UI**: Przełączanie stanów gry (Menu główne, Ekran gry, Ekran wyników, Ustawienia graficzne).
 *   **Game Loop**: Funkcja `_animate(timestamp)` obliczająca `dt` i wywołująca aktualizację pozostałych modułów.
 *   **Zapis postępu**: Moduł wczytuje i zapisuje odblokowane dzielnice w `localStorage` (klucz `crossguard_progress`).
 
-### [src/config.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/config.js)
+### [src/config.js]
 Baza danych i konfiguracja gry. Zawiera:
 *   **PALETTE**: Kolory obiektów miejskich (drogi, chodniki, budynki, trawa).
 *   **ZONES**: Definicje 5 stref operacyjnych (Dzielnica Mieszkalna, Szkolna, Centrum, Przemysłowa, Autostrada). Każda strefa definiuje parametry takie jak:
@@ -55,21 +55,21 @@ Baza danych i konfiguracja gry. Zawiera:
     *   Warunki pogodowe i porę dnia.
 *   **SCORING**: Wartości punktowe za dobre i złe zachowania (np. przejście na zielonym, potrącenie, korzystanie z telefonu).
 
-### [src/game.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/game.js)
+### [src/game.js]
 Zarządca logiki rozgrywki (Gameplay Manager). Monitoruje:
 *   **Stan misji**: Pozycję gracza względem punktu docelowego.
 *   **Safety Score**: System punktacji (0-100), który dynamicznie reaguje na wykroczenia i poprawne zachowania.
 *   **Wykrywanie kolizji / potrąceń**: Rejestruje wejście na jezdnię poza pasami lub przejście na czerwonym świetle.
 *   **Generowanie zdarzeń dynamicznych**: Losuje i aktywuje sytuacje awaryjne (np. pojazd uprzywilejowany z syreną jadący przez miasto).
 
-### [src/player.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/player.js)
+### [src/player.js]
 Kontroler gracza (postać "Alex Nawigant") oraz kamery:
 *   **Kamera TPP (Third-Person)**: Kamera porusza się po sferze wokół gracza (promień sferyczny r, kąty theta i phi) sterowana ruchami myszy.
 *   **Kamera FPP (First-Person)**: Opcjonalny widok z oczu bohatera przełączany klawiszem `V`.
 *   **Fizyka ruchu**: Postać porusza się za pomocą klawiszy WASD/strzałek. Zastosowano wektory kierunkowe kamery do poruszania postaci relatywnie do widoku na ekranie.
 *   **Kolizje pieszego**: Gracz posiada cylindryczną tarczę kolizji. Wykrywane są kolizje z budynkami, latarniami i barierami obwodowymi miasta (blokowanie ruchu za pomocą AABB - Axis-Aligned Bounding Box).
 
-### [src/city.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/city.js)
+### [src/city.js]
 **Serce geometryczne projektu**. Odpowiada za generowanie całej sceny 3D (miasta-wyspy):
 *   **Drogi i skrzyżowania**: Generowane na podstawie losowych przedziałów współrzędnych (`xCoords`, `zCoords`).
 *   **Sygnalizacja świetlna**: Synchronizowane światła dla aut i pieszych ze stanami: zielone, żółte (tylko dla aut), czerwone.
@@ -81,29 +81,29 @@ Kontroler gracza (postać "Alex Nawigant") oraz kamery:
     4.  *Stalaktyty i wiszące wyspy w tle* (generowane za pomocą generatora `_buildGhostIslands()`).
 *   **Zaokrąglone opadające narożniki**: Szczegółowo opisane w sekcji 3.
 
-### [src/traffic.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/traffic.js)
+### [src/traffic.js]
 Zarządza autonomicznym ruchem pojazdów i pieszych NPC:
 *   **Siatka drogowa**: Pojazdy poruszają się wzdłuż segmentów dróg (`roadSegments`).
 *   **Fizyka ramp**: Wylicza pozycję Y oraz pochylenie (pitch) samochodów wjeżdżających i zjeżdżających z wyspy.
 *   **Inteligentne hamowanie**: Pojazdy wykrywają przeszkody przed sobą za pomocą prostego Raycastingu w kierunku jazdy (wykrywanie innych aut, świateł czerwonych oraz gracza).
 *   **Stagger spawning**: Zapobiega spawnowaniu aut jedno na drugim na dole ramp poprzez wprowadzenie opóźnienia i kontroli odległości.
 
-### [src/environment.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/environment.js)
+### [src/environment.js]
 System pogodowy i oświetleniowy:
 *   **Cykl dobowy**: Obraca kierunkowe źródło światła (Słońce/Księżyc), płynnie interpolując kolor nieba, oświetlenia oraz mgłę (`THREE.FogExp2`).
 *   **Efekty cząsteczkowe**: Deszcz i śnieg generowane za pomocą `THREE.Points` z dynamicznie aktualizowanymi pozycjami wierzchołków.
 *   **Wielowarstwowe Chmury**: Dryfujące chmury opisane w sekcji 4.
 
-### [src/hud.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/hud.js)
+### [src/hud.js]
 Obsługuje interfejs Command Center (HUD):
 *   **Mini-mapa (Canvas 2D)**: Rysuje uproszczoną mapę miasta w czasie rzeczywistym. Gracze, cele, kamery, radiowozy i zagrożenia są transformowani z przestrzeni 3D na płaszczyznę 2D za pomocą macierzy transformacji.
 *   **Assist AI & APX P25 Radio**: Wyświetla wiadomości dyspozytora i komunikaty radiowe.
 *   **Dev Overlay**: Pokazuje liczbę FPS, koordynaty oraz liczbę aktywnych obiektów.
 
-### [src/audio.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/audio.js)
+### [src/audio.js]
 Syntezator dźwięku. **Nie ładuje plików MP3/WAV** - wszystkie efekty generuje programowo w locie przy użyciu `AudioContext` z Web Audio API. Szczegółowo opisany w sekcji 5.
 
-### [src/settings.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/settings.js) & [src/modelLoader.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/modelLoader.js)
+### [src/settings.js] & [src/modelLoader.js]
 Odpowiadają odpowiednio za zarządzanie profilami jakości graficznej (LOD, cienie, gęstość obiektów) oraz ładowanie modeli GLTF/GLB (lub tworzenie zastępczych brył low-poly, jeśli modele się nie załadują).
 
 ---
@@ -233,16 +233,16 @@ Projekt CrossGuard został zaprojektowany z myślą o czytelności kodu i braku 
 ### Propozycje ćwiczeń edukacyjnych:
 
 1.  **Modyfikacja fizyki jazdy (Rampy)**:
-    *   *Gdzie szukać*: Otwórz [src/city.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/city.js) w sekcji generacji zjazdów oraz [src/traffic.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/traffic.js) w metodzie `_updateVehicle`.
+    *   *Gdzie szukać*: Otwórz [src/city.js] w sekcji generacji zjazdów oraz [src/traffic.js] w metodzie `_updateVehicle`.
     *   *Zadanie*: Zmień głębokość ramp (`rampDepth`) z 20 na 40 jednostek. Zaobserwuj, jak pojazdy automatycznie dopasowują swój kąt pochylenia (pitch) i płynnie zjeżdżają w dół pod większym kątem bez odrywania się od drogi.
 2.  **Stworzenie własnej strefy (Z dzielnicami)**:
-    *   *Gdzie szukać*: Plik [src/config.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/config.js), obiekt `ZONES`.
+    *   *Gdzie szukać*: Plik [src/config.js], obiekt `ZONES`.
     *   *Zadanie*: Dodaj nową strefę, np. `cyberpunk`. Skonfiguruj neonowe kolory palety, dodaj deszczową pogodę (`rain: true`), ustaw mgłę na fioletową i zmień natężenie ruchu samochodów na ekstremalne.
 3.  **Dodanie nowego efektu dźwiękowego**:
-    *   *Gdzie szukać*: Plik [src/audio.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/audio.js).
+    *   *Gdzie szukać*: Plik [src/audio.js].
     *   *Zadanie*: Napisz funkcję syntezy dźwięku burzy (pioruna). Użyj generatora szumu (White Noise) z nagłym wzrostem głośności (Attack = 0.01s) i bardzo długim czasem wygaszania (Release = 4.0s) oraz filtrem dolnoprzepustowym o odcięciu zmieniającym się w czasie (filtr schodzący w dół dla symulacji oddalającego się grzmotu).
 4.  **Badanie kolizji gracza**:
-    *   *Gdzie szukać*: Plik [src/player.js](file:///Users/marcelchudyba/Documents/motorola/motorola/crossguard/src/player.js).
+    *   *Gdzie szukać*: Plik [src/player.js].
     *   *Zadanie*: Znajdź sekcję sprawdzania kolizji z przeszkodami w metodzie `update`. Spróbuj zmienić promień kolizyjny gracza (np. do 5 jednostek) i zobacz, jak Alex reaguje na zbliżanie się do budynków i barier.
 
 ---
@@ -269,6 +269,6 @@ cd motorola/crossguard
     ```
 
 ### Krok 3: Otwarcie w przeglądarce
-Wejdź na adres: [http://localhost:8081](http://localhost:8081)
+Wejdź na adres: [http://localhost:8081]
 
 *Wskazówka: Naciśnij klawisz `F12`, aby otworzyć konsolę deweloperską przeglądarki i śledzić logi diagnostyczne symulatora w czasie rzeczywistym!*
