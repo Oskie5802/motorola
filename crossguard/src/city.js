@@ -888,9 +888,25 @@ export class City {
       }
     }
 
+    // Fill the 4x4 gaps at the 4 intersection corners of the island
+    const cornerFillers = [
+      [minX - 2, minZ - 2], // Top-Left
+      [maxX + 2, minZ - 2], // Top-Right
+      [minX - 2, maxZ + 2], // Bottom-Left
+      [maxX + 2, maxZ + 2], // Bottom-Right
+    ];
+    for (const [fx, fz] of cornerFillers) {
+      const fillGeo = new THREE.PlaneGeometry(4, 4);
+      const fill = new THREE.Mesh(fillGeo, roadMat);
+      fill.rotation.x = -Math.PI / 2;
+      fill.position.set(fx, 0, fz);
+      fill.receiveShadow = this.receiveShadows;
+      this.scene.add(fill);
+    }
+
     // === Wypelnienie skalne miedzy drogami i lekki mur obwodowy ===
     const grassMat = new THREE.MeshStandardMaterial({
-      color: PALETTE.grass,
+      color: this.isNight ? 0x1a2e1a : 0x3a7a3a, // green grass color matching parks
       roughness: 0.95,
     });
     const trunkMat = new THREE.MeshStandardMaterial({
@@ -1150,41 +1166,108 @@ export class City {
     // 5. Narożniki (Corners)
     const cornerW = 25;
     const cornerD = 25;
-    const corners = [
-      [minX - 4 - cornerW/2, minZ - 4 - cornerD/2, -Math.PI / 4], // Top-Left
-      [maxX + 4 + cornerW/2, minZ - 4 - cornerD/2, Math.PI / 4],  // Top-Right
-      [minX - 4 - cornerW/2, maxZ + 4 + cornerD/2, -3 * Math.PI / 4], // Bottom-Left
-      [maxX + 4 + cornerW/2, maxZ + 4 + cornerD/2, 3 * Math.PI / 4],  // Bottom-Right
+
+    // Helper to create a closed concentric ring sector using ExtrudeGeometry
+    const createRingSectorMesh = (sx, sz, r1, r2, height, yTop, startAngle, endAngle, material) => {
+      const shape = new THREE.Shape();
+      if (r1 === 0) {
+        shape.moveTo(0, 0);
+        shape.absarc(0, 0, r2, startAngle, endAngle, false);
+        shape.lineTo(0, 0);
+      } else {
+        shape.moveTo(r1 * Math.cos(startAngle), r1 * Math.sin(startAngle));
+        shape.absarc(0, 0, r2, startAngle, endAngle, false);
+        shape.lineTo(r1 * Math.cos(endAngle), r1 * Math.sin(endAngle));
+        shape.absarc(0, 0, r1, endAngle, startAngle, true);
+      }
+
+      const extrudeSettings = {
+        depth: height,
+        bevelEnabled: false,
+        steps: 1,
+        curveSegments: 16,
+      };
+
+      const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      const mesh = new THREE.Mesh(geom, material);
+      
+      // Rotate by Math.PI / 2 so shape's X-Y plane lies in world X-Z, and depth extrudes downwards
+      mesh.rotation.x = Math.PI / 2;
+      mesh.position.set(sx, yTop, sz);
+      
+      mesh.receiveShadow = this.receiveShadows;
+      mesh.castShadow = this.receiveShadows;
+      this.scene.add(mesh);
+      return mesh;
+    };
+
+    const roundedCorners = [
+      // [sx, sz, startAngle, endAngle, diagAngle, houseRotation]
+      [minX - 4, minZ - 4, Math.PI, 1.5 * Math.PI, 1.25 * Math.PI, -Math.PI / 4], // Top-Left
+      [maxX + 4, minZ - 4, 1.5 * Math.PI, 2 * Math.PI, 1.75 * Math.PI, Math.PI / 4],  // Top-Right
+      [minX - 4, maxZ + 4, Math.PI / 2, Math.PI, 0.75 * Math.PI, -3 * Math.PI / 4], // Bottom-Left
+      [maxX + 4, maxZ + 4, 0, Math.PI / 2, 0.25 * Math.PI, 3 * Math.PI / 4],  // Bottom-Right
     ];
 
-    for (const [cx, cz, rotY] of corners) {
-      const c1Geo = new THREE.BoxGeometry(cornerW, 12, cornerD);
-      const c1 = new THREE.Mesh(c1Geo, layer2Mat);
-      c1.position.set(cx, -6.08, cz);
-      c1.receiveShadow = this.receiveShadows;
-      c1.castShadow = this.receiveShadows;
-      this.scene.add(c1);
+    for (const [sx, sz, startAngle, endAngle, da, rotY] of roundedCorners) {
+      // Build sloped grass hillside with rocks underneath in concentric rings
+      const numSegments = 16;
+      for (let k = 0; k < numSegments; k++) {
+        const t1 = k / numSegments;
+        const t2 = (k + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
 
-      const c2Geo = new THREE.BoxGeometry(cornerW * 0.9, 8, cornerD * 0.9);
-      const c2 = new THREE.Mesh(c2Geo, layer3Mat);
-      c2.position.set(cx, -16.08, cz);
-      c2.receiveShadow = this.receiveShadows;
-      c2.castShadow = this.receiveShadows;
-      this.scene.add(c2);
+        const r1 = t1 * 25;
+        const r2 = t2 * 25;
 
-      // Grass top layer on the corner
-      const cgGeo = new THREE.BoxGeometry(cornerW, 0.2, cornerD);
-      const cg = new THREE.Mesh(cgGeo, grassMat);
-      cg.position.set(cx, -0.08 + 0.1, cz);
-      cg.receiveShadow = this.receiveShadows;
-      this.scene.add(cg);
+        // y_mid curves from 0.12 (at t_mid = 0) down to 0.12 - rampDepth (at t_mid = 1)
+        const y_mid = 0.12 - rampDepth * (1 - Math.cos(t_mid * Math.PI / 2));
 
-      // Spawn a house and some trees on the corner
-      spawnHouse(cx, -0.08 + 0.2, cz, rotY);
-      spawnSlopedTree(cx - 5, -0.08 + 0.2, cz - 5);
-      spawnSlopedTree(cx + 5, -0.08 + 0.2, cz + 5);
-      spawnSlopedTree(cx - 5, -0.08 + 0.2, cz + 5);
-      spawnSlopedTree(cx + 5, -0.08 + 0.2, cz - 5);
+        // 1. Grass surface ring segment (depth 0.2)
+        createRingSectorMesh(sx, sz, r1, r2, 0.2, y_mid, startAngle, endAngle, grassMat);
+
+        // 2. Middle rock layer (depth 12.0)
+        createRingSectorMesh(sx, sz, r1, r2, 12.0, y_mid - 0.2, startAngle, endAngle, layer2Mat);
+
+        // 3. Bottom rock layer (depth 8.0, tapered radius by 0.9)
+        createRingSectorMesh(sx, sz, r1 * 0.9, r2 * 0.9, 8.0, y_mid - 12.2, startAngle, endAngle, layer3Mat);
+      }
+
+      // 4. Stone wall at the outer curved edge (bottom of the slope at r = 25)
+      const numWallSegs = 16;
+      const arcLength = 25 * (endAngle - startAngle);
+      const segW = arcLength / numWallSegs + 0.1; // slight overlap to prevent gaps
+      const wy_outer = 0.12 - rampDepth; // at r = 25, the slope has fully dropped to bottom
+      for (let i = 0; i < numWallSegs; i++) {
+        const t = (i + 0.5) / numWallSegs;
+        const angle = startAngle + t * (endAngle - startAngle);
+        const wx = sx + 25 * Math.cos(angle);
+        const wz = sz + 25 * Math.sin(angle);
+        
+        const wallSegGeo = new THREE.BoxGeometry(segW, 0.8, 0.4);
+        const wallSeg = new THREE.Mesh(wallSegGeo, wallMat);
+        wallSeg.position.set(wx, wy_outer + 0.4, wz);
+        wallSeg.rotation.y = -angle - Math.PI / 2;
+        wallSeg.receiveShadow = this.receiveShadows;
+        wallSeg.castShadow = this.receiveShadows;
+        this.scene.add(wallSeg);
+      }
+
+      // 5. Spawn a cottage and trees on the sloped rounded corner
+      const hx = sx + 14 * Math.cos(da);
+      const hz = sz + 14 * Math.sin(da);
+      const hy = 0.12 - rampDepth * (1 - Math.cos((14 / 25) * Math.PI / 2));
+      spawnHouse(hx, hy, hz, rotY);
+
+      // Place 4 trees distributed down the slope
+      const treeAngles = [da - 0.2, da + 0.2, da - 0.35, da + 0.35];
+      const treeDists = [8, 9, 18, 19];
+      for (let i = 0; i < 4; i++) {
+        const tx = sx + treeDists[i] * Math.cos(treeAngles[i]);
+        const tz = sz + treeDists[i] * Math.sin(treeAngles[i]);
+        const ty = 0.12 - rampDepth * (1 - Math.cos((treeDists[i] / 25) * Math.PI / 2));
+        spawnSlopedTree(tx, ty, tz);
+      }
     }
 
     // === Bloki: chodnik + zawartosc w zaleznosci od typu ===
