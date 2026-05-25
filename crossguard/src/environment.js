@@ -212,41 +212,69 @@ export class Environment {
     this.cloudClusters = [];
     
     const isHQ = settings.current.quality === 'high';
-    const numClusters = isHQ ? 16 : 8;
+    // 35 clusters for HQ, 18 for LQ
+    const numClusters = isHQ ? 35 : 18;
     
-    // We want the clouds to float under the island
     for (let k = 0; k < numClusters; k++) {
       const cluster = new THREE.Group();
-      const numSpheres = 4 + Math.floor(Math.random() * 5);
+      // More spheres per cluster for a fluffier look (6 to 12 spheres)
+      const numSpheres = 6 + Math.floor(Math.random() * 7);
+      
       const cloudMat = new THREE.MeshStandardMaterial({
         color: this.isNight ? 0x1b203a : 0xf2f6fa,
-        roughness: 0.95,
-        metalness: 0.05,
+        roughness: 0.98,
+        metalness: 0.02,
         transparent: true,
-        opacity: this.isNight ? 0.3 : 0.55,
+        opacity: this.isNight ? 0.25 : 0.5,
         depthWrite: false,
       });
 
+      // We make some clouds huge
+      const baseScale = 1.0 + Math.random() * 1.5; // up to 2.5x size
+
       for (let s = 0; s < numSpheres; s++) {
-        const r = 12 + Math.random() * 16;
-        const sphereGeo = new THREE.SphereGeometry(r, isHQ ? 14 : 8, isHQ ? 14 : 8);
+        const r = (10 + Math.random() * 15) * baseScale;
+        const sphereGeo = new THREE.SphereGeometry(r, isHQ ? 16 : 8, isHQ ? 16 : 8);
         const sphere = new THREE.Mesh(sphereGeo, cloudMat);
         
         // Offset to create a fluffy cloud cluster shape
-        const ox = (Math.random() - 0.5) * r * 1.5;
-        const oy = (Math.random() - 0.5) * r * 0.3;
-        const oz = (Math.random() - 0.5) * r * 1.5;
+        const ox = (Math.random() - 0.5) * r * 1.8;
+        const oy = (Math.random() - 0.5) * r * 0.4;
+        const oz = (Math.random() - 0.5) * r * 1.8;
         sphere.position.set(ox, oy, oz);
         
         // Scale to make it look flatter (like real cumulus clouds)
-        sphere.scale.set(1.4, 0.5, 1.4);
+        sphere.scale.set(1.5, 0.45, 1.5);
         cluster.add(sphere);
       }
 
-      // Random position under the island
-      const cx = (Math.random() - 0.5) * 450;
-      const cy = -35 - Math.random() * 20; // y between -35 and -55
-      const cz = (Math.random() - 0.5) * 450;
+      // Three layers of clouds:
+      // 1. Low clouds (below the island, y: -70 to -35) - 60% of clouds
+      // 2. Mid clouds (drifting at island level, y: -15 to 15, but further out) - 25% of clouds
+      // 3. High clouds (way above the island, y: 70 to 110) - 15% of clouds
+      let cy = 0;
+      let cx = 0;
+      let cz = 0;
+      const rand = Math.random();
+      if (rand < 0.60) {
+        // Low layer
+        cx = (Math.random() - 0.5) * 600;
+        cy = -35 - Math.random() * 35; // y between -70 and -35
+        cz = (Math.random() - 0.5) * 600;
+      } else if (rand < 0.85) {
+        // Mid layer (further out so they don't block the screen constantly)
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 140 + Math.random() * 160;
+        cx = Math.cos(angle) * dist;
+        cy = -15 + Math.random() * 30; // y between -15 and 15
+        cz = Math.sin(angle) * dist;
+      } else {
+        // High layer
+        cx = (Math.random() - 0.5) * 600;
+        cy = 70 + Math.random() * 40; // y between 70 and 110
+        cz = (Math.random() - 0.5) * 600;
+      }
+
       cluster.position.set(cx, cy, cz);
       
       this.cloudsGroup.add(cluster);
@@ -254,8 +282,8 @@ export class Environment {
       // Store movement properties
       this.cloudClusters.push({
         mesh: cluster,
-        speedX: (1.2 + Math.random() * 2.0) * (Math.random() < 0.5 ? 1 : -1),
-        speedZ: (0.6 + Math.random() * 1.2) * (Math.random() < 0.5 ? 1 : -1),
+        speedX: (0.8 + Math.random() * 1.5) * (Math.random() < 0.5 ? 1 : -1),
+        speedZ: (0.4 + Math.random() * 0.9) * (Math.random() < 0.5 ? 1 : -1),
       });
     }
     
@@ -297,22 +325,22 @@ export class Environment {
         cluster.mesh.position.x += cluster.speedX * dt;
         cluster.mesh.position.z += cluster.speedZ * dt;
         
-        // Wrap around bounds of 300 units
-        if (cluster.mesh.position.x > 300) {
-          cluster.mesh.position.x = -300;
-          cluster.mesh.position.z = (Math.random() - 0.5) * 500;
+        // Wrap around bounds of 400 units
+        if (cluster.mesh.position.x > 400) {
+          cluster.mesh.position.x = -400;
+          cluster.mesh.position.z = (Math.random() - 0.5) * 800;
         }
-        if (cluster.mesh.position.x < -300) {
-          cluster.mesh.position.x = 300;
-          cluster.mesh.position.z = (Math.random() - 0.5) * 500;
+        if (cluster.mesh.position.x < -400) {
+          cluster.mesh.position.x = 400;
+          cluster.mesh.position.z = (Math.random() - 0.5) * 800;
         }
-        if (cluster.mesh.position.z > 300) {
-          cluster.mesh.position.z = -300;
-          cluster.mesh.position.x = (Math.random() - 0.5) * 500;
+        if (cluster.mesh.position.z > 400) {
+          cluster.mesh.position.z = -400;
+          cluster.mesh.position.x = (Math.random() - 0.5) * 800;
         }
-        if (cluster.mesh.position.z < -300) {
-          cluster.mesh.position.z = 300;
-          cluster.mesh.position.x = (Math.random() - 0.5) * 500;
+        if (cluster.mesh.position.z < -400) {
+          cluster.mesh.position.z = 400;
+          cluster.mesh.position.x = (Math.random() - 0.5) * 800;
         }
       }
     }

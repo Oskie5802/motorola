@@ -1573,7 +1573,7 @@ export class City {
     }
 
     this._addLamps();
-    this._buildGhostBuildings();
+    this._buildGhostIslands();
     this.bounds = { min: -half, max: half };
   }
 
@@ -3298,68 +3298,135 @@ export class City {
     ];
   }
 
-  _buildGhostBuildings() {
+  _buildGhostIslands() {
     const half = this.size / 2;
-    const count = 45;
-    const ghostMat = new THREE.MeshStandardMaterial({
-      color: 0x11223b, // dark blue-gray silhouette
+    const count = 30; // 30 distant islands
+
+    const ghostRockMat = new THREE.MeshStandardMaterial({
+      color: this.isNight ? 0x0f1b2b : 0x22354f,
       roughness: 0.9,
       metalness: 0.1,
     });
-    
-    // Glower for windows
+    const ghostGrassMat = new THREE.MeshStandardMaterial({
+      color: this.isNight ? 0x0c252b : 0x2d5a5e,
+      roughness: 0.95,
+    });
+    const ghostRoofMat = new THREE.MeshStandardMaterial({
+      color: this.isNight ? 0x3d1515 : 0x733333,
+      roughness: 0.8,
+    });
     const winMat = new THREE.MeshBasicMaterial({
       color: 0xffd27a,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.8,
     });
 
     this.ghostBuildings = [];
 
     for (let k = 0; k < count; k++) {
       const angle = (k / count) * Math.PI * 2 + Math.random() * 0.1;
-      const dist = half + 40 + Math.random() * 180;
+      const dist = half + 45 + Math.random() * 220;
       
       const bx = Math.cos(angle) * dist;
       const bz = Math.sin(angle) * dist;
       
-      const w = 8 + Math.random() * 12;
-      const d = 8 + Math.random() * 12;
-      const h = 40 + Math.random() * 90; // tall skyscrapers
+      // Floating height: some are higher, some are lower
+      const by = -20 + (Math.random() - 0.5) * 60; // y between -50 and 10
+      
+      const iw = 14 + Math.random() * 18; // width of island
+      const id = 14 + Math.random() * 18; // depth of island
+      const ih = 6 + Math.random() * 10;  // rock thickness
       
       const group = new THREE.Group();
-      group.position.set(bx, h / 2, bz);
-      
-      const bMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), ghostMat);
-      bMesh.receiveShadow = false;
-      bMesh.castShadow = false;
-      group.add(bMesh);
+      group.position.set(bx, by, bz);
 
-      // Add a few glowing lines/points on them to simulate distant office windows
-      const rows = Math.floor(h / 6);
-      const cols = Math.floor(w / 4);
-      for (let r = 0; r < rows; r++) {
-        if (Math.random() > 0.5) continue;
-        for (let c = 0; c < cols; c++) {
-          if (Math.random() > 0.4) continue;
-          
-          const dot = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), winMat);
-          dot.position.set(
-            -w / 2 + (c + 0.5) * (w / cols),
-            -h / 2 + (r + 0.5) * 6,
-            d / 2 + 0.05
-          );
+      // 1. Grass top (flat box)
+      const topGeo = new THREE.BoxGeometry(iw, 0.4, id);
+      const topMesh = new THREE.Mesh(topGeo, ghostGrassMat);
+      topMesh.position.y = 0.2;
+      group.add(topMesh);
+
+      // 2. Rock base (inverted cone for tapered look)
+      const baseGeo = new THREE.ConeGeometry(iw * 0.6, ih, 5);
+      const baseMesh = new THREE.Mesh(baseGeo, ghostRockMat);
+      baseMesh.rotation.x = Math.PI;
+      baseMesh.position.y = -ih / 2;
+      group.add(baseMesh);
+
+      // 3. Stalactites (smaller cones hanging below)
+      const numStalactites = 2 + Math.floor(Math.random() * 3);
+      for (let s = 0; s < numStalactites; s++) {
+        const sw = 1 + Math.random() * 2.5;
+        const sh = 2 + Math.random() * 5;
+        const stalGeo = new THREE.ConeGeometry(sw, sh, 4);
+        const stal = new THREE.Mesh(stalGeo, ghostRockMat);
+        stal.rotation.x = Math.PI;
+        
+        const ox = (Math.random() - 0.5) * iw * 0.5;
+        const oz = (Math.random() - 0.5) * id * 0.5;
+        stal.position.set(ox, -ih - sh/2 + 0.5, oz);
+        group.add(stal);
+      }
+
+      // 4. A small cottage and trees on top of the island
+      if (Math.random() < 0.7) {
+        // Spawn small cottage
+        const cw = 2 + Math.random() * 1.5;
+        const ch = 2 + Math.random() * 1.5;
+        const houseGeo = new THREE.BoxGeometry(cw, ch, cw);
+        const house = new THREE.Mesh(houseGeo, ghostRockMat);
+        house.position.set(-iw/4 + Math.random() * 2, 0.4 + ch/2, -id/4 + Math.random() * 2);
+        group.add(house);
+
+        // Roof
+        const roofGeo = new THREE.ConeGeometry(cw * 0.8, 1.2, 4);
+        const roof = new THREE.Mesh(roofGeo, ghostRoofMat);
+        roof.position.set(house.position.x, house.position.y + ch/2 + 0.6, house.position.z);
+        roof.rotation.y = Math.PI / 4;
+        group.add(roof);
+
+        // Add a glowing window dot on the cottage
+        if (Math.random() < 0.8) {
+          const dot = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), winMat);
+          dot.position.set(house.position.x, house.position.y, house.position.z + cw/2 + 0.02);
           group.add(dot);
         }
       }
 
+      // Spawn a few small trees
+      const numTrees = 2 + Math.floor(Math.random() * 4);
+      for (let t = 0; t < numTrees; t++) {
+        const th = 2 + Math.random() * 3.5;
+        const tr = 0.8 + Math.random() * 1.2;
+        
+        const treeGroup = new THREE.Group();
+        const ox = (Math.random() - 0.5) * iw * 0.7;
+        const oz = (Math.random() - 0.5) * id * 0.7;
+        treeGroup.position.set(ox, 0.4, oz);
+
+        // Trunk
+        const trunkGeo = new THREE.CylinderGeometry(0.08, 0.12, 1.0, 4);
+        const trunk = new THREE.Mesh(trunkGeo, ghostRockMat);
+        trunk.position.y = 0.5;
+        treeGroup.add(trunk);
+
+        // Leaves
+        const leavesGeo = new THREE.ConeGeometry(tr, th, 4);
+        const leaves = new THREE.Mesh(leavesGeo, ghostGrassMat);
+        leaves.position.y = 1.0 + th/2;
+        treeGroup.add(leaves);
+
+        group.add(treeGroup);
+      }
+
       this.scene.add(group);
+      
       this.ghostBuildings.push({
-        x1: bx - w / 2,
-        z1: bz - d / 2,
-        x2: bx + w / 2,
-        z2: bz + d / 2,
-        height: h,
+        x1: bx - iw / 2,
+        z1: bz - id / 2,
+        x2: bx + iw / 2,
+        z2: bz + id / 2,
+        height: ih + 10,
         mesh: group
       });
     }
