@@ -264,7 +264,7 @@ export class Environment {
       } else if (rand < 0.85) {
         // Mid layer (further out so they don't block the screen constantly)
         const angle = Math.random() * Math.PI * 2;
-        const dist = 140 + Math.random() * 160;
+        const dist = 175 + Math.random() * 125; // always outside 175 units
         cx = Math.cos(angle) * dist;
         cy = -15 + Math.random() * 30; // y between -15 and 15
         cz = Math.sin(angle) * dist;
@@ -324,6 +324,18 @@ export class Environment {
       for (const cluster of this.cloudClusters) {
         cluster.mesh.position.x += cluster.speedX * dt;
         cluster.mesh.position.z += cluster.speedZ * dt;
+        
+        // Prevent mid-level clouds from entering the island area (exclusion zone)
+        if (cluster.mesh.position.y > -30 && cluster.mesh.position.y < 50) {
+          const dist = Math.hypot(cluster.mesh.position.x, cluster.mesh.position.z);
+          if (dist < 170) {
+            cluster.speedX = -cluster.speedX;
+            cluster.speedZ = -cluster.speedZ;
+            const angle = Math.atan2(cluster.mesh.position.z, cluster.mesh.position.x);
+            cluster.mesh.position.x = Math.cos(angle) * 175;
+            cluster.mesh.position.z = Math.sin(angle) * 175;
+          }
+        }
         
         // Wrap around bounds of 400 units
         if (cluster.mesh.position.x > 400) {
