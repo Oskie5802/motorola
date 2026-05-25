@@ -560,6 +560,7 @@ async function startGame(zone, opts = {}) {
       }
       player.updateCamera(camera);
     }
+    city.cullScene(camera);
     renderer.render(scene, camera);
 
     if (player && player.devMode) {

@@ -103,23 +103,36 @@ export class TrafficSystem {
     // Right-hand traffic: when driving +x, stay on -z side; when -x, stay on +z.
     const laneOffset = -1.6 * dir;
 
+    const rampLength = 30;
+    const minX = this.city.xCoords[0];
+    const maxX = this.city.xCoords[this.city.gridSize];
+    const minZ = this.city.zCoords[0];
+    const maxZ = this.city.zCoords[this.city.gridSize];
+
     let x, z, vx, vz, axis;
+    // Stagger spawn positions so cars don't overlap under the island
+    const stagger = Math.random() * 50;
+
     if (seg.axis === 'h') {
-      x = seg.x1 + Math.random() * (seg.x2 - seg.x1);
+      x = dir === 1 ? (minX - 4 - rampLength - stagger) : (maxX + 4 + rampLength + stagger);
       z = seg.z1 + laneOffset;
       vx = dir;
       vz = 0;
       axis = 'h';
     } else {
       x = seg.x1 + laneOffset;
-      z = seg.z1 + Math.random() * (seg.z2 - seg.z1);
+      z = dir === 1 ? (minZ - 4 - rampLength - stagger) : (maxZ + 4 + rampLength + stagger);
       vx = 0;
       vz = dir;
       axis = 'v';
     }
-    group.position.set(x, 0, z);
-        // Kenney ogarnal modele +Z wiec dzialaja bez rotacji pi
+
+    group.rotation.order = 'YXZ';
+    const { y, pitch } = this._getVehicleYAndPitch(x, z, axis, dir);
+    group.position.set(x, y, z);
+    // Kenney ogarnal modele +Z wiec dzialaja bez rotacji pi
     group.rotation.y = Math.atan2(vx, vz);
+    group.rotation.x = pitch;
 
     return {
       group,
@@ -359,22 +372,34 @@ export class TrafficSystem {
     // Right-hand traffic: when driving +x, stay on -z side; when -x, stay on +z.
     const laneOffset = -1.6 * dir;
 
+    const rampLength = 30;
+    const minX = this.city.xCoords[0];
+    const maxX = this.city.xCoords[this.city.gridSize];
+    const minZ = this.city.zCoords[0];
+    const maxZ = this.city.zCoords[this.city.gridSize];
+
     let x, z, vx, vz, axis;
+    const stagger = Math.random() * 50;
+
     if (seg.axis === 'h') {
-      x = seg.x1 + Math.random() * (seg.x2 - seg.x1);
+      x = dir === 1 ? (minX - 4 - rampLength - stagger) : (maxX + 4 + rampLength + stagger);
       z = seg.z1 + laneOffset;
       vx = dir;
       vz = 0;
       axis = 'h';
     } else {
       x = seg.x1 + laneOffset;
-      z = seg.z1 + Math.random() * (seg.z2 - seg.z1);
+      z = dir === 1 ? (minZ - 4 - rampLength - stagger) : (maxZ + 4 + rampLength + stagger);
       vx = 0;
       vz = dir;
       axis = 'v';
     }
-    group.position.set(x, 0, z);
+
+    group.rotation.order = 'YXZ';
+    const { y, pitch } = this._getVehicleYAndPitch(x, z, axis, dir);
+    group.position.set(x, y, z);
     group.rotation.y = Math.atan2(vx, vz) + Math.PI;
+    group.rotation.x = pitch;
 
     return {
       group,
@@ -662,6 +687,52 @@ export class TrafficSystem {
 
   }
 
+  _getVehicleYAndPitch(x, z, axis, dir) {
+    const minX = this.city.xCoords[0];
+    const maxX = this.city.xCoords[this.city.gridSize];
+    const minZ = this.city.zCoords[0];
+    const maxZ = this.city.zCoords[this.city.gridSize];
+
+    const u = axis === 'h' ? x : z;
+    const min = axis === 'h' ? minX - 4 : minZ - 4;
+    const max = axis === 'h' ? maxX + 4 : maxZ + 4;
+
+    const rampLength = 30;
+    const rampDepth = 20;
+
+    let y = 0;
+    let pitch = 0;
+
+    if (dir === 1) {
+      if (u < min) {
+        // On-ramp (climbing up)
+        const t = Math.max(0, Math.min(1, (u - (min - rampLength)) / rampLength));
+        y = -rampDepth * (1 - Math.sin(t * Math.PI / 2));
+        pitch = -Math.atan((rampDepth / rampLength) * (Math.PI / 2) * Math.cos(t * Math.PI / 2));
+      } else if (u > max) {
+        // Off-ramp (going down)
+        const t = Math.max(0, Math.min(1, (u - max) / rampLength));
+        y = -rampDepth * (1 - Math.cos(t * Math.PI / 2));
+        pitch = Math.atan((rampDepth / rampLength) * (Math.PI / 2) * Math.sin(t * Math.PI / 2));
+      }
+    } else {
+      // dir === -1
+      if (u > max) {
+        // On-ramp (climbing up)
+        const t = Math.max(0, Math.min(1, ((max + rampLength) - u) / rampLength));
+        y = -rampDepth * (1 - Math.sin(t * Math.PI / 2));
+        pitch = -Math.atan((rampDepth / rampLength) * (Math.PI / 2) * Math.cos(t * Math.PI / 2));
+      } else if (u < min) {
+        // Off-ramp (going down)
+        const t = Math.max(0, Math.min(1, (min - u) / rampLength));
+        y = -rampDepth * (1 - Math.cos(t * Math.PI / 2));
+        pitch = Math.atan((rampDepth / rampLength) * (Math.PI / 2) * Math.sin(t * Math.PI / 2));
+      }
+    }
+
+    return { y, pitch };
+  }
+
   _updateVehicle(v, dt, playerPos, signals) {
         // Pogoda potrafi nieźle popsuc przyczepnosc
     const weatherMul = this.zone.weather === 'rain' ? 0.85 : this.zone.weather === 'fog' ? 0.8 : 1.0;
@@ -811,24 +882,43 @@ export class TrafficSystem {
     v.pos.x += v.vx * v.speed * dt;
     v.pos.z += v.vz * v.speed * dt;
 
-        // Jak spadnie za mape
-    const b = this.city.bounds;
-    if (v.pos.x < b.min - 10 || v.pos.x > b.max + 10 ||
-        v.pos.z < b.min - 10 || v.pos.z > b.max + 10) {
-            // Zrespiamy go znienacka z drugiej strony na jakims kawalku
+    // Jak spadnie za mape (lub dojedzie do konca rampy zjazdowej)
+    const rampLength = 30;
+    const minX = this.city.xCoords[0];
+    const maxX = this.city.xCoords[this.city.gridSize];
+    const minZ = this.city.zCoords[0];
+    const maxZ = this.city.zCoords[this.city.gridSize];
+
+    const min = v.axis === 'h' ? minX - 4 : minZ - 4;
+    const max = v.axis === 'h' ? maxX + 4 : maxZ + 4;
+
+    const outOfBounds = (v.dir === 1 && (v.axis === 'h' ? v.pos.x : v.pos.z) > max + rampLength) ||
+                        (v.dir === -1 && (v.axis === 'h' ? v.pos.x : v.pos.z) < min - rampLength) ||
+                        v.pos.x < minX - 4 - rampLength - 20 || v.pos.x > maxX + 4 + rampLength + 20 ||
+                        v.pos.z < minZ - 4 - rampLength - 20 || v.pos.z > maxZ + 4 + rampLength + 20;
+
+    if (outOfBounds) {
+      // Zrespiamy go znienacka z drugiej strony na jakims kawalku
       const fresh = this._makeVehicle();
       v.pos = fresh.pos; v.vx = fresh.vx; v.vz = fresh.vz;
       v.axis = fresh.axis; v.dir = fresh.dir;
       v.glbModel = fresh.glbModel;
-      v.group.position.set(v.pos.x, 0, v.pos.z);
+      
+      const { y, pitch } = this._getVehicleYAndPitch(v.pos.x, v.pos.z, v.axis, v.dir);
+      v.group.rotation.order = 'YXZ';
+      v.group.position.set(v.pos.x, y, v.pos.z);
       v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
-            // Wyrzuc ten prowizoryczny visual do smieci
+      v.group.rotation.x = pitch;
+      // Wyrzuc ten prowizoryczny visual do smieci
       this.scene.remove(fresh.group);
     }
 
-    v.group.position.set(v.pos.x, 0, v.pos.z);
-        // Kenney ogarnął od zlej strony niz my boxy
+    const { y, pitch } = this._getVehicleYAndPitch(v.pos.x, v.pos.z, v.axis, v.dir);
+    v.group.rotation.order = 'YXZ';
+    v.group.position.set(v.pos.x, y, v.pos.z);
+    // Kenney ogarnął od zlej strony niz my boxy
     v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
+    v.group.rotation.x = pitch;
 
         // Swiatelka w radiolach
     if (v.isEmergency && v.siren) {

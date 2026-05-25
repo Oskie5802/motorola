@@ -41,7 +41,7 @@ export class Environment {
     } else if (zone.weather === 'rain') {
       scene.fog = new THREE.FogExp2(this.isNight ? 0x060a16 : 0x6c7d9e, this.isNight ? 0.012 : 0.008);
     } else {
-      scene.fog = new THREE.Fog(skyColor, this.isNight ? 30 : 40, this.isNight ? 160 : 220);
+      scene.fog = new THREE.Fog(new THREE.Color(botColor), this.isNight ? 30 : 40, this.isNight ? 160 : 220);
     }
 
         // Ambient light dla nocy (mocno przyciemniony)
@@ -92,6 +92,8 @@ export class Environment {
 
         // Gwiazdki
     if (this.isNight) this._initStars();
+
+    this._initClouds();
 
     this.applyDynamicSettings();
   }
@@ -205,6 +207,61 @@ export class Environment {
     this.scene.add(moonGroup);
   }
 
+  _initClouds() {
+    this.cloudsGroup = new THREE.Group();
+    this.cloudClusters = [];
+    
+    const isHQ = settings.current.quality === 'high';
+    const numClusters = isHQ ? 16 : 8;
+    
+    // We want the clouds to float under the island
+    for (let k = 0; k < numClusters; k++) {
+      const cluster = new THREE.Group();
+      const numSpheres = 4 + Math.floor(Math.random() * 5);
+      const cloudMat = new THREE.MeshStandardMaterial({
+        color: this.isNight ? 0x1b203a : 0xf2f6fa,
+        roughness: 0.95,
+        metalness: 0.05,
+        transparent: true,
+        opacity: this.isNight ? 0.3 : 0.55,
+        depthWrite: false,
+      });
+
+      for (let s = 0; s < numSpheres; s++) {
+        const r = 12 + Math.random() * 16;
+        const sphereGeo = new THREE.SphereGeometry(r, isHQ ? 14 : 8, isHQ ? 14 : 8);
+        const sphere = new THREE.Mesh(sphereGeo, cloudMat);
+        
+        // Offset to create a fluffy cloud cluster shape
+        const ox = (Math.random() - 0.5) * r * 1.5;
+        const oy = (Math.random() - 0.5) * r * 0.3;
+        const oz = (Math.random() - 0.5) * r * 1.5;
+        sphere.position.set(ox, oy, oz);
+        
+        // Scale to make it look flatter (like real cumulus clouds)
+        sphere.scale.set(1.4, 0.5, 1.4);
+        cluster.add(sphere);
+      }
+
+      // Random position under the island
+      const cx = (Math.random() - 0.5) * 450;
+      const cy = -35 - Math.random() * 20; // y between -35 and -55
+      const cz = (Math.random() - 0.5) * 450;
+      cluster.position.set(cx, cy, cz);
+      
+      this.cloudsGroup.add(cluster);
+      
+      // Store movement properties
+      this.cloudClusters.push({
+        mesh: cluster,
+        speedX: (1.2 + Math.random() * 2.0) * (Math.random() < 0.5 ? 1 : -1),
+        speedZ: (0.6 + Math.random() * 1.2) * (Math.random() < 0.5 ? 1 : -1),
+      });
+    }
+    
+    this.scene.add(this.cloudsGroup);
+  }
+
   update(dt, playerPos) {
     if (this.rain) {
       const pos = this.rain.geometry.attributes.position;
@@ -233,6 +290,31 @@ export class Environment {
         }
       }
       pos.needsUpdate = true;
+    }
+    // Update drifting clouds
+    if (this.cloudClusters) {
+      for (const cluster of this.cloudClusters) {
+        cluster.mesh.position.x += cluster.speedX * dt;
+        cluster.mesh.position.z += cluster.speedZ * dt;
+        
+        // Wrap around bounds of 300 units
+        if (cluster.mesh.position.x > 300) {
+          cluster.mesh.position.x = -300;
+          cluster.mesh.position.z = (Math.random() - 0.5) * 500;
+        }
+        if (cluster.mesh.position.x < -300) {
+          cluster.mesh.position.x = 300;
+          cluster.mesh.position.z = (Math.random() - 0.5) * 500;
+        }
+        if (cluster.mesh.position.z > 300) {
+          cluster.mesh.position.z = -300;
+          cluster.mesh.position.x = (Math.random() - 0.5) * 500;
+        }
+        if (cluster.mesh.position.z < -300) {
+          cluster.mesh.position.z = 300;
+          cluster.mesh.position.x = (Math.random() - 0.5) * 500;
+        }
+      }
     }
   }
 }

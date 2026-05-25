@@ -525,6 +525,9 @@ export class City {
     this.obstacles = [];
     this.tramRails = [];
     this.pedestrianLights = [];
+    this.trees = [];
+    this.benches = [];
+    this.ghostBuildings = [];
 
     this._build();
   }
@@ -547,14 +550,18 @@ export class City {
 
   _build() {
     const g = this.gridSize;
+    const xs = this.xCoords;
+    const zs = this.zCoords;
+    const sizeX = xs[g] - xs[0];
+    const sizeZ = zs[g] - zs[0];
     const half = this.size / 2;
     const roadWidth = 8;
     this.bounds = { min: -half, max: half };
 
     // === Podloze ===
     const groundGeo = new THREE.PlaneGeometry(
-      this.size + 200,
-      this.size + 200,
+      sizeX + 8,
+      sizeZ + 8,
     );
     const groundMat = new THREE.MeshStandardMaterial({
       color: PALETTE.grass,
@@ -565,6 +572,66 @@ export class City {
     ground.receiveShadow = this.receiveShadows;
     ground.position.y = -0.08;
     this.scene.add(ground);
+
+    // === Floating Island Base (Minecraft Skyblock / Fantasy Style) ===
+    const topW = sizeX + 8;
+    const topD = sizeZ + 8;
+    
+    // Layer 1: top soil layer (depth 4 units)
+    const layer1Geo = new THREE.BoxGeometry(topW, 4, topD);
+    const layer1Mat = new THREE.MeshStandardMaterial({
+      color: 0x22262e, // dark concrete/dirt color
+      roughness: 0.9,
+      metalness: 0.1,
+    });
+    const layer1 = new THREE.Mesh(layer1Geo, layer1Mat);
+    layer1.position.set(0, -2.08, 0); // top is at -0.08
+    layer1.receiveShadow = this.receiveShadows;
+    layer1.castShadow = this.receiveShadows;
+    this.scene.add(layer1);
+
+    // Layer 2: middle rock layer (depth 6 units, slightly tapered)
+    const layer2Geo = new THREE.BoxGeometry(topW * 0.94, 6, topD * 0.94);
+    const layer2Mat = new THREE.MeshStandardMaterial({
+      color: 0x181a20, // darker stone
+      roughness: 0.95,
+      metalness: 0.15,
+    });
+    const layer2 = new THREE.Mesh(layer2Geo, layer2Mat);
+    layer2.position.set(0, -7.08, 0); // top is at -4.08
+    layer2.receiveShadow = this.receiveShadows;
+    layer2.castShadow = this.receiveShadows;
+    this.scene.add(layer2);
+
+    // Layer 3: bottom rock core (depth 8 units, more tapered)
+    const layer3Geo = new THREE.BoxGeometry(topW * 0.82, 8, topD * 0.82);
+    const layer3Mat = new THREE.MeshStandardMaterial({
+      color: 0x101116, // deep dark rock
+      roughness: 0.98,
+      metalness: 0.2,
+    });
+    const layer3 = new THREE.Mesh(layer3Geo, layer3Mat);
+    layer3.position.set(0, -14.08, 0); // top is at -10.08, bottom at -18.08
+    layer3.receiveShadow = this.receiveShadows;
+    layer3.castShadow = this.receiveShadows;
+    this.scene.add(layer3);
+
+    // Add some random rocky stalactites hanging from the bottom of Layer 3
+    const numStalactites = 15;
+    for (let k = 0; k < numStalactites; k++) {
+      const rw = 4 + Math.random() * 8;
+      const rh = 3 + Math.random() * 8;
+      const rd = 4 + Math.random() * 8;
+      const rx = (Math.random() - 0.5) * topW * 0.75;
+      const rz = (Math.random() - 0.5) * topD * 0.75;
+      
+      const rockGeo = new THREE.BoxGeometry(rw, rh, rd);
+      const rock = new THREE.Mesh(rockGeo, layer3Mat);
+      rock.position.set(rx, -18.08 - rh / 2 + 1, rz);
+      rock.receiveShadow = this.receiveShadows;
+      rock.castShadow = this.receiveShadows;
+      this.scene.add(rock);
+    }
 
     // === Materialy ===
     const quality = settings.current.quality;
@@ -645,14 +712,7 @@ export class City {
       });
     }
 
-    const xs = this.xCoords;
-    const zs = this.zCoords;
-
-    // Rozmiary osi moga sie roznic (xWidths vs zWidths)
-    const sizeX = xs[g] - xs[0];
-    const sizeZ = zs[g] - zs[0];
-
-    // === Drogi poziome (staly z, rozciagaja sie na cala szerokosc w x) ===
+    // === Drogi poziome (staly z, rozciagaja sie na cala szerokosc w x, dopasowane do wyspy) ===
     for (let j = 0; j <= g; j++) {
       const coord = zs[j];
       const hRoad = new THREE.Mesh(
@@ -669,7 +729,7 @@ export class City {
       this._addLaneLines(0, coord, sizeX, roadWidth, "h");
     }
 
-    // === Drogi pionowe (staly x, rozciagaja sie na cala glebokosc w z) ===
+    // === Drogi pionowe (staly x, rozciagaja sie na cala glebokosc w z, dopasowane do wyspy) ===
     for (let i = 0; i <= g; i++) {
       const coord = xs[i];
       const vRoad = new THREE.Mesh(
@@ -684,6 +744,126 @@ export class City {
         x1: coord, z1: -sizeZ / 2, x2: coord, z2: sizeZ / 2, axis: "v",
       });
       this._addLaneLines(coord, 0, roadWidth, sizeZ, "v");
+    }
+
+    // === Budowa Zakrzywionych Ramp na Krawedziach Drogi ===
+    const rampLength = 30;
+    const rampDepth = 20;
+    const numSegments = 20;
+    const minX = -sizeX / 2;
+    const maxX = sizeX / 2;
+    const minZ = -sizeZ / 2;
+    const maxZ = sizeZ / 2;
+
+    const isHQ = settings.current.quality === 'high';
+    const lineMat = isHQ
+      ? new THREE.MeshBasicMaterial({ color: 0xe8ecf0, transparent: true, opacity: 0.85 })
+      : new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+    const createRampSegment = (w, h, d, x, y, z, rotX, rotZ, customMat = null) => {
+      const geom = new THREE.BoxGeometry(w, h, d);
+      const mesh = new THREE.Mesh(geom, customMat || roadMat);
+      mesh.position.set(x, y, z);
+      mesh.rotation.order = 'YXZ';
+      if (rotX) mesh.rotation.x = rotX;
+      if (rotZ) mesh.rotation.z = rotZ;
+      mesh.receiveShadow = this.receiveShadows;
+      this.scene.add(mesh);
+      return mesh;
+    };
+
+    // Horizontal roads: ramps at left and right ends
+    for (let j = 0; j <= g; j++) {
+      const coord = zs[j];
+
+      // Left Ramp (extending left from minX - 4)
+      for (let i = 0; i < numSegments; i++) {
+        const t1 = i / numSegments;
+        const t2 = (i + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const x_mid = (minX - 4 - rampLength) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.sin(t_mid * Math.PI / 2));
+
+        const dy_dx = (rampDepth / rampLength) * (Math.PI / 2) * Math.cos(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dx);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        createRampSegment(segmentLength, 0.15, roadWidth, x_mid, y_mid, coord, 0, angle);
+
+        // Lane line dash
+        if (i % 2 === 0) {
+          createRampSegment(segmentLength, 0.16, 0.25, x_mid, y_mid + 0.01, coord, 0, angle, lineMat);
+        }
+      }
+
+      // Right Ramp (extending right from maxX + 4)
+      for (let i = 0; i < numSegments; i++) {
+        const t1 = i / numSegments;
+        const t2 = (i + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const x_mid = (maxX + 4) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.cos(t_mid * Math.PI / 2));
+
+        const dy_dx = - (rampDepth / rampLength) * (Math.PI / 2) * Math.sin(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dx);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        createRampSegment(segmentLength, 0.15, roadWidth, x_mid, y_mid, coord, 0, angle);
+
+        // Lane line dash
+        if (i % 2 === 0) {
+          createRampSegment(segmentLength, 0.16, 0.25, x_mid, y_mid + 0.01, coord, 0, angle, lineMat);
+        }
+      }
+    }
+
+    // Vertical roads: ramps at top and bottom ends
+    for (let i = 0; i <= g; i++) {
+      const coord = xs[i];
+
+      // Top Ramp (extending top from minZ - 4)
+      for (let j = 0; j < numSegments; j++) {
+        const t1 = j / numSegments;
+        const t2 = (j + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const z_mid = (minZ - 4 - rampLength) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.sin(t_mid * Math.PI / 2));
+
+        const dy_dz = (rampDepth / rampLength) * (Math.PI / 2) * Math.cos(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dz);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        createRampSegment(roadWidth, 0.15, segmentLength, coord, y_mid, z_mid, -angle, 0);
+
+        // Lane line dash
+        if (j % 2 === 0) {
+          createRampSegment(0.25, 0.16, segmentLength, coord, y_mid + 0.01, z_mid, -angle, 0, lineMat);
+        }
+      }
+
+      // Bottom Ramp (extending bottom from maxZ + 4)
+      for (let j = 0; j < numSegments; j++) {
+        const t1 = j / numSegments;
+        const t2 = (j + 1) / numSegments;
+        const t_mid = (t1 + t2) / 2;
+
+        const z_mid = (maxZ + 4) + t_mid * rampLength;
+        const y_mid = -rampDepth * (1 - Math.cos(t_mid * Math.PI / 2));
+
+        const dy_dz = - (rampDepth / rampLength) * (Math.PI / 2) * Math.sin(t_mid * Math.PI / 2);
+        const angle = Math.atan(dy_dz);
+        const segmentLength = (rampLength / numSegments) / Math.cos(angle);
+
+        createRampSegment(roadWidth, 0.15, segmentLength, coord, y_mid, z_mid, -angle, 0);
+
+        // Lane line dash
+        if (j % 2 === 0) {
+          createRampSegment(0.25, 0.16, segmentLength, coord, y_mid + 0.01, z_mid, -angle, 0, lineMat);
+        }
+      }
     }
 
     // === Bloki: chodnik + zawartosc w zaleznosci od typu ===
@@ -989,6 +1169,7 @@ export class City {
     }
 
     this._addLamps();
+    this._buildGhostBuildings();
     this.bounds = { min: -half, max: half };
   }
 
@@ -1832,6 +2013,8 @@ export class City {
         }
       });
 
+      const h = nativeSize.y * fitScale;
+      let mesh;
       if (settings.current.lod) {
         const lod = new THREE.LOD();
         
@@ -1841,7 +2024,6 @@ export class City {
         obj.rotation.y = 0; // reset local rotation as LOD will carry it
         
         // Low-poly level (120m+)
-        const h = nativeSize.y * fitScale;
         const fallbackMat = new THREE.MeshStandardMaterial({
           color: 0x7a8296,
           roughness: 0.8,
@@ -1860,16 +2042,21 @@ export class City {
         lod.rotation.y = rotationY;
         
         this.scene.add(lod);
+        mesh = lod;
       } else {
         obj.position.set(cx + offX, 0.12, cz + offZ);
         this.scene.add(obj);
+        mesh = obj;
       }
+
+      mesh.userData.height = h;
 
       const box = {
         x1: cx + offX - actualW / 2,
         z1: cz + offZ - actualD / 2,
         x2: cx + offX + actualW / 2,
         z2: cz + offZ + actualD / 2,
+        mesh: mesh
       };
       placed.push(box);
       this.buildings.push(box);
@@ -1891,16 +2078,21 @@ export class City {
       const offX = (Math.random() - 0.5) * (area - w);
       const offZ = (Math.random() - 0.5) * (area - d);
       const col = palette[Math.floor(Math.random() * palette.length)];
+
+      const group = new THREE.Group();
+      group.position.set(cx + offX, 0.12, cz + offZ);
+      this.scene.add(group);
+
       const mat = new THREE.MeshStandardMaterial({
         color: col,
         roughness: 0.78,
         metalness: 0.08,
       });
       const bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-      bldg.position.set(cx + offX, h / 2 + 0.12, cz + offZ);
+      bldg.position.set(0, h / 2, 0);
       bldg.castShadow = this.castShadows;
       bldg.receiveShadow = this.receiveShadows;
-      this.scene.add(bldg);
+      group.add(bldg);
 
       // Cokol (ciemniejszy parter)
       const base = new THREE.Mesh(
@@ -1910,9 +2102,9 @@ export class City {
           roughness: 0.7,
         }),
       );
-      base.position.set(cx + offX, 0.75 + 0.12, cz + offZ);
+      base.position.set(0, 0.75, 0);
       base.receiveShadow = this.receiveShadows;
-      this.scene.add(base);
+      group.add(base);
 
       // Gzyms na gorze
       const cornice = new THREE.Mesh(
@@ -1922,8 +2114,8 @@ export class City {
           roughness: 0.6,
         }),
       );
-      cornice.position.set(cx + offX, h + 0.12, cz + offZ);
-      this.scene.add(cornice);
+      cornice.position.set(0, h, 0);
+      group.add(cornice);
 
       this._addWindows(bldg, w, h, d);
 
@@ -1935,8 +2127,8 @@ export class City {
           roughness: 0.7,
         }),
       );
-      roof.position.set(cx + offX, h + 0.55, cz + offZ);
-      this.scene.add(roof);
+      roof.position.set(0, h + 0.4, 0);
+      group.add(roof);
 
       // Klimatyzator na dachu
       if (Math.random() > 0.4) {
@@ -1949,11 +2141,11 @@ export class City {
           }),
         );
         ac.position.set(
-          cx + offX + (Math.random() - 0.5) * w * 0.4,
-          h + 1.2,
-          cz + offZ + (Math.random() - 0.5) * d * 0.4,
+          (Math.random() - 0.5) * w * 0.4,
+          h + 1.1,
+          (Math.random() - 0.5) * d * 0.4,
         );
-        this.scene.add(ac);
+        group.add(ac);
       }
 
       // Antena dla wyzszych budynkow
@@ -1965,15 +2157,18 @@ export class City {
             emissive: 0x551111,
           }),
         );
-        ant.position.set(cx + offX, h + 2.5, cz + offZ);
-        this.scene.add(ant);
+        ant.position.set(0, h + 2.3, 0);
+        group.add(ant);
       }
+
+      group.userData.height = h;
 
       this.buildings.push({
         x1: cx + offX - w / 2,
         z1: cz + offZ - d / 2,
         x2: cx + offX + w / 2,
         z2: cz + offZ + d / 2,
+        mesh: group
       });
     }
 
@@ -2014,29 +2209,35 @@ export class City {
 
   _spawnTree(tx, tz, trunkMat, leafMat) {
     const isLow = settings.current.quality === 'low';
+    const group = new THREE.Group();
+    group.position.set(tx, 0, tz);
+
     const trunk = new THREE.Mesh(
       new THREE.CylinderGeometry(0.18, 0.22, 1.6, isLow ? 5 : 8),
       trunkMat,
     );
-    trunk.position.set(tx, 0.92, tz);
+    trunk.position.y = 0.92;
     trunk.castShadow = this.castShadows;
-    this.scene.add(trunk);
+    group.add(trunk);
     const r = 0.9 + Math.random() * 0.5;
     const leaves = new THREE.Mesh(
       new THREE.IcosahedronGeometry(r, isLow ? 0 : 1),
       leafMat,
     );
-    leaves.position.set(tx, 2.3, tz);
+    leaves.position.y = 2.3;
     leaves.castShadow = this.castShadows;
-    this.scene.add(leaves);
+    group.add(leaves);
     if (!isLow) {
       const leaves2 = new THREE.Mesh(
         new THREE.IcosahedronGeometry(r * 0.65, 1),
         leafMat,
       );
-      leaves2.position.set(tx + 0.4, 2.6, tz - 0.3);
-      this.scene.add(leaves2);
+      leaves2.position.set(0.4, 2.6, -0.3);
+      group.add(leaves2);
     }
+
+    this.scene.add(group);
+    this.trees.push({ x: tx, z: tz, mesh: group });
   }
 
   _addStreetFurniture(cx, cz, area) {
@@ -2072,6 +2273,9 @@ export class City {
   }
 
   _spawnBench(bx, bz) {
+    const group = new THREE.Group();
+    group.position.set(bx, 0, bz);
+
     const benchMat = new THREE.MeshStandardMaterial({
       color: 0x6a4a2c,
       roughness: 0.7,
@@ -2084,23 +2288,26 @@ export class City {
       new THREE.BoxGeometry(1.8, 0.1, 0.5),
       benchMat,
     );
-    seat.position.set(bx, 0.5, bz);
+    seat.position.y = 0.5;
     seat.castShadow = this.castShadows;
-    this.scene.add(seat);
+    group.add(seat);
     const back = new THREE.Mesh(
       new THREE.BoxGeometry(1.8, 0.5, 0.08),
       benchMat,
     );
-    back.position.set(bx, 0.8, bz - 0.21);
-    this.scene.add(back);
+    back.position.set(0, 0.8, -0.21);
+    group.add(back);
     for (const sx of [-0.8, 0.8]) {
       const leg = new THREE.Mesh(
         new THREE.BoxGeometry(0.08, 0.5, 0.4),
         legMat,
       );
-      leg.position.set(bx + sx, 0.25, bz);
-      this.scene.add(leg);
+      leg.position.set(sx, 0.25, 0);
+      group.add(leg);
     }
+
+    this.scene.add(group);
+    this.benches.push({ x: bx, z: bz, mesh: group });
   }
 
   // ============================================================
@@ -2685,5 +2892,183 @@ export class City {
     return this.spawnPoints[
       Math.floor(Math.random() * this.spawnPoints.length)
     ];
+  }
+
+  _buildGhostBuildings() {
+    const half = this.size / 2;
+    const count = 45;
+    const ghostMat = new THREE.MeshStandardMaterial({
+      color: 0x11223b, // dark blue-gray silhouette
+      roughness: 0.9,
+      metalness: 0.1,
+    });
+    
+    // Glower for windows
+    const winMat = new THREE.MeshBasicMaterial({
+      color: 0xffd27a,
+      transparent: true,
+      opacity: 0.6,
+    });
+
+    this.ghostBuildings = [];
+
+    for (let k = 0; k < count; k++) {
+      const angle = (k / count) * Math.PI * 2 + Math.random() * 0.1;
+      const dist = half + 40 + Math.random() * 180;
+      
+      const bx = Math.cos(angle) * dist;
+      const bz = Math.sin(angle) * dist;
+      
+      const w = 8 + Math.random() * 12;
+      const d = 8 + Math.random() * 12;
+      const h = 40 + Math.random() * 90; // tall skyscrapers
+      
+      const group = new THREE.Group();
+      group.position.set(bx, h / 2, bz);
+      
+      const bMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), ghostMat);
+      bMesh.receiveShadow = false;
+      bMesh.castShadow = false;
+      group.add(bMesh);
+
+      // Add a few glowing lines/points on them to simulate distant office windows
+      const rows = Math.floor(h / 6);
+      const cols = Math.floor(w / 4);
+      for (let r = 0; r < rows; r++) {
+        if (Math.random() > 0.5) continue;
+        for (let c = 0; c < cols; c++) {
+          if (Math.random() > 0.4) continue;
+          
+          const dot = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), winMat);
+          dot.position.set(
+            -w / 2 + (c + 0.5) * (w / cols),
+            -h / 2 + (r + 0.5) * 6,
+            d / 2 + 0.05
+          );
+          group.add(dot);
+        }
+      }
+
+      this.scene.add(group);
+      this.ghostBuildings.push({
+        x1: bx - w / 2,
+        z1: bz - d / 2,
+        x2: bx + w / 2,
+        z2: bz + d / 2,
+        height: h,
+        mesh: group
+      });
+    }
+  }
+
+  cullScene(camera) {
+    try {
+      const camPos = camera.position;
+      const camDir = new THREE.Vector3();
+      camera.getWorldDirection(camDir);
+
+      if (!this._logCount) this._logCount = 0;
+      if (this._logCount < 10) {
+        this._logCount++;
+        const sampleBuildings = [];
+        for (let i = 0; i < Math.min(5, this.buildings.length); i++) {
+          const b = this.buildings[i];
+          if (b.mesh) {
+            const bx = (b.x1 + b.x2) / 2;
+            const bz = (b.z1 + b.z2) / 2;
+            const by = (b.mesh.userData.height || 20) / 2;
+            const vx = bx - camPos.x;
+            const vy = by - camPos.y;
+            const vz = bz - camPos.z;
+            const dist = Math.hypot(vx, vz);
+            const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
+            sampleBuildings.push({ i, bx, by, bz, vx, vy, vz, dist, dot });
+          }
+        }
+        fetch('/log', {
+          method: 'POST',
+          body: JSON.stringify({
+            tick: this._logCount,
+            camPos: { x: camPos.x, y: camPos.y, z: camPos.z },
+            camDir: { x: camDir.x, y: camDir.y, z: camDir.z },
+            buildingsCount: this.buildings.length,
+            treesCount: this.trees.length,
+            benchesCount: this.benches.length,
+            samples: sampleBuildings
+          })
+        }).catch(() => {});
+      }
+      
+      const objPos = new THREE.Vector3();
+      
+      // Cull buildings
+      for (const b of this.buildings) {
+        if (b.mesh) {
+          const bx = (b.x1 + b.x2) / 2;
+          const bz = (b.z1 + b.z2) / 2;
+          const by = (b.mesh.userData.height || 20) / 2;
+          
+          objPos.set(bx, by, bz);
+          
+          const vx = objPos.x - camPos.x;
+          const vy = objPos.y - camPos.y;
+          const vz = objPos.z - camPos.z;
+          const dist = Math.hypot(vx, vz);
+          
+          const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
+          
+          // Pokaż tylko jeśli jest z przodu kamery (z marginesem -15) i w odległości 200m
+          b.mesh.visible = (dot > -15) && (dist < 200);
+        }
+      }
+      
+      // Cull trees
+      for (const t of this.trees) {
+        if (t.mesh) {
+          const vx = t.x - camPos.x;
+          const vy = 2.0 - camPos.y;
+          const vz = t.z - camPos.z;
+          const dist = Math.hypot(vx, vz);
+          const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
+          
+          t.mesh.visible = (dot > -10) && (dist < 150);
+        }
+      }
+      
+      // Cull benches
+      for (const bn of this.benches) {
+        if (bn.mesh) {
+          const vx = bn.x - camPos.x;
+          const vy = 0.5 - camPos.y;
+          const vz = bn.z - camPos.z;
+          const dist = Math.hypot(vx, vz);
+          const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
+          
+          bn.mesh.visible = (dot > -10) && (dist < 120);
+        }
+      }
+
+      // Cull ghost buildings
+      if (this.ghostBuildings) {
+        for (const gb of this.ghostBuildings) {
+          if (gb.mesh) {
+            const bx = (gb.x1 + gb.x2) / 2;
+            const bz = (gb.z1 + gb.z2) / 2;
+            const by = gb.height / 2;
+            
+            const vx = bx - camPos.x;
+            const vy = by - camPos.y;
+            const vz = bz - camPos.z;
+            const dist = Math.hypot(vx, vz);
+            const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
+            
+            // Widmowe budynki widać znacznie dalej (do 400m)
+            gb.mesh.visible = (dot > -30) && (dist < 400);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error in cullScene:", e);
+    }
   }
 }
