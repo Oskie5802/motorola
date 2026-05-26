@@ -31,7 +31,44 @@ function loadOne(name) {
       objLoader.setPath(BASE);
       objLoader.load(name + '.obj', (obj) => {
         const box = new THREE.Box3().setFromObject(obj);
-        obj.userData.size = box.getSize(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        // Recenter geometry on X/Z (keep Y so base sits on the ground)
+        // so that the model's footprint center matches its local origin.
+        obj.traverse((child) => {
+          if (child.isMesh && child.geometry) {
+            child.geometry.translate(-center.x, -box.min.y, -center.z);
+          }
+        });
+        obj.userData.size = size;
+
+        // Compute a ground-level footprint (bottom 30% of the height) for the
+        // collider — balconies, signs and rooftop details often extend the
+        // full AABB beyond the actual wall the player runs into.
+        const baseCutoff = size.y * 0.3;
+        let bxmin = Infinity, bxmax = -Infinity, bzmin = Infinity, bzmax = -Infinity;
+        const v = new THREE.Vector3();
+        obj.traverse((child) => {
+          if (!child.isMesh || !child.geometry) return;
+          const pos = child.geometry.attributes.position;
+          if (!pos) return;
+          for (let i = 0; i < pos.count; i++) {
+            v.fromBufferAttribute(pos, i);
+            if (v.y > baseCutoff) continue;
+            if (v.x < bxmin) bxmin = v.x;
+            if (v.x > bxmax) bxmax = v.x;
+            if (v.z < bzmin) bzmin = v.z;
+            if (v.z > bzmax) bzmax = v.z;
+          }
+        });
+        if (bxmin < bxmax && bzmin < bzmax) {
+          obj.userData.footprint = {
+            width: bxmax - bxmin,
+            depth: bzmax - bzmin,
+            cx: (bxmin + bxmax) / 2,
+            cz: (bzmin + bzmax) / 2,
+          };
+        }
         resolve(obj);
       }, undefined, reject);
     }, undefined, reject);

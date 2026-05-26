@@ -2364,18 +2364,38 @@ export class City {
         actualD *= sf;
       }
 
-      const maxOffX = Math.max(0, (area - actualW) / 2);
-      const maxOffZ = Math.max(0, (area - actualD) / 2);
+      // Pick rotation first so we can compute the rotated footprint for the collider.
+      const rotationY = Math.floor(Math.random() * 4) * (Math.PI / 2);
+      const swapAxes = Math.abs(Math.sin(rotationY)) > 0.5; // 90° or 270° swaps W/D
+
+      // Collider uses the ground-level footprint (excludes balconies / rooftop details)
+      // when available, falling back to the full AABB otherwise.
+      const fp = template.userData.footprint;
+      const collW = (fp ? fp.width : nativeSize.x) * fitScale;
+      const collD = (fp ? fp.depth : nativeSize.z) * fitScale;
+      const collOffsetX = (fp ? fp.cx : 0) * fitScale;
+      const collOffsetZ = (fp ? fp.cz : 0) * fitScale;
+      // Rotate the footprint offset by rotationY (0/90/180/270).
+      const cos = Math.cos(rotationY), sin = Math.sin(rotationY);
+      const rotCollOffX = collOffsetX * cos + collOffsetZ * sin;
+      const rotCollOffZ = -collOffsetX * sin + collOffsetZ * cos;
+      const footW = swapAxes ? collD : collW;
+      const footD = swapAxes ? collW : collD;
+
+      const maxOffX = Math.max(0, (area - footW) / 2);
+      const maxOffZ = Math.max(0, (area - footD) / 2);
 
       let offX = 0, offZ = 0, fits = false;
       for (let attempt = 0; attempt < 15; attempt++) {
         offX = (Math.random() - 0.5) * 2 * maxOffX;
         offZ = (Math.random() - 0.5) * 2 * maxOffZ;
+        const fx = cx + offX + rotCollOffX;
+        const fz = cz + offZ + rotCollOffZ;
         const b = {
-          x1: cx + offX - actualW / 2 - GAP,
-          z1: cz + offZ - actualD / 2 - GAP,
-          x2: cx + offX + actualW / 2 + GAP,
-          z2: cz + offZ + actualD / 2 + GAP,
+          x1: fx - footW / 2 - GAP,
+          z1: fz - footD / 2 - GAP,
+          x2: fx + footW / 2 + GAP,
+          z2: fz + footD / 2 + GAP,
         };
         const overlaps = placed.some(
           (p) =>
@@ -2393,7 +2413,6 @@ export class City {
 
       const obj = template.clone(true);
       obj.scale.set(fitScale, fitScale, fitScale);
-      const rotationY = Math.floor(Math.random() * 4) * (Math.PI / 2);
       obj.rotation.y = rotationY;
 
       obj.traverse((child) => {
@@ -2433,6 +2452,7 @@ export class City {
           roughness: 0.8,
           metalness: 0.1,
         });
+        // Fallback box is added inside the rotated LOD group, so use pre-rotation dims.
         const fallbackBldg = new THREE.Mesh(new THREE.BoxGeometry(actualW, h, actualD), fallbackMat);
         fallbackBldg.position.y = h / 2;
         fallbackBldg.castShadow = hasShadows;
@@ -2455,11 +2475,13 @@ export class City {
 
       mesh.userData.height = h;
 
+      const fx = cx + offX + rotCollOffX;
+      const fz = cz + offZ + rotCollOffZ;
       const box = {
-        x1: cx + offX - actualW / 2,
-        z1: cz + offZ - actualD / 2,
-        x2: cx + offX + actualW / 2,
-        z2: cz + offZ + actualD / 2,
+        x1: fx - footW / 2,
+        z1: fz - footD / 2,
+        x2: fx + footW / 2,
+        z2: fz + footD / 2,
         mesh: mesh
       };
       placed.push(box);
