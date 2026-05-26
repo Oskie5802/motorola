@@ -2329,16 +2329,15 @@ export class City {
 
   _buildBuildingsFromModels(cx, cz, area) {
     const isDowntown = this.zone.id === "downtown";
-    const MIN_SCALE = 7;
-    const MAX_SCALE = 30;
-    const GAP = 0.5;
-    const count = area > 22 && Math.random() < 0.5 ? 2 : 1;
-    const targetFill = count === 1 ? 0.92 : 0.62;
+    const BUILDING_SCALE = 10.0;
+    const GAP = 0.8;
+    // Spawning up to 4 buildings if block size allows it, to pack space with uniform buildings.
+    const maxCount = area >= 32 ? 4 : (area >= 18 ? 2 : 1);
 
     const placed = [];
     const hasShadows = settings.current.shadows;
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < maxCount; i++) {
       const useSkyscraper =
         isDowntown &&
         Math.random() > 0.45 &&
@@ -2348,13 +2347,29 @@ export class City {
         : this.models.buildings;
       if (!pool.length) continue;
 
-      const template = pool[Math.floor(Math.random() * pool.length)];
-      const nativeSize = template.userData.size;
-      if (!nativeSize || nativeSize.y < 0.01) continue;
+      // Filter the pool for templates that fit at the uniform scale
+      let poolToUse = pool.filter(t => {
+        const nativeSize = t.userData.size;
+        if (!nativeSize || nativeSize.y < 0.01) return false;
+        const actualW = nativeSize.x * BUILDING_SCALE;
+        const actualD = nativeSize.z * BUILDING_SCALE;
+        return actualW <= area && actualD <= area;
+      });
 
-      const biggerNative = Math.max(nativeSize.x, nativeSize.z);
-      let fitScale = (area * targetFill) / biggerNative;
-      fitScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, fitScale));
+      let fitScale = BUILDING_SCALE;
+      let template;
+
+      if (poolToUse.length > 0) {
+        template = poolToUse[Math.floor(Math.random() * poolToUse.length)];
+      } else {
+        // Fallback: pick any template and scale it down to fit
+        template = pool[Math.floor(Math.random() * pool.length)];
+        const nativeSize = template.userData.size;
+        const biggerNative = Math.max(nativeSize.x, nativeSize.z);
+        fitScale = area / biggerNative;
+      }
+
+      const nativeSize = template.userData.size;
       let actualW = nativeSize.x * fitScale;
       let actualD = nativeSize.z * fitScale;
       if (actualW > area || actualD > area) {
@@ -2386,9 +2401,17 @@ export class City {
       const maxOffZ = Math.max(0, (area - footD) / 2);
 
       let offX = 0, offZ = 0, fits = false;
-      for (let attempt = 0; attempt < 15; attempt++) {
-        offX = (Math.random() - 0.5) * 2 * maxOffX;
-        offZ = (Math.random() - 0.5) * 2 * maxOffZ;
+      for (let attempt = 0; attempt < 50; attempt++) {
+        // Smart packing strategy: try placing in corners first for the first 4 attempts
+        if (maxCount > 1 && attempt < 4) {
+          const signX = (attempt % 2 === 0) ? -1 : 1;
+          const signZ = (attempt < 2) ? -1 : 1;
+          offX = signX * maxOffX * 0.8;
+          offZ = signZ * maxOffZ * 0.8;
+        } else {
+          offX = (Math.random() - 0.5) * 2 * maxOffX;
+          offZ = (Math.random() - 0.5) * 2 * maxOffZ;
+        }
         const fx = cx + offX + rotCollOffX;
         const fz = cz + offZ + rotCollOffZ;
         const b = {
