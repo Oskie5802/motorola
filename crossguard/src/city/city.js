@@ -865,11 +865,14 @@ export class City {
         const curbW = 0.55;
         const curbOffX = cellW / 2 - roadWidth / 2 - curbW / 2;
         const curbOffZ = cellD / 2 - roadWidth / 2 - curbW / 2;
+        // Curbs span the full gap between perpendicular roads so they meet at sidewalk corners
+        const curbLenH = cellW - roadWidth;
+        const curbLenV = cellD - roadWidth;
         for (const [dx, dz, w, d] of [
-          [0, -curbOffZ, sidewalkW, curbW],
-          [0, curbOffZ, sidewalkW, curbW],
-          [-curbOffX, 0, curbW, sidewalkD],
-          [curbOffX, 0, curbW, sidewalkD],
+          [0, -curbOffZ, curbLenH, curbW],
+          [0, curbOffZ, curbLenH, curbW],
+          [-curbOffX, 0, curbW, curbLenV],
+          [curbOffX, 0, curbW, curbLenV],
         ]) {
           const c = new THREE.Mesh(
             new THREE.BoxGeometry(w, curbT, d),
