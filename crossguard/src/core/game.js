@@ -373,11 +373,6 @@ export class GameLogic {
       return;
     }
 
-        // Konsumowanie eventów z radia
-    const radioEv = this.hud.consumeRadioEvent();
-    if (radioEv && radioEv.event) {
-      radioEv.event(this);
-    }
 
         // Randomowe dziwne sytuacje na mapie
     this._eventTimer -= dt;
@@ -598,11 +593,7 @@ export class GameLogic {
   addScore(delta, text, kind = 'info') {
     this.score += delta;
     this.hud.setScore(this.score);
-        // Radia można uzywac od 30 pkt
-    if (this.score >= 30 && !this.hud.radioUnlocked) {
-      this.hud.unlockRadio();
-      this.audio.radioUnlock();
-    }
+
     if (text) {
       const sign = delta >= 0 ? '+' : '';
       this.hud.alert(`${text}  ${sign}${delta}`, kind);

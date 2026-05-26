@@ -121,7 +121,7 @@ export const ZONES = [
     redLightRunChance: 0.12,
     sirenChance: 0.30,
     requiredScore: 360,
-    lesson: 'Misja finałowa: koordynuj z Command Center, słuchaj radia APX i Assist AI. Pełny ekosystem Motorola Solutions chroni Cię na każdym kroku.',
+    lesson: 'Misja finałowa: koordynuj z Command Center i Assist AI. Pełny ekosystem Motorola Solutions chroni Cię na każdym kroku.',
 
     // Finalna misja: 4x4, wiecej sygnalizacji, park i plac rozrzucone
     layout: {
@@ -193,68 +193,4 @@ export const ASSIST_TIPS = [
   'Avigilon wykrył pojazd łamiący przepisy - zachowaj ostrożność.',
   'LPR zidentyfikował pojazd na alert - bądź czujny.',
   'Pamiętaj o widoczności - nie używaj telefonu podczas przechodzenia.',
-];
-
-// Komunikaty radiowe które naprawde wywołują event w grze
-// Format: {text, event} gdzie event to odpalana funkcja
-export const RADIO_EVENTS = [
-  {
-    text: 'Dyspozytor: zgłoszenie kolizji - pojazd ignoruje światło!',
-    event: (game) => {
-      const v = game.traffic.vehicles.find(v => !v.runsRed && !v.isEmergency);
-      if (v) v.runsRed = true;
-      game.audio.radioMessage();
-      game.audio.warn();
-    },
-  },
-  {
-    text: 'Karetka w trasie - pojazd uprzywilejowany na trasie!',
-    event: (game) => {
-      game.audio.radioMessage();
-      game.traffic._spawnEmergency();
-      game.audio.sirenStart();
-    },
-  },
-  {
-    text: 'LPR: skradziony pojazd namierzony w Twoim sektorze!',
-    event: (game) => {
-      game.audio.radioMessage();
-      game.hud.incLPR();
-      game.audio.lprScan();
-      const v = game.traffic.vehicles.find(v => !v.runsRed && !v.isEmergency);
-      if (v) v.runsRed = true;
-    },
-  },
-  {
-    text: 'Drogówka: awaria sygnalizacji - ostrożność na przejściach!',
-    event: (game) => {
-      game.audio.radioMessage();
-      const tl = game.city.trafficLights[Math.floor(Math.random() * game.city.trafficLights.length)];
-      // Wymuszamy żółte światło na obu sygnalizatorach na tej samej osi (para)
-      const pairedLights = game.city.trafficLights.filter(
-        x => x.intersection.x === tl.intersection.x &&
-             x.intersection.z === tl.intersection.z &&
-             x.axis === tl.axis
-      );
-      for (const light of pairedLights) {
-        light.state = 'amber';
-        light.timer = 0;
-      }
-      game.city._applyLightVisual(pairedLights);
-    },
-  },
-  {
-    text: 'Centrum: Avigilon wykrył zagrożenie - zachowaj czujność!',
-    event: (game) => {
-      game.audio.radioMessage();
-      game.audio.cameraDetect();
-    },
-  },
-];
-
-// Tzw flavor-teksty (tylko klimat, nic nie robia)
-export const RADIO_FLAVOR = [
-  'Patrol 3: kontrola prędkości, pojazdy zwalniają.',
-  'Straż 2: zabezpieczamy miejsce zdarzenia.',
-  'Dyspozytor: wszystkie jednostki - zachować pełną gotowość.',
 ];

@@ -1,6 +1,6 @@
 // UI gry (hud)
 import * as THREE from 'three';
-import { RADIO_EVENTS, RADIO_FLAVOR, ASSIST_TIPS } from '../core/config.js';
+import { ASSIST_TIPS } from '../core/config.js';
 import { settings } from '../core/settings.js';
 
 export class HUD {
@@ -17,8 +17,6 @@ export class HUD {
     this.timeEl = document.getElementById('timeOfDayText');
     this.lprEl = document.getElementById('lprText');
     this.assistEl = document.getElementById('assistMsg');
-    this.radioEl = document.getElementById('radioMsg');
-    this.radioBox = document.getElementById('radio');
     this.alertsEl = document.getElementById('alerts');
     this.crossPromptEl = document.getElementById('crossPrompt');
     this.crossLightIcon = document.getElementById('crossLightIcon');
@@ -37,17 +35,6 @@ export class HUD {
 
     this.lprCount = 0;
     this.assistRotateTimer = 0;
-    this.radioTimer = 4;
-    this.radioVisible = false;
-    this._lastRadioEvent = null; // { text, event } from RADIO_EVENTS
-    this.radioUnlocked = false; // unlocked via progression
-
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyR' && this.radioUnlocked) {
-        this.radioVisible = !this.radioVisible;
-        this.radioBox.classList.toggle('hidden', !this.radioVisible);
-      }
-    });
 
     // Diagnostyka trybu deweloperskiego
     this.fpsTimer = 0;
@@ -73,13 +60,7 @@ export class HUD {
   }
   setLPR(n) { this.lprEl.textContent = String(n); }
   setAssist(msg) { this.assistEl.textContent = msg; }
-  setRadio(msg) {
-    this.radioEl.textContent = msg;
-    if (!this.radioVisible) {
-      this.radioVisible = true;
-      this.radioBox.classList.remove('hidden');
-    }
-  }
+
 
   showCrossPrompt(state) {
         // stany to red green amber albo null
@@ -132,30 +113,7 @@ export class HUD {
   randomAssistTip() {
     this.setAssist(ASSIST_TIPS[Math.floor(Math.random() * ASSIST_TIPS.length)]);
   }
-  randomRadio() {
-        // W 60 procentach event wplynie na gre, reszta to zapchajdziura w radiu
-    if (Math.random() < 0.6 && RADIO_EVENTS.length > 0) {
-      const ev = RADIO_EVENTS[Math.floor(Math.random() * RADIO_EVENTS.length)];
-      this._lastRadioEvent = ev;
-      this.setRadio(ev.text);
-    } else {
-      this._lastRadioEvent = null;
-      this.setRadio(RADIO_FLAVOR[Math.floor(Math.random() * RADIO_FLAVOR.length)]);
-    }
-  }
-  consumeRadioEvent() {
-    const ev = this._lastRadioEvent;
-    this._lastRadioEvent = null;
-    return ev;
-  }
 
-  unlockRadio() {
-    if (this.radioUnlocked) return;
-    this.radioUnlocked = true;
-    this.radioBox.classList.remove('hidden');
-    this.setRadio('📡 Kanał dyspozytorski odblokowany!');
-    this.alert('🔓 Radio APX P25 odblokowane! [R] aby podsłuchiwać', 'good', 4000);
-  }
 
   update(dt, player, traffic, goalPos) {
     this.assistRotateTimer -= dt;
@@ -163,11 +121,7 @@ export class HUD {
       this.assistRotateTimer = 12 + Math.random() * 6;
       this.randomAssistTip();
     }
-    this.radioTimer -= dt;
-    if (this.radioTimer <= 0) {
-      this.radioTimer = 15 + Math.random() * 12;
-      this.randomRadio();
-    }
+
     this._renderMinimap(player, traffic, goalPos);
 
     // Aktualizacja trybu deweloperskiego

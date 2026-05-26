@@ -580,20 +580,6 @@ html, body {
 }
 #assistMsg { font-size: 13px; line-height: 1.5; color: #e8f3ff; min-height: 38px; }
 
-/* Radyjko */
-#radio {
-  position: absolute;
-  bottom: 80px; left: 18px;
-  width: 320px;
-  background: rgba(0, 13, 36, 0.85);
-  border: 1px solid rgba(255, 184, 0, 0.5);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-}
-.radio-header { color: var(--moto-amber); margin-bottom: 6px; font-weight: 600; }
-#radioMsg { color: #ffd87a; line-height: 1.4; }
 
 /* Ostrzezenia na ekranie */
 #alerts {
