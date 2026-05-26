@@ -18,20 +18,89 @@ export class TrafficSystem {
 
   _spawnVehicles(n) {
     for (let i = 0; i < n; i++) {
-      this.vehicles.push(this._makeVehicle());
+      this.vehicles.push(this._makeVehicle(null, true));
     }
   }
 
-  _makeVehicle(forceType = null) {
+  _chooseVehicleSpawnPosition(d, onMapRandom = false) {
+    const minX = this.city.xCoords[0];
+    const maxX = this.city.xCoords[this.city.gridSize];
+    const minZ = this.city.zCoords[0];
+    const maxZ = this.city.zCoords[this.city.gridSize];
+    const rampLength = 30;
+
+    let bestX = 0, bestZ = 0, bestVx = 0, bestVz = 0, bestAxis = 'h', bestDir = 1;
+    let attempts = onMapRandom ? 50 : 1;
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const laneOffset = -1.6 * dir;
+      const stagger = Math.random() * 50;
+
+      let x, z, vx, vz, axis;
+
+      if (seg.axis === 'h') {
+        if (onMapRandom) {
+          x = minX + Math.random() * (maxX - minX);
+        } else {
+          x = dir === 1 ? (minX - 4 - rampLength - stagger) : (maxX + 4 + rampLength + stagger);
+        }
+        z = seg.z1 + laneOffset;
+        vx = dir;
+        vz = 0;
+        axis = 'h';
+      } else {
+        x = seg.x1 + laneOffset;
+        if (onMapRandom) {
+          z = minZ + Math.random() * (maxZ - minZ);
+        } else {
+          z = dir === 1 ? (minZ - 4 - rampLength - stagger) : (maxZ + 4 + rampLength + stagger);
+        }
+        vx = 0;
+        vz = dir;
+        axis = 'v';
+      }
+
+      bestX = x;
+      bestZ = z;
+      bestVx = vx;
+      bestVz = vz;
+      bestAxis = axis;
+      bestDir = dir;
+
+      if (onMapRandom) {
+        let collides = false;
+        for (const other of this.vehicles) {
+          if (other.axis !== axis) continue;
+          if (axis === 'h' && Math.abs(other.pos.z - z) > 0.5) continue;
+          if (axis === 'v' && Math.abs(other.pos.x - x) > 0.5) continue;
+
+          const dist = axis === 'h' ? Math.abs(other.pos.x - x) : Math.abs(other.pos.z - z);
+          if (dist < (d / 2 + other.d / 2 + 8.0)) {
+            collides = true;
+            break;
+          }
+        }
+        if (!collides) {
+          break;
+        }
+      }
+    }
+
+    return { x: bestX, z: bestZ, vx: bestVx, vz: bestVz, axis: bestAxis, dir: bestDir };
+  }
+
+  _makeVehicle(forceType = null, onMapRandom = false) {
         // Sciezki
     if (settings.current.quality !== 'low' && this.carModels && Object.keys(this.carModels).length > 0) {
-      return this._makeVehicleGLB(forceType);
+      return this._makeVehicleGLB(forceType, onMapRandom);
     }
         // To stary kod z boxami jak sie wywala glb, zostawiamy the failsafe
-    return this._makeVehicleBox(forceType);
+    return this._makeVehicleBox(forceType, onMapRandom);
   }
 
-  _makeVehicleGLB(forceType = null) {
+  _makeVehicleGLB(forceType = null, onMapRandom = false) {
         // Wybierz model na podstawie strefy
     const allDefs = Object.values(this.carModels);
     const carDefs     = allDefs.filter(d => d.def.type === 'car');
@@ -98,34 +167,8 @@ export class TrafficSystem {
     this.scene.add(group);
 
         // Losuj gdzie ma jechac i jakim pasem
-    const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
-    const dir = Math.random() < 0.5 ? 1 : -1;
-    // Right-hand traffic: when driving +x, stay on -z side; when -x, stay on +z.
-    const laneOffset = -1.6 * dir;
-
-    const rampLength = 30;
-    const minX = this.city.xCoords[0];
-    const maxX = this.city.xCoords[this.city.gridSize];
-    const minZ = this.city.zCoords[0];
-    const maxZ = this.city.zCoords[this.city.gridSize];
-
-    let x, z, vx, vz, axis;
-    // Stagger spawn positions so cars don't overlap under the island
-    const stagger = Math.random() * 50;
-
-    if (seg.axis === 'h') {
-      x = dir === 1 ? (minX - 4 - rampLength - stagger) : (maxX + 4 + rampLength + stagger);
-      z = seg.z1 + laneOffset;
-      vx = dir;
-      vz = 0;
-      axis = 'h';
-    } else {
-      x = seg.x1 + laneOffset;
-      z = dir === 1 ? (minZ - 4 - rampLength - stagger) : (maxZ + 4 + rampLength + stagger);
-      vx = 0;
-      vz = dir;
-      axis = 'v';
-    }
+    const spawnPos = this._chooseVehicleSpawnPosition(actualD, onMapRandom);
+    const { x, z, vx, vz, axis, dir } = spawnPos;
 
     group.rotation.order = 'YXZ';
     const { y, pitch } = this._getVehicleYAndPitch(x, z, axis, dir);
@@ -151,7 +194,7 @@ export class TrafficSystem {
     };
   }
 
-  _makeVehicleBox(forceType = null) {
+  _makeVehicleBox(forceType = null, onMapRandom = false) {
     const types = [
       { type: 'car',    w: 1.6, h: 1.1, d: 3.0, speed: 1.0, color: null },
       { type: 'car',    w: 1.6, h: 1.1, d: 3.0, speed: 1.0, color: null },
@@ -367,33 +410,8 @@ export class TrafficSystem {
 
     this.scene.add(group);
 
-    const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
-    const dir = Math.random() < 0.5 ? 1 : -1;
-    // Right-hand traffic: when driving +x, stay on -z side; when -x, stay on +z.
-    const laneOffset = -1.6 * dir;
-
-    const rampLength = 30;
-    const minX = this.city.xCoords[0];
-    const maxX = this.city.xCoords[this.city.gridSize];
-    const minZ = this.city.zCoords[0];
-    const maxZ = this.city.zCoords[this.city.gridSize];
-
-    let x, z, vx, vz, axis;
-    const stagger = Math.random() * 50;
-
-    if (seg.axis === 'h') {
-      x = dir === 1 ? (minX - 4 - rampLength - stagger) : (maxX + 4 + rampLength + stagger);
-      z = seg.z1 + laneOffset;
-      vx = dir;
-      vz = 0;
-      axis = 'h';
-    } else {
-      x = seg.x1 + laneOffset;
-      z = dir === 1 ? (minZ - 4 - rampLength - stagger) : (maxZ + 4 + rampLength + stagger);
-      vx = 0;
-      vz = dir;
-      axis = 'v';
-    }
+    const spawnPos = this._chooseVehicleSpawnPosition(t.d, onMapRandom);
+    const { x, z, vx, vz, axis, dir } = spawnPos;
 
     group.rotation.order = 'YXZ';
     const { y, pitch } = this._getVehicleYAndPitch(x, z, axis, dir);

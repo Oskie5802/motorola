@@ -35,7 +35,7 @@ export const ZONES = [
     pedestrians: 14,
     cameras: 3,
     weather: 'clear',
-    timeOfDay: 'day',
+    timeOfDay: 'night',
     hazardRate: 0.08,
     vehicleSpeed: 0.14,
     redLightRunChance: 0.03,

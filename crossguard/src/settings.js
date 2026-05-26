@@ -6,7 +6,7 @@ const DEFAULT_SETTINGS = {
   shadows: true,
   lod: true,
   particles: true,
-  pixelRatioLimit: 1.5
+  pixelRatioLimit: 2.0
 };
 
 class SettingsManager {
