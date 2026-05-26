@@ -1,17 +1,17 @@
 // Odpalanie całego bałaganu (main loop)
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { ZONES, gradeFor } from './config.js';
-import { City } from './city.js';
-import { Player } from './player.js';
-import { TrafficSystem } from './traffic.js';
-import { HUD } from './hud.js';
-import { AudioSystem } from './audio.js';
-import { Environment } from './environment.js';
-import { GameLogic } from './game.js';
-import { loadBuildingModels, loadCharacterModel, loadCarModels, loadSuburbanModels } from './modelLoader.js';
-import { CinematicDirector, buildCinematicOverlay, showFinaleMosaic, hideCinemaOverlay } from './cinematic.js';
-import { settings } from './settings.js';
+import { ZONES, gradeFor } from './core/config.js';
+import { City } from './city/city.js';
+import { Player } from './entities/player.js';
+import { TrafficSystem } from './entities/traffic.js';
+import { HUD } from './systems/hud.js';
+import { AudioSystem } from './systems/audio.js';
+import { Environment } from './city/environment.js';
+import { GameLogic } from './core/game.js';
+import { loadBuildingModels, loadCharacterModel, loadCarModels, loadSuburbanModels } from './entities/modelLoader.js';
+import { CinematicDirector, buildCinematicOverlay, showFinaleMosaic, hideCinemaOverlay } from './systems/cinematic.js';
+import { settings } from './core/settings.js';
 
 const $ = (id) => document.getElementById(id);
 

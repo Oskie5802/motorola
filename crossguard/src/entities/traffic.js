@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { PALETTE } from './config.js';
-import { settings } from './settings.js';
+import { PALETTE } from '../core/config.js';
+import { settings } from '../core/settings.js';
 
 export class TrafficSystem {
   constructor(scene, city, zone, carModels = null) {

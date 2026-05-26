@@ -1,7 +1,7 @@
 // UI gry (hud)
 import * as THREE from 'three';
-import { RADIO_EVENTS, RADIO_FLAVOR, ASSIST_TIPS } from './config.js';
-import { settings } from './settings.js';
+import { RADIO_EVENTS, RADIO_FLAVOR, ASSIST_TIPS } from '../core/config.js';
+import { settings } from '../core/settings.js';
 
 export class HUD {
   constructor(city, zone) {

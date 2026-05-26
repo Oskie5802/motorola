@@ -15,12 +15,17 @@ graph TD
     main_js[main.js - Zarządca Główny] --> config_js[config.js - Parametry Stref i Punktacji]
     main_js --> game_js[game.js - Kontroler Stanu Gry i Scoringu]
     main_js --> settings_js[settings.js - Profile Wydajności/LOD]
-    main_js --> city_js[city.js - Generator Świata i Geometrii]
+    main_js --> city_js[city.js - Koordynator Generowania Miasta]
     main_js --> traffic_js[traffic.js - AI Pojazdów i NPC]
     main_js --> player_js[player.js - Ruch Gracza i Kamera]
     main_js --> environment_js[environment.js - Pogoda, Doba i Chmury]
     main_js --> hud_js[hud.js - Mini-mapa i UI Command Center]
     main_js --> audio_js[audio.js - Syntezator Web Audio API]
+    
+    city_js --> cityTextures_js[cityTextures.js - Tekstury]
+    city_js --> cityParks_js[cityParks.js - Parki i Place]
+    city_js --> citySignals_js[citySignals.js - Sygnalizacja i Ruch]
+    city_js --> cityBuildings_js[cityBuildings.js - Budynki i Dekoracje]
     
     game_js --> audio_js
     traffic_js --> audio_js
@@ -46,7 +51,7 @@ Główny punkt wejścia aplikacji. Odpowiada za:
 *   **Game Loop**: Funkcja `_animate(timestamp)` obliczająca `dt` i wywołująca aktualizację pozostałych modułów.
 *   **Zapis postępu**: Moduł wczytuje i zapisuje odblokowane dzielnice w `localStorage` (klucz `crossguard_progress`).
 
-### [src/config.js]
+### [src/core/config.js]
 Baza danych i konfiguracja gry. Zawiera:
 *   **PALETTE**: Kolory obiektów miejskich (drogi, chodniki, budynki, trawa).
 *   **ZONES**: Definicje 5 stref operacyjnych (Dzielnica Mieszkalna, Szkolna, Centrum, Przemysłowa, Autostrada). Każda strefa definiuje parametry takie jak:
@@ -55,55 +60,81 @@ Baza danych i konfiguracja gry. Zawiera:
     *   Warunki pogodowe i porę dnia.
 *   **SCORING**: Wartości punktowe za dobre i złe zachowania (np. przejście na zielonym, potrącenie, korzystanie z telefonu).
 
-### [src/game.js]
+### [src/core/game.js]
 Zarządca logiki rozgrywki (Gameplay Manager). Monitoruje:
 *   **Stan misji**: Pozycję gracza względem punktu docelowego.
 *   **Safety Score**: System punktacji (0-100), który dynamicznie reaguje na wykroczenia i poprawne zachowania.
 *   **Wykrywanie kolizji / potrąceń**: Rejestruje wejście na jezdnię poza pasami lub przejście na czerwonym świetle.
 *   **Generowanie zdarzeń dynamicznych**: Losuje i aktywuje sytuacje awaryjne (np. pojazd uprzywilejowany z syreną jadący przez miasto).
 
-### [src/player.js]
+### [src/entities/player.js]
 Kontroler gracza (postać "Alex Nawigant") oraz kamery:
 *   **Kamera TPP (Third-Person)**: Kamera porusza się po sferze wokół gracza (promień sferyczny r, kąty theta i phi) sterowana ruchami myszy.
 *   **Kamera FPP (First-Person)**: Opcjonalny widok z oczu bohatera przełączany klawiszem `V`.
 *   **Fizyka ruchu**: Postać porusza się za pomocą klawiszy WASD/strzałek. Zastosowano wektory kierunkowe kamery do poruszania postaci relatywnie do widoku na ekranie.
 *   **Kolizje pieszego**: Gracz posiada cylindryczną tarczę kolizji. Wykrywane są kolizje z budynkami, latarniami i barierami obwodowymi miasta (blokowanie ruchu za pomocą AABB - Axis-Aligned Bounding Box).
 
-### [src/city.js]
-**Serce geometryczne projektu**. Odpowiada za generowanie całej sceny 3D (miasta-wyspy):
-*   **Drogi i skrzyżowania**: Generowane na podstawie losowych przedziałów współrzędnych (`xCoords`, `zCoords`).
-*   **Sygnalizacja świetlna**: Synchronizowane światła dla aut i pieszych ze stanami: zielone, żółte (tylko dla aut), czerwone.
-*   **Kamery Avigilon**: Generuje słupki z kamerami CCTV monitorującymi ruch, które podświetlają obszar wykrywania i są oznaczone na mini-mapie.
-*   **Latająca wyspa (Skyblock)**: Definiuje 3 warstwy wiszącego lądu:
-    1.  *Górna warstwa ziemi* (trawa o grubości 0.2).
-    2.  *Środkowa warstwa skalna* (`layer2Mat` o wysokości 12).
-    3.  *Dolna warstwa skalna* (`layer3Mat` o wysokości 8, zwężona o 10% dla efektu stożka).
-    4.  *Stalaktyty i wiszące wyspy w tle* (generowane za pomocą generatora `_buildGhostIslands()`).
-*   **Zaokrąglone opadające narożniki**: Szczegółowo opisane w sekcji 3.
+### [src/city/city.js]
+**Koordynator i orkiestrator generowania miasta**. Definiuje klasę `City` oraz zarządza główną sekwencją budowania:
+*   **Struktura klasowa i orkiestracja**: Odpowiada za konstruktor, inicjalizację siatki współrzędnych (`xCoords`, `zCoords`) oraz główną metodę `_build()`.
+*   **Warstwy latającej wyspy (Skyblock)**: Tworzy 3 główne warstwy wiszącego lądu wraz z wiszącymi pod spodem formacjami skalnymi (stalaktytami).
+*   **Detekcja i fizyka**: Sprawdza, czy pozycja gracza znajduje się na drodze, chodniku, przejściu lub koliduje z budynkiem/przeszkodą.
+*   **Culling (Optymalizacja)**: Metoda `cullScene(camera)` ukrywa obiekty (drzewa, ławki, budynki) poza zasięgiem wzroku lub odległością optymalną, zmniejszając obciążenie GPU.
+*   **Integracja modułów**: Dołączanie metod z plików pomocniczych do prototypu i statycznych metod klasy `City`.
 
-### [src/traffic.js]
+### [src/city/cityTextures.js]
+**Generator tekstur proceduralnych**. Odpowiada za dynamiczne rysowanie tekstur na płótnie (Canvas 2D) i konwersję do tekstur Three.js:
+*   **Tekstury asfaltu i krawężników**: Generuje bazy, szumy, spękania i plamy oleju wraz z mapami wypukłości (Bump Maps).
+*   **Tekstury chodników**: Tworzy grid płyt betonowych z przesunięciami krawędzi oraz losowym cieniowaniem poszczególnych płyt.
+*   **Prywatna pamięć podręczna**: Przechowuje wygenerowane tekstury w pamięci modułu (`_textureCache`), zapobiegając ich ponownemu tworzeniu.
+
+### [src/city/cityParks.js]
+**Generator terenów zielonych**. Zarządza budowaniem stref rekreacyjnych:
+*   **Parki miejskie (`_buildPark`)**: Generuje trawiaste podłoże, krzyżujące się żwirowe ścieżki, gęste żywopłoty, drzewa i ławki.
+*   **Place miejskie (`_buildPlaza`)**: Generuje rynki z centralną fontanną kołową (basen, woda, tryskacz) stanowiącą przeszkodę kolizyjną, latarniami i drzewami dekoracyjnymi na rogach.
+
+### [src/city/citySignals.js]
+**Systemy ruchu i infrastruktura drogowa**. Odpowiada za wyposażenie ulic w elementy kontrolne i oświetleniowe:
+*   **Linie i pasy drogowe**: Rysuje przerywane linie pasów ruchu oraz pasy przejść dla pieszych (zebra) o zróżnicowanym stopniu zużycia farby.
+*   **Sygnalizacja świetlna**: Tworzy trójwymiarowe sygnalizatory drogowe oraz dwustanowe sygnalizatory dla pieszych, koordynując ich fazy i efekty poświaty (halos).
+*   **Fale zielone (`_linkTrafficLights`)**: Realizuje synchronizację świateł na głównych arteriach komunikacyjnych w celu poprawy płynności ruchu.
+*   **Kamery Avigilon**: Generuje słupy z modelami kamer CCTV o wysokiej szczegółowości, które monitorują skrzyżowania pod kątem wykroczeń.
+*   **Znaki drogowe i przeszkody**: Rysuje znaki pionowe (np. D-6, A-7, D-1) oraz dodaje strefy robót drogowych (pachołki z biało-czerwonymi pasami).
+
+### [src/city/cityBuildings.js]
+**Generator zabudowy miejskiej i małej architektury**:
+*   **Zabudowa z modeli (`_buildBuildingsFromModels`)**: Rozmieszcza budynki z bazy modeli GLTF/OBJ z uwzględnieniem spójnego skalowania (`BUILDING_SCALE = 10.0`) dopasowanego do postaci gracza oraz inteligentnego upakowania do 4 budynków na blok.
+*   **LOD (Level of Detail)**: Dla odległych budynków stosuje prostsze, zastępcze bryły (boxy), optymalizując renderowanie.
+*   **Zabudowa uproszczona (`_buildBuildingsSimple`)**: Tworzy budynki proceduralne z oknami, gzymsami i antenami w przypadku braku modeli trójwymiarowych.
+*   **Roślinność i meble miejskie**: Generuje drzewa (pnie i geometryczne korony) oraz ławki parkowe.
+*   **Widmowe wyspy (`_buildGhostIslands`)**: Tworzy odległe wyspy z domkami i lasami pływające w tle w celu nadania głębi paralaksy całemu światu.
+
+### [src/entities/traffic.js]
 Zarządza autonomicznym ruchem pojazdów i pieszych NPC:
 *   **Siatka drogowa**: Pojazdy poruszają się wzdłuż segmentów dróg (`roadSegments`).
 *   **Fizyka ramp**: Wylicza pozycję Y oraz pochylenie (pitch) samochodów wjeżdżających i zjeżdżających z wyspy.
 *   **Inteligentne hamowanie**: Pojazdy wykrywają przeszkody przed sobą za pomocą prostego Raycastingu w kierunku jazdy (wykrywanie innych aut, świateł czerwonych oraz gracza).
 *   **Stagger spawning**: Zapobiega spawnowaniu aut jedno na drugim na dole ramp poprzez wprowadzenie opóźnienia i kontroli odległości.
 
-### [src/environment.js]
+### [src/city/environment.js]
 System pogodowy i oświetleniowy:
 *   **Cykl dobowy**: Obraca kierunkowe źródło światła (Słońce/Księżyc), płynnie interpolując kolor nieba, oświetlenia oraz mgłę (`THREE.FogExp2`).
 *   **Efekty cząsteczkowe**: Deszcz i śnieg generowane za pomocą `THREE.Points` z dynamicznie aktualizowanymi pozycjami wierzchołków.
 *   **Wielowarstwowe Chmury**: Dryfujące chmury opisane w sekcji 4.
 
-### [src/hud.js]
+### [src/systems/hud.js]
 Obsługuje interfejs Command Center (HUD):
 *   **Mini-mapa (Canvas 2D)**: Rysuje uproszczoną mapę miasta w czasie rzeczywistym. Gracze, cele, kamery, radiowozy i zagrożenia są transformowani z przestrzeni 3D na płaszczyznę 2D za pomocą macierzy transformacji.
 *   **Assist AI & APX P25 Radio**: Wyświetla wiadomości dyspozytora i komunikaty radiowe.
 *   **Dev Overlay**: Pokazuje liczbę FPS, koordynaty oraz liczbę aktywnych obiektów.
 
-### [src/audio.js]
+### [src/systems/audio.js]
 Syntezator dźwięku. **Nie ładuje plików MP3/WAV** - wszystkie efekty generuje programowo w locie przy użyciu `AudioContext` z Web Audio API. Szczegółowo opisany w sekcji 5.
 
-### [src/settings.js] & [src/modelLoader.js]
+### [src/systems/cinematic.js]
+Zarządza efektami kinowymi, kamerą wprowadzającą (intro) oraz przerywnikami filmowymi.
+
+### [src/core/settings.js] & [src/entities/modelLoader.js]
 Odpowiadają odpowiednio za zarządzanie profilami jakości graficznej (LOD, cienie, gęstość obiektów) oraz ładowanie modeli GLTF/GLB (lub tworzenie zastępczych brył low-poly, jeśli modele się nie załadują).
 
 ---
@@ -233,16 +264,16 @@ Projekt CrossGuard został zaprojektowany z myślą o czytelności kodu i braku 
 ### Propozycje ćwiczeń edukacyjnych:
 
 1.  **Modyfikacja fizyki jazdy (Rampy)**:
-    *   *Gdzie szukać*: Otwórz [src/city.js] w sekcji generacji zjazdów oraz [src/traffic.js] w metodzie `_updateVehicle`.
+    *   *Gdzie szukać*: Otwórz [src/city/city.js] w sekcji generacji zjazdów oraz [src/entities/traffic.js] w metodzie `_updateVehicle`.
     *   *Zadanie*: Zmień głębokość ramp (`rampDepth`) z 20 na 40 jednostek. Zaobserwuj, jak pojazdy automatycznie dopasowują swój kąt pochylenia (pitch) i płynnie zjeżdżają w dół pod większym kątem bez odrywania się od drogi.
 2.  **Stworzenie własnej strefy (Z dzielnicami)**:
-    *   *Gdzie szukać*: Plik [src/config.js], obiekt `ZONES`.
+    *   *Gdzie szukać*: Plik [src/core/config.js], obiekt `ZONES`.
     *   *Zadanie*: Dodaj nową strefę, np. `cyberpunk`. Skonfiguruj neonowe kolory palety, dodaj deszczową pogodę (`rain: true`), ustaw mgłę na fioletową i zmień natężenie ruchu samochodów na ekstremalne.
 3.  **Dodanie nowego efektu dźwiękowego**:
-    *   *Gdzie szukać*: Plik [src/audio.js].
-    *   *Zadanie*: Napisz funkcję syntezy dźwięku burzy (pioruna). Użyj generatora szumu (White Noise) z nagłym wzrostem głośności (Attack = 0.01s) i bardzo długim czasem wygaszania (Release = 4.0s) oraz filtrem dolnoprzepustowym o odcięciu zmieniającym się w czasie (filtr schodzący w dół dla symulacji oddalającego się grzmotu).
+    *   *Gdzie szukać*: Plik [src/systems/audio.js].
+    *   *Zadanie*: Napisz funkcję syntezy dźwięku burzy (pioruna). Użyj generatora szumu (White Noise) z nagłym wzrostem głośności (Attack = 0.01s) i bardzo długim doomed czasem wygaszania (Release = 4.0s) oraz filtrem dolnoprzepustowym o odcięciu zmieniającym się w czasie (filtr schodzący w dół dla symulacji oddalającego się grzmotu).
 4.  **Badanie kolizji gracza**:
-    *   *Gdzie szukać*: Plik [src/player.js].
+    *   *Gdzie szukać*: Plik [src/entities/player.js].
     *   *Zadanie*: Znajdź sekcję sprawdzania kolizji z przeszkodami w metodzie `update`. Spróbuj zmienić promień kolizyjny gracza (np. do 5 jednostek) i zobacz, jak Alex reaguje na zbliżanie się do budynków i barier.
 
 ---

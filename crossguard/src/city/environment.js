@@ -1,7 +1,7 @@
 // Pogoda, niebo, oswietlenie itp
 import * as THREE from 'three';
-import { PALETTE } from './config.js';
-import { settings } from './settings.js';
+import { PALETTE } from '../core/config.js';
+import { settings } from '../core/settings.js';
 
 export class Environment {
   constructor(scene, zone) {
