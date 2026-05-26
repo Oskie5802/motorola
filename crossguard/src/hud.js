@@ -209,95 +209,318 @@ export class HUD {
     const ctx = this.mctx;
     const W = this.minimapCanvas.width;
     const H = this.minimapCanvas.height;
-    const bounds = this.city.bounds;
-    const span = bounds.max - bounds.min;
-    const scale = (W - 8) / span;
-    const toMap = (x, z) => ({
-      mx: (x - bounds.min) * scale + 4,
-      my: (z - bounds.min) * scale + 4,
+    const R = W / 2;
+    const cx = R, cy = R;
+    const now = Date.now();
+
+    const VIEW = 90;
+    const worldToMap = (wx, wz) => ({
+      mx: cx + (wx - player.pos.x) / VIEW * R,
+      my: cy + (wz - player.pos.z) / VIEW * R,
     });
 
-        // Tło
-    ctx.fillStyle = '#0a1d3f';
+    // --- Clipping do koła ---
+    ctx.save();
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.clip();
+
+    // ── TŁO ────────────────────────────────────────────────────────────
+    // Gradient tła – ciemny środek, lekko jaśniejszy przy krawędziach
+    const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    bgGrad.addColorStop(0, '#0b1c2e');
+    bgGrad.addColorStop(1, '#071424');
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
 
-        // Siatka drog (grid)
-    ctx.strokeStyle = '#1c3a78';
-    ctx.lineWidth = 2;
-    const xs = this.city.xCoords, zs = this.city.zCoords;
-    for (let i = 0; i < xs.length; i++) {
-      const c = xs[i];
-      const p1 = toMap(c, bounds.min);
-      const p2 = toMap(c, bounds.max);
-      ctx.beginPath(); ctx.moveTo(p1.mx, p1.my); ctx.lineTo(p2.mx, p2.my); ctx.stroke();
+    const xs = this.city.xCoords;
+    const zs = this.city.zCoords;
+    const roadHalf = VIEW * 0.048;
+
+    // Granice siatki miasta w pikselach – drogi rysujemy TYLKO w tych zakresach
+    const { mx: gridMinX } = worldToMap(xs[0] - roadHalf, 0);
+    const { mx: gridMaxX } = worldToMap(xs[xs.length - 1] + roadHalf, 0);
+    const { my: gridMinY } = worldToMap(0, zs[0] - roadHalf);
+    const { my: gridMaxY } = worldToMap(0, zs[zs.length - 1] + roadHalf);
+
+    // ── DROGI – rysowane tylko w obrębie siatki ─────────────────────────
+    ctx.fillStyle = '#1a3550';
+    // Pionowe (wzdłuż osi Z) – ograniczone do zakresu Z siatki
+    for (const c of xs) {
+      const { mx: lx } = worldToMap(c - roadHalf, 0);
+      const { mx: rx } = worldToMap(c + roadHalf, 0);
+      ctx.fillRect(lx, gridMinY, rx - lx, gridMaxY - gridMinY);
     }
-    for (let j = 0; j < zs.length; j++) {
-      const c = zs[j];
-      const p3 = toMap(bounds.min, c);
-      const p4 = toMap(bounds.max, c);
-      ctx.beginPath(); ctx.moveTo(p3.mx, p3.my); ctx.lineTo(p4.mx, p4.my); ctx.stroke();
+    // Poziome (wzdłuż osi X) – ograniczone do zakresu X siatki
+    for (const c of zs) {
+      const { my: ty } = worldToMap(0, c - roadHalf);
+      const { my: by } = worldToMap(0, c + roadHalf);
+      ctx.fillRect(gridMinX, ty, gridMaxX - gridMinX, by - ty);
     }
 
-        // Ikonki kamer
-    ctx.fillStyle = '#b16fff';
-    for (const cam of this.city.cameras) {
-      const { mx, my } = toMap(cam.x, cam.z);
-      ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI*2); ctx.fill();
-    }
-
-        // Aktualizacja bryk
-    for (const v of traffic.vehicles) {
-      const { mx, my } = toMap(v.pos.x, v.pos.z);
-      ctx.fillStyle = v.isEmergency ? '#ff2233' : v._lprFlagged ? '#00e5ff' : '#789bcb';
-      ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
-            // Te oznaczone LPR maja ring w kolorze cyjan
-      if (v._lprFlagged) {
-        ctx.strokeStyle = '#00e5ff';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(mx, my, 4, 0, Math.PI * 2);
-        ctx.stroke();
+    // ── BLOKI ZABUDOWY ──────────────────────────────────────────────────
+    ctx.fillStyle = '#0d2438';
+    for (let i = 0; i < xs.length - 1; i++) {
+      for (let j = 0; j < zs.length - 1; j++) {
+        const left  = xs[i]   + roadHalf;
+        const right = xs[i+1] - roadHalf;
+        const top   = zs[j]   + roadHalf;
+        const bot   = zs[j+1] - roadHalf;
+        const { mx: lx, my: ty } = worldToMap(left, top);
+        const { mx: rx, my: by } = worldToMap(right, bot);
+        const bw = rx - lx, bh = by - ty;
+        if (bw > 1 && bh > 1) {
+          // Blok z zaokrąglonymi rogami
+          const rad = Math.min(3, bw * 0.12, bh * 0.12);
+          ctx.beginPath();
+          ctx.moveTo(lx + rad, ty);
+          ctx.lineTo(rx - rad, ty); ctx.arcTo(rx, ty, rx, ty + rad, rad);
+          ctx.lineTo(rx, by - rad); ctx.arcTo(rx, by, rx - rad, by, rad);
+          ctx.lineTo(lx + rad, by); ctx.arcTo(lx, by, lx, by - rad, rad);
+          ctx.lineTo(lx, ty + rad); ctx.arcTo(lx, ty, lx + rad, ty, rad);
+          ctx.closePath();
+          ctx.fill();
+          // Delikatna obramówka bloku
+          ctx.strokeStyle = 'rgba(30,80,120,0.5)';
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
       }
     }
 
-        // Karetka ma pulsujacy znacznik
-    for (const e of traffic.emergency) {
-      if (!traffic.vehicles.includes(e)) continue;
-      const { mx, my } = toMap(e.pos.x, e.pos.z);
-      ctx.strokeStyle = '#ff2233';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(mx, my, 4 + Math.sin(Date.now()/180) * 2, 0, Math.PI*2);
+    // ── ŚRODKOWE LINIE DRÓG (przerywane, tylko w siatce) ────────────────
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,200,60,0.13)';
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([3, 7]);
+    for (const c of xs) {
+      const { mx } = worldToMap(c, 0);
+      ctx.beginPath(); ctx.moveTo(mx, gridMinY); ctx.lineTo(mx, gridMaxY); ctx.stroke();
+    }
+    for (const c of zs) {
+      const { my } = worldToMap(0, c);
+      ctx.beginPath(); ctx.moveTo(gridMinX, my); ctx.lineTo(gridMaxX, my); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // ── KAMERY AVIGILON ─────────────────────────────────────────────────
+    for (const cam of this.city.cameras) {
+      const { mx, my } = worldToMap(cam.x, cam.z);
+      if (mx < -10 || mx > W+10 || my < -10 || my > H+10) continue;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 700 + cam.x * 0.4);
+      // Pole widzenia kamery
+      ctx.beginPath(); ctx.arc(mx, my, 5 + pulse * 2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(160,100,255,${0.08 + 0.06 * pulse})`;
+      ctx.fill();
+      // Punkt kamery
+      ctx.beginPath(); ctx.arc(mx, my, 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(190,130,255,${0.75 + 0.25 * pulse})`;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(220,180,255,${0.5 * pulse})`;
+      ctx.lineWidth = 0.8;
       ctx.stroke();
     }
 
-        // Gdzie isc
-    if (goalPos) {
-      const { mx, my } = toMap(goalPos.x, goalPos.z);
-      ctx.fillStyle = '#ffb800';
-      ctx.beginPath();
-      ctx.moveTo(mx, my - 5); ctx.lineTo(mx + 5, my + 4); ctx.lineTo(mx - 5, my + 4);
-      ctx.closePath(); ctx.fill();
+    // ── POJAZDY ────────────────────────────────────────────────────────
+    // Granice siatki w world-units – pojazdy poza siatką (na drogach wjazdowych) ukryte
+    const gridWMinX = xs[0] - roadHalf * 2;
+    const gridWMaxX = xs[xs.length - 1] + roadHalf * 2;
+    const gridWMinZ = zs[0] - roadHalf * 2;
+    const gridWMaxZ = zs[zs.length - 1] + roadHalf * 2;
 
-            // Krecha od ciebie do celu
-      const pp = toMap(player.pos.x, player.pos.z);
-      ctx.strokeStyle = 'rgba(255,184,0,0.4)';
-      ctx.setLineDash([3, 3]);
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(pp.mx, pp.my); ctx.lineTo(mx, my); ctx.stroke();
-      ctx.setLineDash([]);
+    for (const v of traffic.vehicles) {
+      // Ukryj jeśli pojazd jest poza granicami siatki ulic
+      if (v.pos.x < gridWMinX || v.pos.x > gridWMaxX ||
+          v.pos.z < gridWMinZ || v.pos.z > gridWMaxZ) continue;
+      const { mx, my } = worldToMap(v.pos.x, v.pos.z);
+      if (mx < -10 || mx > W+10 || my < -10 || my > H+10) continue;
+
+      if (v.isEmergency) {
+        const blink = Math.sin(now / 130) > 0;
+        const pulse = 0.5 + 0.5 * Math.abs(Math.sin(now / 220));
+        // Błyskający krąg
+        ctx.beginPath(); ctx.arc(mx, my, 6 + pulse * 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,40,60,${0.18 + 0.1 * pulse})`;
+        ctx.fill();
+        ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2);
+        ctx.fillStyle = blink ? '#ff2a3c' : '#ff9000';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else if (v._lprFlagged) {
+        const p2 = 0.5 + 0.5 * Math.abs(Math.sin(now / 360));
+        ctx.beginPath(); ctx.arc(mx, my, 5 + p2 * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,220,255,${0.12 + 0.08 * p2})`;
+        ctx.fill();
+        ctx.beginPath(); ctx.arc(mx, my, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#00e5ff';
+        ctx.fill();
+        ctx.strokeStyle = `rgba(0,240,255,${0.7 * p2})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        // Zwykły pojazd – strzałka kierunku
+        const dir = Math.atan2(v.vx || 0, v.vz || 0);
+        ctx.save();
+        ctx.translate(mx, my);
+        ctx.rotate(dir);
+        // Karoseria
+        ctx.fillStyle = '#2c5f8a';
+        ctx.strokeStyle = 'rgba(100,180,255,0.45)';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.roundRect(-2.2, -4, 4.4, 8, 1.5);
+        ctx.fill(); ctx.stroke();
+        // Czubek (przód)
+        ctx.fillStyle = 'rgba(150,220,255,0.8)';
+        ctx.beginPath();
+        ctx.moveTo(0, -5.5); ctx.lineTo(2.2, -3); ctx.lineTo(-2.2, -3);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
     }
 
-        // Twoja pozycja
-    const { mx, my } = toMap(player.pos.x, player.pos.z);
-    ctx.fillStyle = '#00A3E0';
-    ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI*2); ctx.fill();
-        // Gdzie stoisz przodem
-    const fx = mx + Math.sin(player.facing) * 8;
-    const fy = my + Math.cos(player.facing) * 8;
-    ctx.strokeStyle = '#00A3E0';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(fx, fy); ctx.stroke();
+    // ── CEL ────────────────────────────────────────────────────────────
+    if (goalPos) {
+      const { mx: gx, my: gy } = worldToMap(goalPos.x, goalPos.z);
+      const inRange = gx > -20 && gx < W+20 && gy > -20 && gy < H+20;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 420);
+
+      if (inRange) {
+        // Wielokrąg poświaty
+        const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, 16);
+        gg.addColorStop(0, `rgba(255,190,0,${0.5 * pulse})`);
+        gg.addColorStop(0.5, `rgba(255,140,0,${0.2 * pulse})`);
+        gg.addColorStop(1, 'rgba(255,120,0,0)');
+        ctx.fillStyle = gg;
+        ctx.beginPath(); ctx.arc(gx, gy, 16, 0, Math.PI * 2); ctx.fill();
+        // Gwiazdka / diament celu
+        ctx.save();
+        ctx.translate(gx, gy);
+        ctx.rotate(now / 1200);
+        ctx.fillStyle = `rgba(255,200,0,${0.88 + 0.12 * pulse})`;
+        for (let p = 0; p < 4; p++) {
+          ctx.rotate(Math.PI / 2);
+          ctx.beginPath();
+          ctx.moveTo(0, -7); ctx.lineTo(2.2, -2.2); ctx.lineTo(7, 0);
+          ctx.lineTo(2.2, 2.2); ctx.lineTo(0, 7); ctx.lineTo(-2.2, 2.2);
+          ctx.lineTo(-7, 0); ctx.lineTo(-2.2, -2.2); ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        // Gwiazda 4-ramienna
+        ctx.fillStyle = `rgba(255,200,0,${0.88 + 0.12 * pulse})`;
+        ctx.beginPath();
+        ctx.moveTo(0, -7); ctx.lineTo(2, -2); ctx.lineTo(7, 0);
+        ctx.lineTo(2, 2); ctx.lineTo(0, 7); ctx.lineTo(-2, 2);
+        ctx.lineTo(-7, 0); ctx.lineTo(-2, -2); ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#fff8d0';
+        ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // Przerywana linia do celu
+        ctx.strokeStyle = `rgba(255,170,0,${0.22 + 0.1 * pulse})`;
+        ctx.setLineDash([3, 7]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(gx, gy); ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        // Cel poza widokiem – strzałka na krawędzi z etykietą
+        const ang = Math.atan2(goalPos.z - player.pos.z, goalPos.x - player.pos.x);
+        const edgeDist = R - 16;
+        const ex = cx + Math.cos(ang) * edgeDist;
+        const ey = cy + Math.sin(ang) * edgeDist;
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(ang + Math.PI / 2);
+        // Cień strzałki
+        ctx.shadowColor = 'rgba(255,160,0,0.6)';
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = `rgba(255,190,0,${0.75 + 0.25 * pulse})`;
+        ctx.beginPath();
+        ctx.moveTo(0, -7); ctx.lineTo(5.5, 4.5); ctx.lineTo(-5.5, 4.5);
+        ctx.closePath(); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+        // Odległość do celu
+        const dist = Math.sqrt(
+          (goalPos.x - player.pos.x) ** 2 + (goalPos.z - player.pos.z) ** 2
+        );
+        const distLabel = dist < 1000 ? `${Math.round(dist)}m` : `${(dist / 1000).toFixed(1)}km`;
+        ctx.font = 'bold 8px Orbitron, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = `rgba(255,200,80,${0.8 + 0.2 * pulse})`;
+        ctx.fillText(distLabel, ex, ey + 14);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    // ── GRACZ (zawsze w centrum) ────────────────────────────────────────
+    const facing = player.facing;
+    const canvasAngle = Math.PI / 2 - facing;
+
+    // Pierścień pulsujący
+    const ringPulse = 0.4 + 0.6 * Math.abs(Math.sin(now / 800));
+    ctx.beginPath(); ctx.arc(cx, cy, 11 + ringPulse * 3, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0,180,255,${0.15 + 0.1 * ringPulse})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Poświata gracza
+    const pg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 15);
+    pg.addColorStop(0, 'rgba(0,163,224,0.35)');
+    pg.addColorStop(1, 'rgba(0,163,224,0)');
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(cx, cy, 15, 0, Math.PI * 2); ctx.fill();
+
+    // Stożek widzenia
+    ctx.save();
+    ctx.translate(cx, cy);
+    const fovSpread = Math.PI * 0.26;
+    const fovDx = Math.cos(canvasAngle), fovDy = Math.sin(canvasAngle);
+    const fov = ctx.createLinearGradient(0, 0, fovDx * 24, fovDy * 24);
+    fov.addColorStop(0, 'rgba(0,200,255,0.18)');
+    fov.addColorStop(1, 'rgba(0,200,255,0)');
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, 24, canvasAngle - fovSpread, canvasAngle + fovSpread);
+    ctx.closePath();
+    ctx.fillStyle = fov;
+    ctx.fill();
+    ctx.restore();
+
+    // Kółko gracza z białą obramówką
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#00A3E0'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.8; ctx.stroke();
+
+    // Strzałka kierunku
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(canvasAngle);
+    ctx.shadowColor = 'rgba(255,255,255,0.5)';
+    ctx.shadowBlur = 4;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(11, 0);
+    ctx.lineTo(5, -3.5);
+    ctx.lineTo(5,  3.5);
+    ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // ── WINIETA ────────────────────────────────────────────────────────
+    const vig = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, R);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(0.8, 'rgba(0,0,0,0.25)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.75)');
+    ctx.fillStyle = vig;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore(); // koniec clipu
   }
 
   incLPR() {
