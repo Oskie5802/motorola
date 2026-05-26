@@ -9,7 +9,7 @@ import { HUD } from './hud.js';
 import { AudioSystem } from './audio.js';
 import { Environment } from './environment.js';
 import { GameLogic } from './game.js';
-import { loadBuildingModels, loadCharacterModel, loadCarModels } from './modelLoader.js';
+import { loadBuildingModels, loadCharacterModel, loadCarModels, loadSuburbanModels } from './modelLoader.js';
 import { CinematicDirector, buildCinematicOverlay, showFinaleMosaic, hideCinemaOverlay } from './cinematic.js';
 import { settings } from './settings.js';
 
@@ -31,9 +31,10 @@ let progress = loadProgress();
 // Stan apki
 let selectedZoneId = ZONES[0].id;
 let currentSession = null; // { renderer, scene, camera, ... }
-let cachedModels = null;   // OBJ building models, loaded once
+let cachedModels = null;    // OBJ building models, loaded once
 let cachedCharacter = null; // Kenney animated character, loaded once
 let cachedCars = null;      // Kenney car-kit GLB models, loaded once
+let cachedSuburban = null;  // Kenney city-kit-suburban GLB models, loaded once
 
 // Składanie manu w html
 function renderZoneSelect() {
@@ -124,11 +125,13 @@ $('startBtn').onclick = () => {
 
 async function ensureModels() {
   const isLow = settings.current.quality === 'low';
-  if (cachedCharacter && (isLow || (cachedModels && cachedCars && Object.keys(cachedCars).length > 0))) return cachedModels;
+  if (cachedCharacter && (isLow || (cachedModels && cachedCars && Object.keys(cachedCars).length > 0))) {
+    return { ...(cachedModels || { buildings: [], skyscrapers: [] }), suburban: cachedSuburban || [] };
+  }
   const bar = document.querySelector('.bar-fill');
   if (bar) { bar.style.width = '0%'; bar.classList.remove('anim'); }
   showLoading();
-  const [models, character, cars] = await Promise.all([
+  const [models, character, cars, suburban] = await Promise.all([
     (isLow || cachedModels) ? Promise.resolve(cachedModels || { buildings: [], skyscrapers: [] }) : loadBuildingModels((p) => {
       if (bar) bar.style.width = (p * 50).toFixed(0) + '%';
     }),
@@ -139,13 +142,18 @@ async function ensureModels() {
     (isLow || cachedCars) ? Promise.resolve(cachedCars || {}) : loadCarModels((p) => {
       if (bar) bar.style.width = (50 + p * 50).toFixed(0) + '%';
     }),
+    (isLow || cachedSuburban) ? Promise.resolve(cachedSuburban || []) : loadSuburbanModels().catch(e => {
+      console.warn('Suburban models failed to load:', e);
+      return [];
+    }),
   ]);
   cachedModels = models;
   cachedCharacter = character;
   cachedCars = cars;
+  cachedSuburban = suburban;
   if (bar) bar.style.width = '100%';
   await hideLoading();
-  return cachedModels;
+  return { ...cachedModels, suburban: cachedSuburban };
 }
 
 // Setup dynamic graphics setting updates at runtime
@@ -174,14 +182,16 @@ async function applySettingsDynamically() {
 
   // Pre-load assets in background if settings upgraded to Med/High and not loaded yet
   if (settings.current.quality !== 'low') {
-    if (!cachedModels || !cachedCars || Object.keys(cachedCars).length === 0) {
+    if (!cachedModels || !cachedCars || Object.keys(cachedCars).length === 0 || !cachedSuburban || cachedSuburban.length === 0) {
       console.log('[Settings] Upgraded quality in-game. Pre-loading models in the background...');
-      const [models, cars] = await Promise.all([
+      const [models, cars, suburban] = await Promise.all([
         (cachedModels && cachedModels.buildings.length > 0) ? Promise.resolve(cachedModels) : loadBuildingModels().catch(() => ({ buildings: [], skyscrapers: [] })),
-        (cachedCars && Object.keys(cachedCars).length > 0) ? Promise.resolve(cachedCars) : loadCarModels().catch(() => ({}))
+        (cachedCars && Object.keys(cachedCars).length > 0) ? Promise.resolve(cachedCars) : loadCarModels().catch(() => ({})),
+        (cachedSuburban && cachedSuburban.length > 0) ? Promise.resolve(cachedSuburban) : loadSuburbanModels().catch(() => []),
       ]);
       cachedModels = models;
       cachedCars = cars;
+      cachedSuburban = suburban;
       if (currentSession && currentSession.traffic) {
         currentSession.traffic.carModels = cachedCars;
       }

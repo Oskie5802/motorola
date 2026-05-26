@@ -952,31 +952,48 @@ export class City {
     };
 
     const spawnHouse = (x, y, z, rotY) => {
-      const houseMat = new THREE.MeshStandardMaterial({
-        color: PALETTE.building[Math.floor(Math.random() * PALETTE.building.length)],
-        roughness: 0.8,
-      });
-      const roofMat = new THREE.MeshStandardMaterial({
-        color: 0xaa3333, // red roof
-        roughness: 0.6,
-      });
+      const suburbanPool = this.models && this.models.suburban && this.models.suburban.length > 0
+        ? this.models.suburban : null;
 
-      const houseGeo = new THREE.BoxGeometry(3, 3, 3);
-      const house = new THREE.Mesh(houseGeo, houseMat);
-      house.position.set(x, y + 1.5, z);
-      house.rotation.y = rotY;
-      house.castShadow = this.castShadows;
-      house.receiveShadow = this.receiveShadows;
-      this.scene.add(house);
-      this.buildings.push({ mesh: house, x1: x-1.5, z1: z-1.5, x2: x+1.5, z2: z+1.5, height: 3 });
-
-      // Roof (Cone)
-      const roofGeo = new THREE.ConeGeometry(2.5, 2, 4);
-      const roof = new THREE.Mesh(roofGeo, roofMat);
-      roof.position.set(x, y + 3.5, z);
-      roof.rotation.y = rotY + Math.PI / 4;
-      roof.castShadow = this.castShadows;
-      this.scene.add(roof);
+      if (suburbanPool) {
+        const template = suburbanPool[Math.floor(Math.random() * suburbanPool.length)];
+        const model = template.clone(true);
+        const nativeSize = template.userData.size || new THREE.Vector3(4, 4, 4);
+        const yOffset = template.userData.yOffset || 0;
+        const targetHeight = 5 + Math.random() * 3;
+        const s = nativeSize.y > 0.01 ? targetHeight / nativeSize.y : 1;
+        model.scale.set(s, s, s);
+        model.rotation.y = rotY;
+        model.position.set(x, y + yOffset * s, z);
+        model.traverse(child => {
+          if (child.isMesh) {
+            child.castShadow = this.castShadows;
+            child.receiveShadow = this.receiveShadows;
+          }
+        });
+        this.scene.add(model);
+        const hw = (nativeSize.x * s) / 2;
+        const hd = (nativeSize.z * s) / 2;
+        this.buildings.push({ mesh: model, x1: x - hw, z1: z - hd, x2: x + hw, z2: z + hd, height: nativeSize.y * s });
+      } else {
+        const houseMat = new THREE.MeshStandardMaterial({
+          color: PALETTE.building[Math.floor(Math.random() * PALETTE.building.length)],
+          roughness: 0.8,
+        });
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0xaa3333, roughness: 0.6 });
+        const house = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), houseMat);
+        house.position.set(x, y + 1.5, z);
+        house.rotation.y = rotY;
+        house.castShadow = this.castShadows;
+        house.receiveShadow = this.receiveShadows;
+        this.scene.add(house);
+        this.buildings.push({ mesh: house, x1: x - 1.5, z1: z - 1.5, x2: x + 1.5, z2: z + 1.5, height: 3 });
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(2.5, 2, 4), roofMat);
+        roof.position.set(x, y + 3.5, z);
+        roof.rotation.y = rotY + Math.PI / 4;
+        roof.castShadow = this.castShadows;
+        this.scene.add(roof);
+      }
     };
     
     // 1. Lewa krawedź wyspy (Left)
@@ -3413,28 +3430,47 @@ export class City {
         group.add(stal);
       }
 
-      // 4. A small cottage and trees on top of the island
-      if (Math.random() < 0.7) {
-        // Spawn small cottage
-        const cw = 2 + Math.random() * 1.5;
-        const ch = 2 + Math.random() * 1.5;
-        const houseGeo = new THREE.BoxGeometry(cw, ch, cw);
-        const house = new THREE.Mesh(houseGeo, ghostRockMat);
-        house.position.set(-iw/4 + Math.random() * 2, 0.4 + ch/2, -id/4 + Math.random() * 2);
-        group.add(house);
+      // 4. Houses on top of the island
+      const suburbanPool = this.models && this.models.suburban && this.models.suburban.length > 0
+        ? this.models.suburban : null;
+      const houseCount = 1 + Math.floor(Math.random() * 2); // 1-2 houses per island
+      for (let h = 0; h < houseCount; h++) {
+        const hx = (Math.random() - 0.5) * (iw - 8);
+        const hz = (Math.random() - 0.5) * (id - 8);
+        const rotY = Math.floor(Math.random() * 4) * (Math.PI / 2);
 
-        // Roof
-        const roofGeo = new THREE.ConeGeometry(cw * 0.8, 1.2, 4);
-        const roof = new THREE.Mesh(roofGeo, ghostRoofMat);
-        roof.position.set(house.position.x, house.position.y + ch/2 + 0.6, house.position.z);
-        roof.rotation.y = Math.PI / 4;
-        group.add(roof);
-
-        // Add a glowing window dot on the cottage
-        if (Math.random() < 0.8) {
-          const dot = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), winMat);
-          dot.position.set(house.position.x, house.position.y, house.position.z + cw/2 + 0.02);
-          group.add(dot);
+        if (suburbanPool) {
+          const template = suburbanPool[Math.floor(Math.random() * suburbanPool.length)];
+          const obj = template.clone(true);
+          const nativeSize = template.userData.size || new THREE.Vector3(4, 4, 4);
+          const yOffset = template.userData.yOffset || 0;
+          const targetH = 3 + Math.random() * 2;
+          const s = nativeSize.y > 0.01 ? targetH / nativeSize.y : 1;
+          obj.scale.set(s, s, s);
+          obj.rotation.y = rotY;
+          obj.position.set(hx, 0.4 + yOffset * s, hz);
+          obj.traverse(child => {
+            if (child.isMesh) {
+              child.castShadow = this.castShadows;
+              child.receiveShadow = this.receiveShadows;
+            }
+          });
+          group.add(obj);
+        } else {
+          const cw = 2 + Math.random() * 1.5;
+          const ch = 2 + Math.random() * 1.5;
+          const house = new THREE.Mesh(new THREE.BoxGeometry(cw, ch, cw), ghostRockMat);
+          house.position.set(hx, 0.4 + ch / 2, hz);
+          group.add(house);
+          const roof = new THREE.Mesh(new THREE.ConeGeometry(cw * 0.8, 1.2, 4), ghostRoofMat);
+          roof.position.set(hx, 0.4 + ch + 0.6, hz);
+          roof.rotation.y = Math.PI / 4;
+          group.add(roof);
+          if (Math.random() < 0.8) {
+            const dot = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), winMat);
+            dot.position.set(hx, 0.4 + ch / 2, hz + cw / 2 + 0.02);
+            group.add(dot);
+          }
         }
       }
 

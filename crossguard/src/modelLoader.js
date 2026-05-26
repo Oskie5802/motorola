@@ -8,6 +8,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const BASE = 'assets/OBJ%20format/';
 const CHAR_BASE = 'assets/kenney_animated-characters-protagonists/';
 const CAR_BASE = 'assets/kenney_car-kit/Models/GLB format/';
+const SUBURBAN_BASE = 'assets/kenney_city-kit-suburban_20/Models/GLB format/';
 
 const BUILDING_NAMES = [
   'building-a', 'building-b', 'building-c', 'building-d', 'building-e',
@@ -146,6 +147,43 @@ export async function loadCarModels(onProgress) {
   }
 
   console.log('[CarLoader] Loaded', Object.keys(results).length, 'car models');
+  return results;
+}
+
+const SUBURBAN_NAMES = [
+  'building-type-a', 'building-type-b', 'building-type-c', 'building-type-d',
+  'building-type-e', 'building-type-f', 'building-type-g', 'building-type-h',
+  'building-type-i', 'building-type-j', 'building-type-k', 'building-type-l',
+  'building-type-m', 'building-type-n', 'building-type-o', 'building-type-p',
+  'building-type-q', 'building-type-r', 'building-type-s', 'building-type-t',
+  'building-type-u',
+];
+
+export async function loadSuburbanModels(onProgress) {
+  const results = [];
+  let done = 0;
+  const total = SUBURBAN_NAMES.length;
+  for (const name of SUBURBAN_NAMES) {
+    try {
+      const gltf = await loadGLB(SUBURBAN_BASE + name + '.glb');
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      model.userData.size = box.getSize(new THREE.Vector3());
+      model.userData.yOffset = -box.min.y;
+      model.traverse(child => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      results.push(model);
+    } catch (e) {
+      console.warn('[SuburbanLoader] Failed:', name, e);
+    }
+    done++;
+    if (onProgress) onProgress(done / total);
+  }
+  console.log('[SuburbanLoader] Loaded', results.length, 'suburban models');
   return results;
 }
 
