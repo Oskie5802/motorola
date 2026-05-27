@@ -35,7 +35,7 @@ export class TrafficSystem {
     for (let attempt = 0; attempt < attempts; attempt++) {
       const seg = this.city.roadSegments[Math.floor(Math.random() * this.city.roadSegments.length)];
       const dir = Math.random() < 0.5 ? 1 : -1;
-      const laneOffset = -1.6 * dir;
+      const laneOffset = seg.axis === 'h' ? (1.6 * dir) : (-1.6 * dir);
       const stagger = Math.random() * 50;
 
       let x, z, vx, vz, axis;
