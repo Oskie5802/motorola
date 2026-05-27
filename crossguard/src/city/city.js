@@ -865,21 +865,122 @@ export class City {
         const curbW = 0.55;
         const curbOffX = cellW / 2 - roadWidth / 2 - curbW / 2;
         const curbOffZ = cellD / 2 - roadWidth / 2 - curbW / 2;
-        // Curbs span the full gap between perpendicular roads so they meet at sidewalk corners
-        const curbLenH = cellW - roadWidth;
-        const curbLenV = cellD - roadWidth;
-        for (const [dx, dz, w, d] of [
-          [0, -curbOffZ, curbLenH, curbW],
-          [0, curbOffZ, curbLenH, curbW],
-          [-curbOffX, 0, curbW, curbLenV],
-          [curbOffX, 0, curbW, curbLenV],
-        ]) {
-          const c = new THREE.Mesh(
-            new THREE.BoxGeometry(w, curbT, d),
-            curbMat,
-          );
-          c.position.set(cx + dx, curbT / 2 + 0.12, cz + dz);
-          this.scene.add(c);
+
+        const getSubIntervals = (A, B, disallowed) => {
+          let intervals = [{ start: A, end: B }];
+          for (const disc of disallowed) {
+            const nextIntervals = [];
+            for (const inv of intervals) {
+              if (disc.end <= inv.start || disc.start >= inv.end) {
+                nextIntervals.push(inv);
+              } else {
+                if (disc.start > inv.start) {
+                  nextIntervals.push({ start: inv.start, end: disc.start });
+                }
+                if (disc.end < inv.end) {
+                  nextIntervals.push({ start: disc.end, end: inv.end });
+                }
+              }
+            }
+            intervals = nextIntervals;
+          }
+          return intervals;
+        };
+
+        // 1. North curb (adjacent to zs[j])
+        {
+          const A = xs[i] + roadWidth / 2;
+          const B = xs[i+1] - roadWidth / 2;
+          const disallowed = [];
+          if (j > 0) {
+            if (i > 0) disallowed.push({ start: xs[i] + 4, end: xs[i] + 7 });
+            if (i < g - 1) disallowed.push({ start: xs[i+1] - 7, end: xs[i+1] - 4 });
+          }
+          const intervals = getSubIntervals(A, B, disallowed);
+          for (const inv of intervals) {
+            const len = inv.end - inv.start;
+            if (len <= 0.01) continue;
+            const xPos = (inv.start + inv.end) / 2;
+            const zPos = cz - curbOffZ;
+            const c = new THREE.Mesh(
+              new THREE.BoxGeometry(len, curbT, curbW),
+              curbMat,
+            );
+            c.position.set(xPos, curbT / 2 + 0.12, zPos);
+            this.scene.add(c);
+          }
+        }
+
+        // 2. South curb (adjacent to zs[j+1])
+        {
+          const A = xs[i] + roadWidth / 2;
+          const B = xs[i+1] - roadWidth / 2;
+          const disallowed = [];
+          if (j < g - 1) {
+            if (i > 0) disallowed.push({ start: xs[i] + 4, end: xs[i] + 7 });
+            if (i < g - 1) disallowed.push({ start: xs[i+1] - 7, end: xs[i+1] - 4 });
+          }
+          const intervals = getSubIntervals(A, B, disallowed);
+          for (const inv of intervals) {
+            const len = inv.end - inv.start;
+            if (len <= 0.01) continue;
+            const xPos = (inv.start + inv.end) / 2;
+            const zPos = cz + curbOffZ;
+            const c = new THREE.Mesh(
+              new THREE.BoxGeometry(len, curbT, curbW),
+              curbMat,
+            );
+            c.position.set(xPos, curbT / 2 + 0.12, zPos);
+            this.scene.add(c);
+          }
+        }
+
+        // 3. West curb (adjacent to xs[i])
+        {
+          const A = zs[j] + roadWidth / 2;
+          const B = zs[j+1] - roadWidth / 2;
+          const disallowed = [];
+          if (i > 0) {
+            if (j > 0) disallowed.push({ start: zs[j] + 4, end: zs[j] + 7 });
+            if (j < g - 1) disallowed.push({ start: zs[j+1] - 7, end: zs[j+1] - 4 });
+          }
+          const intervals = getSubIntervals(A, B, disallowed);
+          for (const inv of intervals) {
+            const len = inv.end - inv.start;
+            if (len <= 0.01) continue;
+            const xPos = cx - curbOffX;
+            const zPos = (inv.start + inv.end) / 2;
+            const c = new THREE.Mesh(
+              new THREE.BoxGeometry(curbW, curbT, len),
+              curbMat,
+            );
+            c.position.set(xPos, curbT / 2 + 0.12, zPos);
+            this.scene.add(c);
+          }
+        }
+
+        // 4. East curb (adjacent to xs[i+1])
+        {
+          const A = zs[j] + roadWidth / 2;
+          const B = zs[j+1] - roadWidth / 2;
+          const disallowed = [];
+          if (i < g - 1) {
+            if (j > 0) disallowed.push({ start: zs[j] + 4, end: zs[j] + 7 });
+            if (j < g - 1) disallowed.push({ start: zs[j+1] - 7, end: zs[j+1] - 4 });
+          }
+          const intervals = getSubIntervals(A, B, disallowed);
+          for (const inv of intervals) {
+            const len = inv.end - inv.start;
+            if (len <= 0.01) continue;
+            const xPos = cx + curbOffX;
+            const zPos = (inv.start + inv.end) / 2;
+            const c = new THREE.Mesh(
+              new THREE.BoxGeometry(curbW, curbT, len),
+              curbMat,
+            );
+            c.position.set(xPos, curbT / 2 + 0.12, zPos);
+            this.scene.add(c);
+          }
         }
 
         // === Detale high quality: linie krawędziowe i rynsztok ===
