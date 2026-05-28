@@ -1046,6 +1046,155 @@ export class AudioSystem {
     this.ambientGain.gain.linearRampToValueAtTime(0.5, t + duration);
   }
 
+  playPassBy(type = 'car', speed = 15, vol = 0.25) {
+    if (!this.enabled || this.muted) return;
+    this._init();
+
+    // Check if we are already playing too many passby sounds (max 3 overlapping voices)
+    const now = performance.now();
+    if (!this._activePassbys) this._activePassbys = [];
+    
+    // Filter out finished passbys
+    this._activePassbys = this._activePassbys.filter(p => now < p.endTime);
+    
+    if (this._activePassbys.length >= 3) {
+      return;
+    }
+
+    // Minimum delay between starting any two passby sounds to prevent phasing/clicking
+    if (this._lastPassbyAt && now - this._lastPassbyAt < 300) {
+      return;
+    }
+    this._lastPassbyAt = now;
+
+    // Calculate dynamic duration based on vehicle speed
+    const clampedSpeed = Math.max(6, Math.min(22, speed));
+    const timeToPass = 9.0 / clampedSpeed;
+    const duration = timeToPass * 2.0;
+
+    const t = this.ctx.currentTime;
+    
+    // Generate pink noise buffer
+    const buf = this._noiseBuffer(duration, 'pink');
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+
+    const g = this.ctx.createGain();
+    const filt = this.ctx.createBiquadFilter();
+    filt.type = 'bandpass';
+
+    // Different frequency profiles based on vehicle type
+    let baseFreq = 200;
+    let peakFreq = 420;
+    let endFreq = 140;
+    let qValue = 2.5;
+    let volumeScale = vol;
+
+    // Randomize pitch slightly (±15%) so that different cars sound unique
+    const pitchOffset = 0.85 + Math.random() * 0.3;
+
+    if (type === 'truck' || type === 'bus') {
+      baseFreq = 120 * pitchOffset;
+      peakFreq = 250 * pitchOffset;
+      endFreq = 90 * pitchOffset;
+      qValue = 3.0;
+      volumeScale = vol * 1.4; // louder rumble
+    } else {
+      // Normal car
+      baseFreq = 200 * pitchOffset;
+      peakFreq = 420 * pitchOffset;
+      endFreq = 140 * pitchOffset;
+    }
+
+    // Doppler frequency sweep synced with timeToPass
+    filt.frequency.setValueAtTime(baseFreq, t);
+    filt.frequency.linearRampToValueAtTime(peakFreq, t + timeToPass);
+    filt.frequency.linearRampToValueAtTime(endFreq, t + duration * 0.95);
+    filt.Q.value = qValue;
+
+    // Gain ramping up to peak at timeToPass and fading out
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.linearRampToValueAtTime(volumeScale, t + timeToPass * 0.9);
+    g.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.95);
+
+    src.connect(filt).connect(g).connect(this.sfxGain);
+    src.start(t);
+    src.stop(t + duration);
+
+    // Track active passby to enforce overlap limits
+    this._activePassbys.push({
+      endTime: now + duration * 1000
+    });
+  }
+
+  playBrakeSqueal(type = 'car', vol = 0.08) {
+    if (!this.enabled || this.muted) return;
+    this._init();
+
+    // Limit overlap of brake squeals
+    const now = performance.now();
+    if (this._lastBrakeAt && now - this._lastBrakeAt < 1000) {
+      return;
+    }
+    this._lastBrakeAt = now;
+
+    const t = this.ctx.currentTime;
+    const duration = type === 'truck' || type === 'bus' ? 0.65 + Math.random() * 0.15 : 0.35 + Math.random() * 0.1;
+    
+    // Set frequency sweep range
+    const startFreq = type === 'truck' || type === 'bus' ? 1300 + Math.random() * 150 : 2000 + Math.random() * 250;
+    const endFreq = type === 'truck' || type === 'bus' ? 900 : 1550;
+
+    // Create pink noise source
+    const buf = this._noiseBuffer(duration, 'pink');
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+
+    // Resonant filter 1 (Primary friction resonance)
+    const filt1 = this.ctx.createBiquadFilter();
+    filt1.type = 'bandpass';
+    filt1.frequency.setValueAtTime(startFreq, t);
+    filt1.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
+    filt1.Q.value = 35; // extremely sharp resonance to make it squeal
+
+    // Resonant filter 2 (Secondary harmonic resonance, gives metallic body texture)
+    const filt2 = this.ctx.createBiquadFilter();
+    filt2.type = 'bandpass';
+    filt2.frequency.setValueAtTime(startFreq * 1.45, t); // non-integer harmonic for realistic metallic grinding
+    filt2.frequency.exponentialRampToValueAtTime(endFreq * 1.45, t + duration);
+    filt2.Q.value = 25;
+
+    // Gains for both resonances
+    const g1 = this.ctx.createGain();
+    g1.gain.setValueAtTime(0.001, t);
+    g1.gain.linearRampToValueAtTime(vol * 0.38, t + 0.05);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    const g2 = this.ctx.createGain();
+    g2.gain.setValueAtTime(0.001, t);
+    g2.gain.linearRampToValueAtTime(vol * 0.16, t + 0.08); // slightly quieter secondary resonance
+    g2.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    // Filtered broad noise (general brake pad friction scrape)
+    const frictionFilt = this.ctx.createBiquadFilter();
+    frictionFilt.type = 'bandpass';
+    frictionFilt.frequency.setValueAtTime(startFreq * 0.6, t);
+    frictionFilt.Q.value = 1.5; // wider filter for broad scraping
+
+    const frictionGain = this.ctx.createGain();
+    frictionGain.gain.setValueAtTime(0.001, t);
+    frictionGain.gain.linearRampToValueAtTime(vol * 0.4, t + 0.04);
+    frictionGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    // Connect nodes
+    src.connect(filt1).connect(g1).connect(this.sfxGain);
+    src.connect(filt2).connect(g2).connect(this.sfxGain);
+    src.connect(frictionFilt).connect(frictionGain).connect(this.sfxGain);
+
+    src.start(t);
+    src.stop(t + duration + 0.05);
+  }
+
   stop() {
     this._stopAmbientLayers();
     this.stopRain();

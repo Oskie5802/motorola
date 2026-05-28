@@ -419,6 +419,25 @@ export class GameLogic {
       }
     }
 
+    // Check if any car is passing close to the player (within 9 meters)
+    for (const v of this.traffic.vehicles) {
+      const d = Math.hypot(v.pos.x - this.player.pos.x, v.pos.z - this.player.pos.z);
+      if (d < 9.0) {
+        if (v.speed > 2.0 && !v._passbyTriggered) {
+          v._passbyTriggered = true;
+          this.audio.playPassBy(v.type, v.speed);
+        }
+        // Play brake squeal if the vehicle has triggered the pass-by sound and is now braking/stopping
+        if (v.speed > 0.05 && v.speed < 2.2 && v._passbyTriggered && !v._brakeTriggered) {
+          v._brakeTriggered = true;
+          this.audio.playBrakeSqueal(v.type, v.type === 'truck' || v.type === 'bus' ? 0.12 : 0.07);
+        }
+      } else if (d > 12.0) {
+        v._passbyTriggered = false;
+        v._brakeTriggered = false;
+      }
+    }
+
         // Update audio per frame z pełnym stanem gracza
     const running = this.player.keys && (this.player.keys['ShiftLeft'] || this.player.keys['ShiftRight']);
     this.audio.update(dt, {
