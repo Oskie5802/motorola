@@ -17,15 +17,16 @@ export const ZONES = [
     requiredScore: 200,
     lesson: 'Podstawy BRD: zawsze korzystaj z przejść dla pieszych i sygnalizacji świetlnej. To Twój pierwszy krok do statusu Certified Safe Citizen.',
 
-    // Deterministyczny layout osiedla: 5x5 bloków, niektóre bloki dłuższe
+    // Deterministyczny layout osiedla: 6x6 bloków, niektóre bloki dłuższe
     layout: {
-      xWidths: [32, 38, 52, 32, 80],
-      zWidths: [30, 42, 30, 48, 30],
-      signals: [[1,1], [2,3], [3,2], [4,4]],
+      xWidths: [32, 38, 52, 32, 45, 80],
+      zWidths: [30, 42, 30, 48, 32, 30],
+      signals: [[1,1], [2,3], [3,2], [4,4], [5,2]],
       blocks: {
         '2,0': 'park',
         '1,3': 'park',
         '3,2': 'park',
+        '4,5': 'park',
       },
     },
   },
@@ -45,15 +46,16 @@ export const ZONES = [
     requiredScore: 60,
     lesson: 'W strefach szkolnych obowiązuje obniżona prędkość. Uważaj na autobusy szkolne i grupy dzieci. System Avigilon monitoruje przekroczenia prędkości.',
 
-    // Strefa szkolna: 5x5 bloków, niektóre bloki dłuższe
+    // Strefa szkolna: 6x6 bloków, niektóre bloki dłuższe
     layout: {
-      xWidths: [28, 44, 32, 48, 28],
-      zWidths: [30, 40, 35, 45, 30],
-      signals: [[1,1], [2,2], [3,3], [4,2], [2,4]],
+      xWidths: [28, 44, 32, 48, 30, 28],
+      zWidths: [30, 40, 35, 45, 32, 30],
+      signals: [[1,1], [2,2], [3,3], [4,2], [2,4], [5,5]],
       blocks: {
         '2,2': 'plaza',
         '1,3': 'plaza',
         '3,1': 'plaza',
+        '4,5': 'plaza',
       },
     },
   },
@@ -73,16 +75,18 @@ export const ZONES = [
     requiredScore: 140,
     lesson: 'W centrum: tramwaje mają pierwszeństwo, deszcz wydłuża drogę hamowania pojazdów. Zachowaj większy margines bezpieczeństwa przed przejściem.',
 
-    // Centrum: 6x6 bloków, niektóre bloki dłuższe
+    // Centrum: 7x7 bloków, niektóre bloki dłuższe
     layout: {
-      xWidths: [26, 32, 48, 32, 54, 26],
-      zWidths: [26, 32, 42, 32, 46, 26],
-      signals: [[1,2], [2,1], [2,3], [3,2], [3,4], [4,3], [4,5], [5,4]],
+      xWidths: [26, 32, 48, 32, 54, 30, 26],
+      zWidths: [26, 32, 42, 32, 46, 30, 26],
+      signals: [[1,2], [2,1], [2,3], [3,2], [3,4], [4,3], [4,5], [5,4], [6,5], [5,6]],
       blocks: {
         '1,1': 'plaza',
         '2,2': 'park',
         '3,3': 'plaza',
         '4,4': 'park',
+        '5,5': 'plaza',
+        '6,2': 'park',
       },
     },
   },
@@ -102,16 +106,18 @@ export const ZONES = [
     requiredScore: 240,
     lesson: 'Noc i mgła ograniczają widoczność. TIR-y mają długą drogę hamowania. LPR (License Plate Recognition) wykrywa pojazdy zagrażające bezpieczeństwu.',
 
-    // Przemyslowka: 6x6 bloków, niektóre bloki dłuższe
+    // Przemyslowka: 8x8 bloków, niektóre bloki dłuższe
     layout: {
-      xWidths: [40, 44, 52, 40, 56, 40],
-      zWidths: [38, 48, 38, 50, 42, 38],
-      signals: [[1,1], [2,3], [3,2], [4,4], [5,5]],
+      xWidths: [40, 44, 52, 40, 56, 42, 40, 40],
+      zWidths: [38, 48, 38, 50, 42, 38, 46, 38],
+      signals: [[1,1], [2,3], [3,2], [4,4], [5,5], [6,2], [7,7]],
       blocks: {
         '0,2': 'empty',
         '2,0': 'empty',
         '4,1': 'empty',
         '1,4': 'empty',
+        '6,6': 'empty',
+        '7,3': 'empty',
       },
     },
   },
@@ -131,17 +137,19 @@ export const ZONES = [
     requiredScore: 360,
     lesson: 'Misja finałowa: koordynuj z Command Center i Assist AI. Pełny ekosystem Motorola Solutions chroni Cię na każdym kroku.',
 
-    // Finalna misja: 7x7 bloków, niektóre bloki dłuższe
+    // Finalna misja: 9x9 bloków, niektóre bloki dłuższe
     layout: {
-      xWidths: [28, 34, 52, 34, 60, 34, 28],
-      zWidths: [28, 34, 48, 34, 56, 34, 28],
-      signals: [[1,1], [1,5], [2,3], [3,2], [3,4], [4,3], [5,2], [5,5], [6,1], [6,6]],
+      xWidths: [28, 34, 52, 34, 60, 34, 48, 34, 28],
+      zWidths: [28, 34, 48, 34, 56, 34, 42, 34, 28],
+      signals: [[1,1], [1,5], [2,3], [3,2], [3,4], [4,3], [5,2], [5,5], [6,1], [6,6], [7,4], [7,7], [8,8]],
       blocks: {
         '1,1': 'park',
         '2,0': 'plaza',
         '3,5': 'park',
         '4,2': 'plaza',
         '5,5': 'park',
+        '7,2': 'plaza',
+        '8,6': 'park',
       },
     },
   },
