@@ -996,9 +996,12 @@ export class TrafficSystem {
     return v;
   }
 
-    // Funkcja sprawdza czy gracz zrobil plask
-  vehicleHitting(pos) {
+  // Funkcja sprawdza czy gracz zrobil plask
+  vehicleHitting(pos, includeStationary = false) {
     for (const v of this.vehicles) {
+      if (!includeStationary && v.speed < 0.1) {
+        continue;
+      }
       const dx = pos.x - v.pos.x;
       const dz = pos.z - v.pos.z;
             // Odwracamy punkt odniesienia do ramy samochodu

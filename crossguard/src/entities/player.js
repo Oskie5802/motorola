@@ -329,7 +329,10 @@ export class Player {
     const newX = this.pos.x + mvX;
     const newZ = this.pos.z + mvZ;
 
-    const collidesVehicle = (x, z) => !fastDev && traffic && !!traffic.vehicleHitting({ x, z });
+    const collidesVehicle = (x, z) => !fastDev && traffic && (() => {
+      const hit = traffic.vehicleHitting({ x, z }, true);
+      return hit && hit.speed < 0.1;
+    })();
     if (fastDev || (!city.collidesBuilding(newX, this.pos.z) && !collidesVehicle(newX, this.pos.z))) this.pos.x = newX;
     if (fastDev || (!city.collidesBuilding(this.pos.x, newZ) && !collidesVehicle(this.pos.x, newZ))) this.pos.z = newZ;
 
