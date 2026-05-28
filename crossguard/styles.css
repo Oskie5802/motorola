@@ -1400,3 +1400,34 @@ kbd {
   padding-top: 6px;
 }
 
+/* Style dla suwaka settings */
+.setting-toggle input[type="range"] {
+  accent-color: var(--moto-cyan);
+  background: rgba(0, 163, 224, 0.15);
+  border: 1px solid rgba(0, 163, 224, 0.3);
+  border-radius: 4px;
+  height: 6px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.setting-toggle input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--moto-cyan);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 163, 224, 0.6);
+}
+.setting-toggle input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--moto-cyan);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(0, 163, 224, 0.6);
+}
+

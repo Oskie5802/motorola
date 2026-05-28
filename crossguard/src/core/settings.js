@@ -6,7 +6,8 @@ const DEFAULT_SETTINGS = {
   shadows: true,
   lod: true,
   particles: true,
-  pixelRatioLimit: 2.0
+  pixelRatioLimit: 2.0,
+  chunkLimit: 200 // Domyślna odległość renderowania chunków w metrach
 };
 
 class SettingsManager {
@@ -41,16 +42,19 @@ class SettingsManager {
       this.current.lod = false;
       this.current.particles = false;
       this.current.pixelRatioLimit = 1.0;
+      this.current.chunkLimit = 120;
     } else if (level === 'medium') {
       this.current.shadows = true;
       this.current.lod = true;
       this.current.particles = true;
       this.current.pixelRatioLimit = 1.5;
+      this.current.chunkLimit = 200;
     } else if (level === 'high') {
       this.current.shadows = true;
       this.current.lod = true;
       this.current.particles = true;
       this.current.pixelRatioLimit = 2.0;
+      this.current.chunkLimit = 300;
     }
     this.save();
   }

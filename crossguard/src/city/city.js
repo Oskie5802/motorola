@@ -90,6 +90,7 @@ export class City {
     this.trees = [];
     this.benches = [];
     this.ghostBuildings = [];
+    this.chunks = [];
 
     this._build();
   }
@@ -195,6 +196,102 @@ export class City {
       this.scene.add(rock);
     }
 
+    // === Inicjalizacja Chunków i Redirekcja scene.add / push ===
+    this.chunks = [];
+    const originalAdd = this.scene.add;
+
+    for (let i = 0; i < g; i++) {
+      for (let j = 0; j < g; j++) {
+        const cx = (xs[i] + xs[i + 1]) / 2;
+        const cz = (zs[j] + zs[j + 1]) / 2;
+        const chunkGroup = new THREE.Group();
+        chunkGroup.userData.isChunkGroup = true;
+        originalAdd.call(this.scene, chunkGroup);
+
+        this.chunks.push({
+          i,
+          j,
+          x: cx,
+          z: cz,
+          group: chunkGroup,
+          buildings: [],
+          trees: [],
+          benches: [],
+          ghostBuildings: []
+        });
+      }
+    }
+
+    const findClosestChunk = (x, z) => {
+      let closestChunk = null;
+      let minDistSq = Infinity;
+      for (const chunk of this.chunks) {
+        const dx = chunk.x - x;
+        const dz = chunk.z - z;
+        const distSq = dx * dx + dz * dz;
+        if (distSq < minDistSq) {
+          minDistSq = distSq;
+          closestChunk = chunk;
+        }
+      }
+      return closestChunk;
+    };
+
+    this.scene.add = (obj) => {
+      if (obj && obj.userData && obj.userData.isChunkGroup) {
+        originalAdd.call(this.scene, obj);
+        return;
+      }
+      if (!obj || !obj.position) {
+        originalAdd.call(this.scene, obj);
+        return;
+      }
+      const chunk = findClosestChunk(obj.position.x, obj.position.z);
+      if (chunk) {
+        chunk.group.add(obj);
+      } else {
+        originalAdd.call(this.scene, obj);
+      }
+    };
+
+    const getItemCoords = (item) => {
+      if (item.x !== undefined && item.z !== undefined) {
+        return { x: item.x, z: item.z };
+      }
+      if (item.x1 !== undefined && item.z1 !== undefined && item.x2 !== undefined && item.z2 !== undefined) {
+        return { x: (item.x1 + item.x2) / 2, z: (item.z1 + item.z2) / 2 };
+      }
+      if (item.mesh && item.mesh.position) {
+        return { x: item.mesh.position.x, z: item.mesh.position.z };
+      }
+      return null;
+    };
+
+    const wrapPush = (arr) => {
+      const originalPush = arr.push;
+      arr.push = (...args) => {
+        for (const item of args) {
+          const coords = getItemCoords(item);
+          if (coords) {
+            const chunk = findClosestChunk(coords.x, coords.z);
+            if (chunk) {
+              if (arr === this.buildings) chunk.buildings.push(item);
+              else if (arr === this.trees) chunk.trees.push(item);
+              else if (arr === this.benches) chunk.benches.push(item);
+              else if (arr === this.ghostBuildings) chunk.ghostBuildings.push(item);
+            }
+          }
+        }
+        return originalPush.apply(arr, args);
+      };
+      return originalPush;
+    };
+
+    const origBuildingsPush = wrapPush(this.buildings);
+    const origTreesPush = wrapPush(this.trees);
+    const origBenchesPush = wrapPush(this.benches);
+    const origGhostBuildingsPush = wrapPush(this.ghostBuildings);
+
     // === Materialy ===
     const quality = settings.current.quality;
     const isHighQuality = quality === 'high';
@@ -274,34 +371,42 @@ export class City {
       });
     }
 
-    // === Drogi poziome (staly z, rozciagaja sie na cala szerokosc w x, dopasowane do wyspy) ===
+    // === Drogi poziome (segmenty siatki, dopasowane do wyspy) ===
     for (let j = 0; j <= g; j++) {
       const coord = zs[j];
-      const hRoad = new THREE.Mesh(
-        new THREE.PlaneGeometry(sizeX, roadWidth),
-        roadMat,
-      );
-      hRoad.rotation.x = -Math.PI / 2;
-      hRoad.position.set(0, 0, coord);
-      hRoad.receiveShadow = this.receiveShadows;
-      this.scene.add(hRoad);
+      for (let i = 0; i < g; i++) {
+        const cx = (xs[i] + xs[i + 1]) / 2;
+        const len = xs[i + 1] - xs[i];
+        const hRoad = new THREE.Mesh(
+          new THREE.PlaneGeometry(len, roadWidth),
+          roadMat,
+        );
+        hRoad.rotation.x = -Math.PI / 2;
+        hRoad.position.set(cx, 0, coord);
+        hRoad.receiveShadow = this.receiveShadows;
+        this.scene.add(hRoad);
+      }
       this.roadSegments.push({
         x1: -sizeX / 2, z1: coord, x2: sizeX / 2, z2: coord, axis: "h",
       });
       this._addLaneLines(0, coord, sizeX, roadWidth, "h");
     }
 
-    // === Drogi pionowe (staly x, rozciagaja sie na cala glebokosc w z, dopasowane do wyspy) ===
+    // === Drogi pionowe (segmenty siatki, dopasowane do wyspy) ===
     for (let i = 0; i <= g; i++) {
       const coord = xs[i];
-      const vRoad = new THREE.Mesh(
-        new THREE.PlaneGeometry(roadWidth, sizeZ),
-        roadMat,
-      );
-      vRoad.rotation.x = -Math.PI / 2;
-      vRoad.position.set(coord, 0, 0);
-      vRoad.receiveShadow = this.receiveShadows;
-      this.scene.add(vRoad);
+      for (let j = 0; j < g; j++) {
+        const cz = (zs[j] + zs[j + 1]) / 2;
+        const len = zs[j + 1] - zs[j];
+        const vRoad = new THREE.Mesh(
+          new THREE.PlaneGeometry(roadWidth, len),
+          roadMat,
+        );
+        vRoad.rotation.x = -Math.PI / 2;
+        vRoad.position.set(coord, 0, cz);
+        vRoad.receiveShadow = this.receiveShadows;
+        this.scene.add(vRoad);
+      }
       this.roadSegments.push({
         x1: coord, z1: -sizeZ / 2, x2: coord, z2: sizeZ / 2, axis: "v",
       });
@@ -523,22 +628,27 @@ export class City {
         roughness: 0.6,
       });
 
+      const group = new THREE.Group();
+      group.position.set(x, y, z);
+
       const houseGeo = new THREE.BoxGeometry(3, 3, 3);
       const house = new THREE.Mesh(houseGeo, houseMat);
-      house.position.set(x, y + 1.5, z);
+      house.position.set(0, 1.5, 0);
       house.rotation.y = rotY;
       house.castShadow = this.castShadows;
       house.receiveShadow = this.receiveShadows;
-      this.scene.add(house);
-      this.buildings.push({ mesh: house, x1: x-1.5, z1: z-1.5, x2: x+1.5, z2: z+1.5, height: 3 });
+      group.add(house);
 
       // Roof (Cone)
       const roofGeo = new THREE.ConeGeometry(2.5, 2, 4);
       const roof = new THREE.Mesh(roofGeo, roofMat);
-      roof.position.set(x, y + 3.5, z);
+      roof.position.set(0, 3.5, 0);
       roof.rotation.y = rotY + Math.PI / 4;
       roof.castShadow = this.castShadows;
-      this.scene.add(roof);
+      group.add(roof);
+
+      this.scene.add(group);
+      this.buildings.push({ mesh: group, x1: x-1.5, z1: z-1.5, x2: x+1.5, z2: z+1.5, height: 3 });
     };
     
     // 1. Lewa krawedź wyspy (Left)
@@ -1071,6 +1181,8 @@ export class City {
       }
     }
 
+
+
     // === Skrzyzowania — sygnalizowane lub ze znakami ===
     const crossOff = roadWidth / 2 + 1.5;
     const crossWidth = 3.0;
@@ -1239,6 +1351,14 @@ export class City {
     }
 
     this._addLamps();
+
+    // Restore original scene.add and array push methods
+    this.scene.add = originalAdd;
+    this.buildings.push = origBuildingsPush;
+    this.trees.push = origTreesPush;
+    this.benches.push = origBenchesPush;
+    this.ghostBuildings.push = origGhostBuildingsPush;
+
     this._buildGhostIslands();
     this.bounds = { min: -half, max: half };
   }
@@ -1368,72 +1488,77 @@ export class City {
           })
         }).catch(() => {});
       }
-      
-      const objPos = new THREE.Vector3();
-      
-      // Cull buildings
-      for (const b of this.buildings) {
-        if (b.mesh) {
-          const bx = (b.x1 + b.x2) / 2;
-          const bz = (b.z1 + b.z2) / 2;
-          const by = (b.mesh.userData.height || 20) / 2;
-          
-          objPos.set(bx, by, bz);
-          
-          const vx = objPos.x - camPos.x;
-          const vy = objPos.y - camPos.y;
-          const vz = objPos.z - camPos.z;
+
+      const chunkLimit = settings.current.chunkLimit || 200;
+
+      // Cull chunk groups
+      if (this.chunks) {
+        for (const chunk of this.chunks) {
+          const vx = chunk.x - camPos.x;
+          const vz = chunk.z - camPos.z;
           const dist = Math.hypot(vx, vz);
-          
-          const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
-          
-          // Pokaż tylko jeśli jest z przodu kamery (z marginesem -15) i w odległości 200m
-          b.mesh.visible = (dot > -15) && (dist < 200);
-        }
-      }
-      
-      // Cull trees
-      for (const t of this.trees) {
-        if (t.mesh) {
-          const vx = t.x - camPos.x;
-          const vy = 2.0 - camPos.y;
-          const vz = t.z - camPos.z;
-          const dist = Math.hypot(vx, vz);
-          const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
-          
-          t.mesh.visible = (dot > -10) && (dist < 150);
-        }
-      }
-      
-      // Cull benches
-      for (const bn of this.benches) {
-        if (bn.mesh) {
-          const vx = bn.x - camPos.x;
-          const vy = 0.5 - camPos.y;
-          const vz = bn.z - camPos.z;
-          const dist = Math.hypot(vx, vz);
-          const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
-          
-          bn.mesh.visible = (dot > -10) && (dist < 120);
+          const dot = vx * camDir.x + vz * camDir.z;
+
+          // Chunk is visible if it is within chunkLimit (with a 40m buffer)
+          // and either in front of the camera or close enough
+          const isVisible = (dist < chunkLimit + 40) && (dot > -50 || dist < 45);
+          chunk.group.visible = isVisible;
+
+          // If chunk is visible, we can run fine-grained culling on its buildings, trees, and benches
+          if (isVisible) {
+            // Cull buildings inside this chunk
+            for (const b of chunk.buildings) {
+              if (b.mesh) {
+                const bx = (b.x1 + b.x2) / 2;
+                const bz = (b.z1 + b.z2) / 2;
+                const by = (b.mesh.userData.height || 20) / 2;
+                const bvx = bx - camPos.x;
+                const bvy = by - camPos.y;
+                const bvz = bz - camPos.z;
+                const bdist = Math.hypot(bvx, bvz);
+                const bdot = bvx * camDir.x + bvy * camDir.y + bvz * camDir.z;
+                b.mesh.visible = (bdot > -15) && (bdist < chunkLimit);
+              }
+            }
+            // Cull trees inside this chunk
+            for (const t of chunk.trees) {
+              if (t.mesh) {
+                const tvx = t.x - camPos.x;
+                const tvy = 2.0 - camPos.y;
+                const tvz = t.z - camPos.z;
+                const tdist = Math.hypot(tvx, tvz);
+                const tdot = tvx * camDir.x + tvy * camDir.y + tvz * camDir.z;
+                t.mesh.visible = (tdot > -10) && (tdist < chunkLimit * 0.75);
+              }
+            }
+            // Cull benches inside this chunk
+            for (const bn of chunk.benches) {
+              if (bn.mesh) {
+                const bnvx = bn.x - camPos.x;
+                const bnvy = 0.5 - camPos.y;
+                const bnvz = bn.z - camPos.z;
+                const bndist = Math.hypot(bnvx, bnvz);
+                const bndot = bnvx * camDir.x + bnvy * camDir.y + bnvz * camDir.z;
+                bn.mesh.visible = (bndot > -10) && (bndist < chunkLimit * 0.6);
+              }
+            }
+          }
         }
       }
 
-      // Cull ghost buildings
+      // Cull ghost buildings (they are not grouped into chunks, so we handle them globally as before)
       if (this.ghostBuildings) {
         for (const gb of this.ghostBuildings) {
           if (gb.mesh) {
             const bx = (gb.x1 + gb.x2) / 2;
             const bz = (gb.z1 + gb.z2) / 2;
             const by = gb.height / 2;
-            
             const vx = bx - camPos.x;
             const vy = by - camPos.y;
             const vz = bz - camPos.z;
             const dist = Math.hypot(vx, vz);
             const dot = vx * camDir.x + vy * camDir.y + vz * camDir.z;
-            
-            // Widmowe budynki widać znacznie dalej (do 400m)
-            gb.mesh.visible = (dot > -30) && (dist < 400);
+            gb.mesh.visible = (dot > -30) && (dist < chunkLimit * 1.5 + 100);
           }
         }
       }

@@ -207,6 +207,8 @@ function initSettingsUI() {
   const settingShadows = $('settingShadows');
   const settingLOD = $('settingLOD');
   const settingParticles = $('settingParticles');
+  const settingChunkLimit = $('settingChunkLimit');
+  const chunkLimitVal = $('chunkLimitVal');
   const qualityDesc = $('qualityDesc');
 
   let settingsOrigin = 'menu';
@@ -220,6 +222,13 @@ function initSettingsUI() {
     settingShadows.checked = settings.current.shadows;
     settingLOD.checked = settings.current.lod;
     settingParticles.checked = settings.current.particles;
+    
+    if (settingChunkLimit) {
+      settingChunkLimit.value = settings.current.chunkLimit || 200;
+    }
+    if (chunkLimitVal) {
+      chunkLimitVal.textContent = (settings.current.chunkLimit || 200) + 'm';
+    }
 
     if (settings.current.quality === 'low') {
       qualityDesc.textContent = 'Uproszczona grafika, cienie wyłączone, brak modeli budynków/aut GLB. Uproszczone sygnalizatory i płaskie kolory nawierzchni.';
@@ -293,6 +302,18 @@ function initSettingsUI() {
     settings.current.particles = settingParticles.checked;
     settings.save();
   };
+
+  if (settingChunkLimit) {
+    settingChunkLimit.oninput = () => {
+      if (chunkLimitVal) {
+        chunkLimitVal.textContent = settingChunkLimit.value + 'm';
+      }
+    };
+    settingChunkLimit.onchange = () => {
+      settings.current.chunkLimit = parseInt(settingChunkLimit.value, 10);
+      settings.save();
+    };
+  }
 }
 
 initSettingsUI();

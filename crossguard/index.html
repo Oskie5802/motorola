@@ -287,6 +287,13 @@
           <label class="setting-toggle">
             <input type="checkbox" id="settingParticles"> Efekty cząsteczkowe (pogoda)
           </label>
+          <label class="setting-toggle slider-container" style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 15px; width: 100%;">
+            <div style="display: flex; justify-content: space-between; width: 100%; font-size: 13px; color: #d8e8ff;">
+              <span>Zasięg renderowania chunków:</span>
+              <b id="chunkLimitVal" style="color: var(--moto-cyan);">200m</b>
+            </div>
+            <input type="range" id="settingChunkLimit" min="50" max="400" step="10" value="200" style="width: 100%; cursor: pointer;">
+          </label>
         </div>
       </div>
       <button id="settingsBack" class="primary-btn">◀ POWRÓT</button>

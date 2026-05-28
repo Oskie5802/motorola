@@ -291,6 +291,27 @@ export class Environment {
   }
 
   update(dt, playerPos) {
+    // Dynamic fog adjustment based on chunkLimit
+    const chunkLimit = settings.current.chunkLimit || 200;
+    if (this.scene.fog) {
+      if (this.scene.fog.isFogExp2) {
+        let baseDensity = 0.012; // default
+        if (this.zone.weather === 'fog') {
+          baseDensity = this.isNight ? 0.018 : 0.015;
+        } else if (this.zone.weather === 'rain') {
+          baseDensity = this.isNight ? 0.012 : 0.008;
+        } else {
+          baseDensity = 0.005;
+        }
+        // Scale the density factor based on chunkLimit
+        this.scene.fog.density = baseDensity * (200 / chunkLimit);
+      } else if (this.scene.fog.isFog) {
+        // Fog: far = chunkLimit + 10, near = chunkLimit * 0.4
+        this.scene.fog.far = chunkLimit + 10;
+        this.scene.fog.near = chunkLimit * 0.4;
+      }
+    }
+
     if (this.rain) {
       const pos = this.rain.geometry.attributes.position;
       const arr = pos.array;
