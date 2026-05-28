@@ -618,8 +618,11 @@ export class TrafficSystem {
       this._updateVehicle(v, dt, playerPos, signals);
     }
         // Ludziki: spacer -> stoimy przed przejsciem -> zielone to idziemy -> znowu spacer
+    const chunkLimit = settings.current.chunkLimit || 200;
     for (const p of this.peds) {
       if (!p.route || p.route.length === 0) continue;
+      const pdist = Math.hypot(p.pos.x - playerPos.x, p.pos.z - playerPos.z);
+      p.group.visible = (pdist < chunkLimit * 1.2);
       const wp = p.route[p.wpIdx];
       const dx = wp.x - p.pos.x;
       const dz = wp.z - p.pos.z;
@@ -937,6 +940,11 @@ export class TrafficSystem {
     // Kenney ogarnął od zlej strony niz my boxy
     v.group.rotation.y = Math.atan2(v.vx, v.vz) + (v.glbModel ? 0 : Math.PI);
     v.group.rotation.x = pitch;
+
+    // Dynamic culling for vehicles
+    const chunkLimit = settings.current.chunkLimit || 200;
+    const vdist = Math.hypot(v.pos.x - playerPos.x, v.pos.z - playerPos.z);
+    v.group.visible = (vdist < chunkLimit * 1.2);
 
         // Swiatelka w radiolach
     if (v.isEmergency && v.siren) {

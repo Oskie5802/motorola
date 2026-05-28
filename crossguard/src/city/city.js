@@ -217,7 +217,8 @@ export class City {
           buildings: [],
           trees: [],
           benches: [],
-          ghostBuildings: []
+          ghostBuildings: [],
+          otherObjects: []
         });
       }
     }
@@ -249,6 +250,7 @@ export class City {
       const chunk = findClosestChunk(obj.position.x, obj.position.z);
       if (chunk) {
         chunk.group.add(obj);
+        chunk.otherObjects.push(obj);
       } else {
         originalAdd.call(this.scene, obj);
       }
@@ -1493,6 +1495,10 @@ export class City {
 
       // Cull chunk groups
       if (this.chunks) {
+        const buildingSet = new Set(this.buildings.filter(b => b.mesh).map(b => b.mesh));
+        const treeSet = new Set(this.trees.filter(t => t.mesh).map(t => t.mesh));
+        const benchSet = new Set(this.benches.filter(b => b.mesh).map(b => b.mesh));
+
         for (const chunk of this.chunks) {
           const vx = chunk.x - camPos.x;
           const vz = chunk.z - camPos.z;
@@ -1540,6 +1546,18 @@ export class City {
                 const bndist = Math.hypot(bnvx, bnvz);
                 const bndot = bnvx * camDir.x + bnvy * camDir.y + bnvz * camDir.z;
                 bn.mesh.visible = (bndot > -10) && (bndist < chunkLimit * 0.6);
+              }
+            }
+            // Cull other objects inside this chunk (roads, lamps, signals, grates, lines)
+            if (chunk.otherObjects) {
+              for (const obj of chunk.otherObjects) {
+                if (obj && !buildingSet.has(obj) && !treeSet.has(obj) && !benchSet.has(obj)) {
+                  const ox = obj.position.x - camPos.x;
+                  const oz = obj.position.z - camPos.z;
+                  const odist = Math.hypot(ox, oz);
+                  const odot = ox * camDir.x + oz * camDir.z;
+                  obj.visible = (odot > -25) && (odist < chunkLimit * 1.2);
+                }
               }
             }
           }

@@ -38,8 +38,10 @@ export class Environment {
         // Mgła
     if (zone.weather === 'fog') {
       scene.fog = new THREE.FogExp2(this.isNight ? 0x0a0e1a : 0xb8c4d8, this.isNight ? 0.018 : 0.015);
+      scene.background = scene.fog.color;
     } else if (zone.weather === 'rain') {
       scene.fog = new THREE.FogExp2(this.isNight ? 0x060a16 : 0x6c7d9e, this.isNight ? 0.012 : 0.008);
+      scene.background = scene.fog.color;
     } else {
       scene.fog = new THREE.Fog(new THREE.Color(botColor), this.isNight ? 30 : 40, this.isNight ? 160 : 220);
     }
@@ -306,9 +308,9 @@ export class Environment {
         // Scale the density factor based on chunkLimit
         this.scene.fog.density = baseDensity * (200 / chunkLimit);
       } else if (this.scene.fog.isFog) {
-        // Fog: far = chunkLimit + 10, near = chunkLimit * 0.4
-        this.scene.fog.far = chunkLimit + 10;
-        this.scene.fog.near = chunkLimit * 0.4;
+        // Fog: far = chunkLimit * 1.2, near = chunkLimit * 0.7
+        this.scene.fog.far = chunkLimit * 1.2;
+        this.scene.fog.near = chunkLimit * 0.7;
       }
     }
 
