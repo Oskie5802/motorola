@@ -337,8 +337,8 @@ export class Player {
     if (fastDev || (!city.collidesBuilding(this.pos.x, newZ) && !collidesVehicle(this.pos.x, newZ))) this.pos.z = newZ;
 
     const b = city.bounds;
-    this.pos.x = Math.max(b.min - 4, Math.min(b.max + 4, this.pos.x));
-    this.pos.z = Math.max(b.min - 4, Math.min(b.max + 4, this.pos.z));
+    this.pos.x = Math.max(b.minX - 4, Math.min(b.maxX + 4, this.pos.x));
+    this.pos.z = Math.max(b.minZ - 4, Math.min(b.maxZ + 4, this.pos.z));
 
     if (this.cameraMode === 'firstperson') {
       this.facing = this.cameraYaw + Math.PI;

@@ -119,7 +119,12 @@ export class City {
     const sizeZ = zs[g] - zs[0];
     const half = this.size / 2;
     const roadWidth = 8;
-    this.bounds = { min: -half, max: half };
+    this.bounds = {
+      minX: -sizeX / 2,
+      maxX: sizeX / 2,
+      minZ: -sizeZ / 2,
+      maxZ: sizeZ / 2
+    };
 
     // === Podloze ===
     const groundGeo = new THREE.PlaneGeometry(
@@ -1362,7 +1367,12 @@ export class City {
     this.ghostBuildings.push = origGhostBuildingsPush;
 
     this._buildGhostIslands();
-    this.bounds = { min: -half, max: half };
+    this.bounds = {
+      minX: -sizeX / 2,
+      maxX: sizeX / 2,
+      minZ: -sizeZ / 2,
+      maxZ: sizeZ / 2
+    };
   }
 
   // ============================================================
@@ -1378,10 +1388,10 @@ export class City {
 
   isOnRoad(x, z) {
     if (
-      x < this.bounds.min ||
-      x > this.bounds.max ||
-      z < this.bounds.min ||
-      z > this.bounds.max
+      x < this.bounds.minX ||
+      x > this.bounds.maxX ||
+      z < this.bounds.minZ ||
+      z > this.bounds.maxZ
     )
       return false;
     const roadHalf = 4;
@@ -1408,10 +1418,10 @@ export class City {
   isOnSafeGround(x, z) {
     if (this.isOnSidewalk(x, z)) return true;
     if (
-      x < this.bounds.min ||
-      x > this.bounds.max ||
-      z < this.bounds.min ||
-      z > this.bounds.max
+      x < this.bounds.minX ||
+      x > this.bounds.maxX ||
+      z < this.bounds.minZ ||
+      z > this.bounds.maxZ
     )
       return false;
     return !this.isOnRoad(x, z) && !this.isOnCrossing(x, z);

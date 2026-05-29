@@ -95,6 +95,12 @@ export class Environment {
         // Gwiazdki
     if (this.isNight) this._initStars();
 
+    // Calculate minimum distance for clouds to stay outside the map (including cloud radius margin)
+    const layout = zone.layout;
+    const sizeX = layout ? layout.xWidths.reduce((a, b) => a + b, 0) : 300;
+    const sizeZ = layout ? layout.zWidths.reduce((a, b) => a + b, 0) : 300;
+    this.minCloudDist = Math.max(sizeX, sizeZ) / 2 + 65;
+
     this._initClouds();
 
     this.applyDynamicSettings();
@@ -252,30 +258,26 @@ export class Environment {
 
       // Three layers of clouds:
       // 1. Low clouds (below the island, y: -70 to -35) - 60% of clouds
-      // 2. Mid clouds (drifting at island level, y: -15 to 15, but further out) - 25% of clouds
+      // 2. Mid clouds (drifting at island level, y: -15 to 15) - 25% of clouds
       // 3. High clouds (way above the island, y: 70 to 110) - 15% of clouds
+      // All clouds spawn outside minCloudDist to prevent spawning on/clipping through the map
       let cy = 0;
-      let cx = 0;
-      let cz = 0;
       const rand = Math.random();
       if (rand < 0.60) {
         // Low layer
-        cx = (Math.random() - 0.5) * 600;
         cy = -35 - Math.random() * 35; // y between -70 and -35
-        cz = (Math.random() - 0.5) * 600;
       } else if (rand < 0.85) {
-        // Mid layer (further out so they don't block the screen constantly)
-        const angle = Math.random() * Math.PI * 2;
-        const dist = 175 + Math.random() * 125; // always outside 175 units
-        cx = Math.cos(angle) * dist;
+        // Mid layer
         cy = -15 + Math.random() * 30; // y between -15 and 15
-        cz = Math.sin(angle) * dist;
       } else {
         // High layer
-        cx = (Math.random() - 0.5) * 600;
         cy = 70 + Math.random() * 40; // y between 70 and 110
-        cz = (Math.random() - 0.5) * 600;
       }
+
+      const angle = Math.random() * Math.PI * 2;
+      const dist = this.minCloudDist + Math.random() * 150;
+      const cx = Math.cos(angle) * dist;
+      const cz = Math.sin(angle) * dist;
 
       cluster.position.set(cx, cy, cz);
       
@@ -344,38 +346,39 @@ export class Environment {
     }
     // Update drifting clouds
     if (this.cloudClusters) {
+      const minCloudDist = this.minCloudDist || 200;
+      const wrapBound = minCloudDist + 180;
+
       for (const cluster of this.cloudClusters) {
         cluster.mesh.position.x += cluster.speedX * dt;
         cluster.mesh.position.z += cluster.speedZ * dt;
         
-        // Prevent mid-level clouds from entering the island area (exclusion zone)
-        if (cluster.mesh.position.y > -30 && cluster.mesh.position.y < 50) {
-          const dist = Math.hypot(cluster.mesh.position.x, cluster.mesh.position.z);
-          if (dist < 170) {
-            cluster.speedX = -cluster.speedX;
-            cluster.speedZ = -cluster.speedZ;
-            const angle = Math.atan2(cluster.mesh.position.z, cluster.mesh.position.x);
-            cluster.mesh.position.x = Math.cos(angle) * 175;
-            cluster.mesh.position.z = Math.sin(angle) * 175;
-          }
+        // Prevent ALL clouds from entering the island column (exclusion zone) to avoid map clipping/blocking
+        const dist = Math.hypot(cluster.mesh.position.x, cluster.mesh.position.z);
+        if (dist < minCloudDist) {
+          cluster.speedX = -cluster.speedX;
+          cluster.speedZ = -cluster.speedZ;
+          const angle = Math.atan2(cluster.mesh.position.z, cluster.mesh.position.x);
+          cluster.mesh.position.x = Math.cos(angle) * (minCloudDist + 5);
+          cluster.mesh.position.z = Math.sin(angle) * (minCloudDist + 5);
         }
         
-        // Wrap around bounds of 400 units
-        if (cluster.mesh.position.x > 400) {
-          cluster.mesh.position.x = -400;
-          cluster.mesh.position.z = (Math.random() - 0.5) * 800;
+        // Wrap around dynamic bounds outside the exclusion zone
+        if (cluster.mesh.position.x > wrapBound) {
+          cluster.mesh.position.x = -wrapBound;
+          cluster.mesh.position.z = (Math.random() - 0.5) * wrapBound * 2;
         }
-        if (cluster.mesh.position.x < -400) {
-          cluster.mesh.position.x = 400;
-          cluster.mesh.position.z = (Math.random() - 0.5) * 800;
+        if (cluster.mesh.position.x < -wrapBound) {
+          cluster.mesh.position.x = wrapBound;
+          cluster.mesh.position.z = (Math.random() - 0.5) * wrapBound * 2;
         }
-        if (cluster.mesh.position.z > 400) {
-          cluster.mesh.position.z = -400;
-          cluster.mesh.position.x = (Math.random() - 0.5) * 800;
+        if (cluster.mesh.position.z > wrapBound) {
+          cluster.mesh.position.z = -wrapBound;
+          cluster.mesh.position.x = (Math.random() - 0.5) * wrapBound * 2;
         }
-        if (cluster.mesh.position.z < -400) {
-          cluster.mesh.position.z = 400;
-          cluster.mesh.position.x = (Math.random() - 0.5) * 800;
+        if (cluster.mesh.position.z < -wrapBound) {
+          cluster.mesh.position.z = wrapBound;
+          cluster.mesh.position.x = (Math.random() - 0.5) * wrapBound * 2;
         }
       }
     }
