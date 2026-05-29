@@ -231,11 +231,11 @@ function initSettingsUI() {
     }
 
     if (settings.current.quality === 'low') {
-      qualityDesc.textContent = 'Uproszczona grafika, cienie wyłączone, brak modeli budynków/aut GLB. Uproszczone sygnalizatory i płaskie kolory nawierzchni.';
+      qualityDesc.textContent = 'Maksymalna wydajność. Brak cieni i cząsteczek, uproszczone modele, jednorodne szare nawierzchnie dróg.';
     } else if (settings.current.quality === 'medium') {
-      qualityDesc.textContent = 'Standardowa grafika, uproszczone cienie, włączony dynamiczny LOD. Sygnalizatory bez daszków, nawierzchnie z podstawowymi teksturami.';
+      qualityDesc.textContent = 'Zrównoważona grafika. Włączone cienie i cząsteczki, płaskie, cieniowane nawierzchnie (bez tekstur), uproszczona geometria sygnalizatorów.';
     } else if (settings.current.quality === 'high') {
-      qualityDesc.textContent = 'Najlepsza grafika, pełne cienie, pełne modele, pełny LOD. Realistyczne tekstury asfaltu, chodników i krawężników. Detale skrzyżowań.';
+      qualityDesc.textContent = 'Najlepsza grafika. Pełne tekstury asfaltu i chodników z mapami wypukłości (bump), pełne cienie, wysoka rozdzielczość i detale skrzyżowań.';
     }
   }
 

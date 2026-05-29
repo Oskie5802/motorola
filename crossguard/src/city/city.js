@@ -337,44 +337,38 @@ export class City {
         roughness: 0.75,
       });
     } else if (isMediumQuality) {
-      // Medium quality: simpler procedural textures WITH subtle bump maps, NO roughness maps
-      const asphaltTex = City._createAsphaltTexture(this.isNight, 'medium');
-      const asphaltBump = City._createAsphaltBumpMap(this.isNight, 'medium');
+      // Medium quality: flat colors with standard material (responds to shadows and light, but no texture loading)
       roadMat = new THREE.MeshStandardMaterial({
-        map: asphaltTex,
-        bumpMap: asphaltBump,
-        bumpScale: 0.06,
+        color: 0x2c2f38,
+        roughness: 0.8,
+        metalness: 0.1,
+      });
+      sidewalkMat = new THREE.MeshStandardMaterial({
+        color: 0x4c505a,
         roughness: 0.85,
         metalness: 0.05,
       });
-
-      const sidewalkTex = City._createSidewalkTexture(this.isNight, 'medium');
-      const sidewalkBump = City._createSidewalkBumpMap(this.isNight, 'medium');
-      sidewalkMat = new THREE.MeshStandardMaterial({
-        map: sidewalkTex,
-        bumpMap: sidewalkBump,
-        bumpScale: 0.08,
-        roughness: 0.9,
-      });
-
-      const curbTex = City._createCurbTexture(this.isNight, 'medium');
-      const curbBump = City._createCurbBumpMap(this.isNight, 'medium');
       curbMat = new THREE.MeshStandardMaterial({
-        map: curbTex,
-        bumpMap: curbBump,
-        bumpScale: 0.05,
-        roughness: 0.8,
+        color: 0xa0a4b0,
+        roughness: 0.7,
+        metalness: 0.15,
       });
     } else {
-      // Low quality: flat colors, cheaper Lambert materials
-      roadMat = new THREE.MeshLambertMaterial({
-        color: PALETTE.road,
+      // Low quality: flat colors, standard materials (responds to light, no textures, shadows disabled)
+      roadMat = new THREE.MeshStandardMaterial({
+        color: 0x383e4a,
+        roughness: 0.9,
+        metalness: 0.1,
       });
-      sidewalkMat = new THREE.MeshLambertMaterial({
-        color: PALETTE.sidewalk,
+      sidewalkMat = new THREE.MeshStandardMaterial({
+        color: 0x50545e,
+        roughness: 0.9,
+        metalness: 0.05,
       });
-      curbMat = new THREE.MeshLambertMaterial({
-        color: PALETTE.curb,
+      curbMat = new THREE.MeshStandardMaterial({
+        color: 0xa8acb8,
+        roughness: 0.8,
+        metalness: 0.1,
       });
     }
 
