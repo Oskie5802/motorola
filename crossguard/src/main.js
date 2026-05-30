@@ -40,10 +40,17 @@ let cachedSuburban = null;  // Kenney city-kit-suburban GLB models, loaded once
 function renderZoneSelect() {
   const container = $('zoneSelect');
   container.innerHTML = '';
-  const totalScore = Object.values(progress).reduce((s, v) => s + (v.score || 0), 0);
   for (let i = 0; i < ZONES.length; i++) {
     const z = ZONES[i];
-    const locked = totalScore < z.requiredScore;
+    
+    // Blokada poziomów: pierwszy jest zawsze odblokowany, kolejne wymagają oceny B (140 pkt) na poprzednim
+    let locked = false;
+    if (i > 0) {
+      const prevZone = ZONES[i - 1];
+      const prevBest = progress[prevZone.id]?.bestScore || 0;
+      locked = prevBest < 140;
+    }
+    
     const best = progress[z.id]?.bestScore;
     const card = document.createElement('div');
     card.className = 'zone-card' + (z.id === selectedZoneId ? ' selected' : '') + (locked ? ' locked' : '');
@@ -55,7 +62,7 @@ function renderZoneSelect() {
         <div class="zdesc">${z.desc}</div>
         ${best !== undefined ? `<div class="zbest">BEST: ${best} PKT &nbsp;·&nbsp; ${gradeFor(best).letter}</div>` : ''}
       </div>
-      ${locked ? `<div class="zlock">🔒 ${z.requiredScore}</div>` : `<div class="zunlocked">◆</div>`}
+      ${locked ? `<div class="zlock">🔒 ZABLOKOWANE (WYMAGA OCENY B NA POZ. ${i})</div>` : `<div class="zunlocked">◆</div>`}
     `;
     if (!locked) {
       card.onclick = () => {
@@ -394,14 +401,19 @@ $('quitBtn').onclick = () => {
 // Ekran koncowy, co dalej
 $('nextBtn').onclick = () => {
   $('results').classList.add('hidden');
-    // Gramy nastepny poziom albo to samo jak nie masz lepszego
   const idx = ZONES.findIndex(z => z.id === currentSession.zone.id);
-  const totalScore = Object.values(progress).reduce((s, v) => s + (v.score || 0), 0);
-  let next = ZONES[idx + 1];
-  if (!next || totalScore < next.requiredScore) next = ZONES[idx];
-  selectedZoneId = next.id;
+  const next = ZONES[idx + 1];
+  if (next) {
+    selectedZoneId = next.id;
+    endSession();
+    startGame(next);
+  }
+};
+$('retryBtn').onclick = () => {
+  $('results').classList.add('hidden');
+  const currentZone = currentSession.zone;
   endSession();
-  startGame(next);
+  startGame(currentZone);
 };
 $('menuBtn').onclick = () => {
   $('results').classList.add('hidden');
@@ -666,6 +678,26 @@ function showResults(result) {
   prev.score = Math.max(prev.score || 0, result.score);
   progress[zid] = prev;
   saveProgress(progress);
+
+  // Sprawdzamy odblokowanie następnego poziomu (wymagana ocena B, czyli score >= 140)
+  const idx = ZONES.findIndex(z => z.id === zid);
+  const hasNext = idx < ZONES.length - 1;
+  const nextBtn = $('nextBtn');
+  if (hasNext) {
+    nextBtn.classList.remove('hidden');
+    const currentBest = progress[zid]?.bestScore || 0;
+    if (currentBest >= 140) {
+      nextBtn.disabled = false;
+      nextBtn.textContent = '▶ NASTĘPNA MISJA';
+      nextBtn.classList.remove('disabled-btn');
+    } else {
+      nextBtn.disabled = true;
+      nextBtn.textContent = '▶ ZABLOKOWANE (WYMAGANA OCENA B)';
+      nextBtn.classList.add('disabled-btn');
+    }
+  } else {
+    nextBtn.classList.add('hidden');
+  }
 
   audio.motoChime();
   $('results').classList.remove('hidden');

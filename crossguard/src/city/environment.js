@@ -256,22 +256,17 @@ export class Environment {
         cluster.add(sphere);
       }
 
-      // Three layers of clouds:
-      // 1. Low clouds (below the island, y: -70 to -35) - 60% of clouds
-      // 2. Mid clouds (drifting at island level, y: -15 to 15) - 25% of clouds
-      // 3. High clouds (way above the island, y: 70 to 110) - 15% of clouds
-      // All clouds spawn outside minCloudDist to prevent spawning on/clipping through the map
+      // Two safe layers of clouds to prevent clipping through buildings/camera and blocking visibility:
+      // 1. Low clouds (well below the island floor, y: -110 to -70) - 40% of clouds
+      // 2. High clouds (sky layer, well above skyscrapers, y: 95 to 150) - 60% of clouds
       let cy = 0;
       const rand = Math.random();
-      if (rand < 0.60) {
-        // Low layer
-        cy = -35 - Math.random() * 35; // y between -70 and -35
-      } else if (rand < 0.85) {
-        // Mid layer
-        cy = -15 + Math.random() * 30; // y between -15 and 15
+      if (rand < 0.40) {
+        // Low layer (below map)
+        cy = -70 - Math.random() * 40; // y between -110 and -70
       } else {
-        // High layer
-        cy = 70 + Math.random() * 40; // y between 70 and 110
+        // High layer (high sky)
+        cy = 95 + Math.random() * 55; // y between 95 and 150
       }
 
       const angle = Math.random() * Math.PI * 2;
