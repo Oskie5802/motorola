@@ -26,6 +26,10 @@ export class AudioSystem {
     this._dangerLevel = 0;   // 0-1 jak blisko niebezpieczenstwa
     this._tensionLevel = 0;  // 0-1 napięcie z czasem
     this._onRoadTime = 0;    // ile czasu na jezdni
+
+    // Bufor dla plików dźwiękowych
+    this.deathBuffer = null;
+    this.loadingDeathSound = false;
   }
 
   _init() {
@@ -58,8 +62,26 @@ export class AudioSystem {
       this.masterGain.disconnect();
       this.masterGain.connect(this._compressor);
       this._compressor.connect(this.ctx.destination);
+
+      // Wczytaj plik dźwiękowy śmierci w tle
+      this._preloadDeathSound();
     } catch (e) {
       this.enabled = false;
+    }
+  }
+
+  async _preloadDeathSound() {
+    if (!this.ctx || this.loadingDeathSound || this.deathBuffer) return;
+    this.loadingDeathSound = true;
+    try {
+      const response = await fetch('./assets/audio/sfx/death_sound.wav');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const arrayBuffer = await response.arrayBuffer();
+      this.deathBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+    } catch (err) {
+      console.warn("Could not preload death_sound.wav:", err);
+    } finally {
+      this.loadingDeathSound = false;
     }
   }
 
@@ -529,84 +551,199 @@ export class AudioSystem {
     this._init();
     const t = this.ctx.currentTime;
 
-    // Noise burst jak zderzenie
-    const buf = this._noiseBuffer(0.3, 'white');
+    // Próba odtworzenia załadowanego pliku death_sound.wav
+    if (this.deathBuffer) {
+      try {
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.deathBuffer;
+        src.connect(this.sfxGain);
+        
+        // Pomijamy ~520ms ciszy na początku pliku
+        const offset = 0.52;
+        src.start(t, offset);
+        return; // Przerywamy dalszą syntezę dźwięku
+      } catch (e) {
+        console.warn("Failed to play death_sound.wav, falling back to synthesis:", e);
+      }
+    }
+
+    // Noise burst jak zderzenie (krótsze i bardziej dynamiczne, by nie tłumić wokalu)
+    const buf = this._noiseBuffer(0.2, 'white');
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     const g = this.ctx.createGain();
     const filt = this.ctx.createBiquadFilter();
     filt.type = 'lowpass';
-    filt.frequency.setValueAtTime(3000, t);
-    filt.frequency.exponentialRampToValueAtTime(200, t + 0.3);
-    g.gain.setValueAtTime(0.25, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    filt.frequency.setValueAtTime(2500, t);
+    filt.frequency.exponentialRampToValueAtTime(150, t + 0.22);
+    g.gain.setValueAtTime(0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
     src.connect(filt).connect(g).connect(this.sfxGain);
-    src.start(t); src.stop(t + 0.4);
+    src.start(t); src.stop(t + 0.3);
 
-    // Sub-boom
+    // Sub-boom (mocny, krótki dół)
     const boom = this.ctx.createOscillator();
     const bg = this.ctx.createGain();
     boom.type = 'sine';
     boom.frequency.setValueAtTime(80, t);
-    boom.frequency.exponentialRampToValueAtTime(30, t + 0.3);
-    bg.gain.setValueAtTime(0.3, t);
-    bg.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    boom.frequency.exponentialRampToValueAtTime(30, t + 0.2);
+    bg.gain.setValueAtTime(0.28, t);
+    bg.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
     boom.connect(bg).connect(this.sfxGain);
-    boom.start(t); boom.stop(t + 0.4);
+    boom.start(t); boom.stop(t + 0.3);
 
-    // Kreskówkowy "Boing" (sprężyna) przy uderzeniu
-    const boing = this.ctx.createOscillator();
-    const boingGain = this.ctx.createGain();
-    boing.type = 'triangle';
-    boing.frequency.setValueAtTime(100, t);
-    boing.frequency.exponentialRampToValueAtTime(450, t + 0.18);
-    boingGain.gain.setValueAtTime(0.12, t);
-    boingGain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-    boing.connect(boingGain).connect(this.sfxGain);
-    boing.start(t);
-    boing.stop(t + 0.25);
+    // === Synteza mokrego rozbryzgu ("Wet Death Splat / Splash") ===
+    const tSplat = t; // Startuje natychmiast przy uderzeniu
 
-    // Smutny puzon (Sad Trombone: WAH WAH WAH WAAAAAH) po zderzeniu
-    const tromboneNotes = [349.23, 329.63, 311.13, 293.66]; // F4, E4, Eb4, D4
-    const noteDuration = 0.24;
-    tromboneNotes.forEach((f, i) => {
-      const o = this.ctx.createOscillator();
-      const tg = this.ctx.createGain();
-      o.type = 'sawtooth';
+    // Głębokie tąpnięcie z uderzeniem płynu (Low-frequency wet thud)
+    const squishBase = this.ctx.createOscillator();
+    const squishBaseGain = this.ctx.createGain();
+    squishBase.type = 'sine';
+    squishBase.frequency.setValueAtTime(140, tSplat);
+    squishBase.frequency.exponentialRampToValueAtTime(30, tSplat + 0.18);
+    
+    squishBaseGain.gain.setValueAtTime(0.35, tSplat);
+    squishBaseGain.gain.exponentialRampToValueAtTime(0.001, tSplat + 0.22);
+    
+    squishBase.connect(squishBaseGain).connect(this.sfxGain);
+    squishBase.start(tSplat);
+    squishBase.stop(tSplat + 0.25);
 
-      const startTime = t + 0.25 + i * 0.22;
-      const duration = i === 3 ? 0.65 : noteDuration;
+    // Kropelki i rozprysk cieczy - generowane metodą granularną (3 przesunięte w czasie mikro-rozbryzgi)
+    const splashDelays = [0.0, 0.03, 0.07];
+    const splashConfigs = [
+      { dur: 0.22, fStart: 3500, fEnd: 150, Q: 6.0, vol: 0.28 },
+      { dur: 0.18, fStart: 4500, fEnd: 300, Q: 8.0, vol: 0.20 },
+      { dur: 0.14, fStart: 5500, fEnd: 500, Q: 10.0, vol: 0.15 }
+    ];
 
-      o.frequency.setValueAtTime(f, startTime);
+    splashConfigs.forEach((c, idx) => {
+      const startTime = tSplat + splashDelays[idx];
+      const splashBuf = this._noiseBuffer(c.dur, 'pink'); // Szum różowy daje bardziej organiczny "płynny" dźwięk
+      const splashSrc = this.ctx.createBufferSource();
+      splashSrc.buffer = splashBuf;
 
-      if (i === 3) {
-        // Ostatnia nuta ma zjeżdżający w dół pitch (wobble)
-        o.frequency.linearRampToValueAtTime(f * 0.7, startTime + duration);
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(c.fStart, startTime);
+      filter.frequency.exponentialRampToValueAtTime(c.fEnd, startTime + c.dur - 0.02);
+      filter.Q.value = c.Q;
 
-        // Dodatkowe lekkie vibrato dla komizmu
-        const vibrato = this.ctx.createOscillator();
-        const vibratoGain = this.ctx.createGain();
-        vibrato.frequency.value = 8.5; // Hz
-        vibratoGain.gain.value = 12; // głębokość vibrato w Hz
-        vibrato.connect(vibratoGain).connect(o.frequency);
-        vibrato.start(startTime);
-        vibrato.stop(startTime + duration);
-      }
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.linearRampToValueAtTime(c.vol, startTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + c.dur);
 
-      // Filtr nadający dźwiękowi charakter instrumentu dętego blaszanego (puzon)
-      const tFilt = this.ctx.createBiquadFilter();
-      tFilt.type = 'lowpass';
-      tFilt.frequency.setValueAtTime(1200, startTime);
-      tFilt.frequency.linearRampToValueAtTime(320, startTime + duration);
-
-      tg.gain.setValueAtTime(0.001, startTime);
-      tg.gain.linearRampToValueAtTime(0.09, startTime + 0.03);
-      tg.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-
-      o.connect(tFilt).connect(tg).connect(this.sfxGain);
-      o.start(startTime);
-      o.stop(startTime + duration);
+      splashSrc.connect(filter).connect(gain).connect(this.sfxGain);
+      splashSrc.start(startTime);
+      splashSrc.stop(startTime + c.dur + 0.05);
     });
+
+    // === Ulepszona synteza kultowego dźwięku "Oof" / "Uuh" z Roblox ===
+    const tOof = t + 0.10; // Startuje tuż po zderzeniu fizycznym
+
+    // Generator 1: Sawtooth (źródło bogatych harmonicznych dla formantów)
+    const vox1 = this.ctx.createOscillator();
+    vox1.type = 'sawtooth';
+    
+    // Obwiednia częstotliwości podstawowej F0 (charakterystyczne u-uh: wznosząco-opadające)
+    vox1.frequency.setValueAtTime(155, tOof);
+    vox1.frequency.linearRampToValueAtTime(168, tOof + 0.03);
+    vox1.frequency.exponentialRampToValueAtTime(110, tOof + 0.22);
+
+    // Generator 2: Triangle (klatka piersiowa/ciepło, lekki detune)
+    const vox2 = this.ctx.createOscillator();
+    vox2.type = 'triangle';
+    vox2.frequency.setValueAtTime(152, tOof);
+    vox2.frequency.linearRampToValueAtTime(165, tOof + 0.03);
+    vox2.frequency.exponentialRampToValueAtTime(108, tOof + 0.22);
+
+    // Ścieżka 1: Klatka piersiowa / Hum krtaniowy (czysty dół bez filtracji formantowej)
+    const bodyLowpass = this.ctx.createBiquadFilter();
+    bodyLowpass.type = 'lowpass';
+    bodyLowpass.frequency.value = 350;
+    
+    const bodyGain = this.ctx.createGain();
+    bodyGain.gain.setValueAtTime(0.001, tOof);
+    bodyGain.gain.linearRampToValueAtTime(0.45, tOof + 0.015);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, tOof + 0.24);
+
+    vox2.connect(bodyLowpass).connect(bodyGain).connect(this.sfxGain);
+
+    // Ścieżka 2: Rezonans gardłowy / formantowy (dla samogłoski "uh" /ʌ/)
+    const voxGain = this.ctx.createGain();
+    voxGain.gain.setValueAtTime(0.001, tOof);
+    voxGain.gain.linearRampToValueAtTime(0.70, tOof + 0.015); // Głośniejszy wokal
+    voxGain.gain.exponentialRampToValueAtTime(0.12, tOof + 0.15);
+    voxGain.gain.exponentialRampToValueAtTime(0.001, tOof + 0.24);
+
+    // Saturation/Grit (dodaje chropowatość glottalną i lo-fi)
+    const distortion = this.ctx.createWaveShaper();
+    const makeOofDistortionCurve = (amount) => {
+      const n = 256;
+      const curve = new Float32Array(n);
+      for (let i = 0; i < n; ++i) {
+        const x = (i * 2) / n - 1;
+        curve[i] = Math.tanh(x * amount);
+      }
+      return curve;
+    };
+    distortion.curve = makeOofDistortionCurve(1.8);
+    distortion.oversample = '4x';
+
+    // Równoległe filtry formantowe dla samogłoski /ʌ/ (jak w angielskim "cup" / "strut")
+    // Niższe wartości Q (szersze pasmo) zapobiegają metalicznemu/elektronicznemu brzmieniu blipów.
+    const f1 = this.ctx.createBiquadFilter();
+    f1.type = 'bandpass';
+    f1.frequency.value = 600; // F1: otwarcie ust (typowe ~600Hz)
+    f1.Q.value = 3.5;
+
+    const f2 = this.ctx.createBiquadFilter();
+    f2.type = 'bandpass';
+    f2.frequency.value = 1250; // F2: wycofanie języka (typowe ~1250Hz)
+    f2.Q.value = 3.0;
+
+    const f3 = this.ctx.createBiquadFilter();
+    f3.type = 'bandpass';
+    f3.frequency.value = 2500; // F3: rezonans krtani (typowe ~2500Hz)
+    f3.Q.value = 2.0;
+
+    const fg1 = this.ctx.createGain();
+    fg1.gain.value = 1.0;
+    const fg2 = this.ctx.createGain();
+    fg2.gain.value = 0.58;
+    const fg3 = this.ctx.createGain();
+    fg3.gain.value = 0.28;
+
+    vox1.connect(distortion);
+    distortion.connect(voxGain);
+
+    voxGain.connect(f1).connect(fg1).connect(this.sfxGain);
+    voxGain.connect(f2).connect(fg2).connect(this.sfxGain);
+    voxGain.connect(f3).connect(fg3).connect(this.sfxGain);
+
+    vox1.start(tOof);
+    vox2.start(tOof);
+    vox1.stop(tOof + 0.26);
+    vox2.stop(tOof + 0.26);
+
+    // Część "f" słowa "oof" - szumiący ogonek tarcia wargowo-zębowego
+    const breathBuf = this._noiseBuffer(0.15, 'white');
+    const breathSrc = this.ctx.createBufferSource();
+    breathSrc.buffer = breathBuf;
+
+    const breathFilt = this.ctx.createBiquadFilter();
+    breathFilt.type = 'highpass';
+    breathFilt.frequency.value = 4500;
+
+    const breathGain = this.ctx.createGain();
+    breathGain.gain.setValueAtTime(0.001, tOof + 0.13);
+    breathGain.gain.linearRampToValueAtTime(0.06, tOof + 0.18);
+    breathGain.gain.exponentialRampToValueAtTime(0.001, tOof + 0.28);
+
+    breathSrc.connect(breathFilt).connect(breathGain).connect(this.sfxGain);
+    breathSrc.start(tOof + 0.13);
+    breathSrc.stop(tOof + 0.29);
   }
 
   // Odblokowanie radia
