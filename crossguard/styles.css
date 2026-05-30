@@ -1431,3 +1431,12 @@ kbd {
   box-shadow: 0 0 8px rgba(0, 163, 224, 0.6);
 }
 
+/* Płynne przejście ekranu śmierci */
+#results {
+  animation: fadeInResults 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeInResults {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+

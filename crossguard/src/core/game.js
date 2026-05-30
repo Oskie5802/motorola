@@ -316,8 +316,23 @@ export class GameLogic {
       const hit = this.traffic.vehicleHitting(pos);
       if (hit) {
         this.player.isDead = true;
+        
+        // Odrzut 3D (wystrzelenie w powietrze i odrzut poziomy zależny od prędkości auta)
+        const horizKnockback = 1.45;
+        const vertFling = 0.58;
+        this.player.deathVelocity = new THREE.Vector3(
+          hit.vx * hit.speed * horizKnockback,
+          hit.speed * vertFling + 2.5, // Wystrzelenie w pionie
+          hit.vz * hit.speed * horizKnockback
+        );
+
+        // Losowy kierunek i prędkość obrotu (koziołkowania) dla naturalniejszego efektu
+        this.player.deathSpinX = (Math.random() > 0.5 ? 1 : -1) * (2.8 + Math.random() * 2.2);
+        this.player.deathSpinY = (Math.random() > 0.5 ? 1 : -1) * (3.8 + Math.random() * 3.2);
+        this.player.deathSpinZ = Math.random() > 0.5 ? -Math.PI / 2 : Math.PI / 2;
+
         this.player.vel.set(0, 0, 0);
-        this._deathTimer = 2.0;
+        this._deathTimer = 1.8; // Zwiększone z 0.8s, aby dać czas na dramatyczną pauzę po wylądowaniu
         this.audio.crash();
         this.addScore(SCORE.HIT_BY_CAR, '🚨 KATASTROFA! Potrącenie przez pojazd!', 'bad');
         this.violations++;

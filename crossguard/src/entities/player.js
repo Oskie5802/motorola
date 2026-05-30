@@ -56,6 +56,10 @@ export class Player {
     this.devMode = false;
     this.isDead = false;
     this.deathTime = 0;
+    this.deathVelocity = null;
+    this.deathSpinX = 0;
+    this.deathSpinY = 0;
+    this.deathSpinZ = -Math.PI / 2;
 
     // Ukrywamy model domyślnie, ponieważ zaczynamy w FPP
     const isFPP = this.cameraMode === 'firstperson';
@@ -284,20 +288,77 @@ export class Player {
           document.exitPointerLock();
         }
       }
-      this.deathTime += dt;
-      const t = Math.min(1.0, this.deathTime / 0.8);
+      const deathSpeedup = 2.5;
+      const simDt = dt * deathSpeedup;
+      this.deathTime += simDt;
+      const t = Math.min(1.0, this.deathTime / 0.85);
+      
+      if (this.deathVelocity) {
+        const gravity = 15.0; // Siła grawitacji w grze
+        this.deathVelocity.y -= gravity * simDt;
+        
+        const nextX = this.pos.x + this.deathVelocity.x * simDt;
+        const nextZ = this.pos.z + this.deathVelocity.z * simDt;
+        const nextY = this.pos.y + this.deathVelocity.y * simDt;
+        
+        // Kolizja pozioma z budynkami, żeby nie wpaść w ściany pod mapę podczas lotu
+        if (!city.collidesBuilding(nextX, this.pos.z)) {
+          this.pos.x = nextX;
+        } else {
+          this.deathVelocity.x *= -0.2; // Lekkie odbicie od ściany
+        }
+        if (!city.collidesBuilding(this.pos.x, nextZ)) {
+          this.pos.z = nextZ;
+        } else {
+          this.deathVelocity.z *= -0.2; // Lekkie odbicie od ściany
+        }
+        
+        // Pionowa granica podłoża (y = 0)
+        if (nextY <= 0) {
+          this.pos.y = 0;
+          if (this.deathVelocity.y < -2.2) {
+            // Odbicie od asfaltu
+            this.deathVelocity.y = -this.deathVelocity.y * 0.35;
+            this.deathVelocity.x *= 0.65;
+            this.deathVelocity.z *= 0.65;
+          } else {
+            this.deathVelocity.y = 0;
+            // Tarcie o podłoże po wylądowaniu (stopniowe zatrzymanie)
+            this.deathVelocity.x *= Math.max(0, 1 - simDt * 5.0);
+            this.deathVelocity.z *= Math.max(0, 1 - simDt * 5.0);
+          }
+        } else {
+          this.pos.y = nextY;
+        }
+      }
       
       this.group.position.x = this.pos.x;
       this.group.position.z = this.pos.z;
       
-      // Animacja upadku procedurowego
-      this.group.rotation.z = -Math.PI / 2 * t;
-      this.group.rotation.x = Math.PI / 6 * t;
-      this.group.rotation.y = this.facing + t * Math.PI;
-      this.group.position.y = Math.sin(t * Math.PI) * 0.8;
+      // Animacja obrotu / koziołkowania
+      const spinZ = this.deathSpinZ !== null ? this.deathSpinZ : -Math.PI / 2;
+      const spinX = this.deathSpinX || 0;
+      const spinY = this.deathSpinY || 0;
+ 
+      if (this.pos.y > 0.05) {
+        // Koziołkowanie / latanie w powietrzu (dynamiczne kierunki spinów)
+        this.group.rotation.z = spinZ * t;
+        this.group.rotation.x = this.deathTime * spinX;
+        this.group.rotation.y = this.facing + this.deathTime * spinY;
+        this.group.position.y = this.pos.y;
+      } else {
+        // Wyrównanie do leżenia płasko po wylądowaniu na ziemi
+        this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, spinZ, simDt * 12.0);
+        this.group.rotation.x = THREE.MathUtils.lerp(this.group.rotation.x, 0, simDt * 12.0);
+        this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, this.facing + (spinY > 0 ? Math.PI : -Math.PI), simDt * 6.0);
+        this.group.position.y = this.pos.y + 0.3; // Wysokość 0.3 zapobiega wpadaniu ciała pod ziemię
+      }
       
       if (this._softShadow) {
-        this._softShadow.material.opacity = 0.22 * (1 - t);
+        // Cień oddala się i znika, gdy gracz leci w górę
+        const heightFactor = Math.max(0, 1 - this.pos.y / 6.0);
+        this._softShadow.material.opacity = 0.22 * (1 - t) * heightFactor;
+        this._softShadow.position.y = -this.pos.y + 0.02; // Utrzymujemy cień na ziemi
       }
       this.moving = false;
       return;
@@ -393,6 +454,33 @@ export class Player {
   }
 
   updateCamera(camera) {
+    if (this.isDead) {
+      // Filmowa kamera po śmierci (zbliżenie, niski kąt, rotacja wokół postaci)
+      const t = Math.min(1.0, this.deathTime / 0.85);
+      
+      // Dynamiczne przybliżenie kamery (od domyślnej odległości do bliskich 2.6 jednostek)
+      const r = THREE.MathUtils.lerp(this.cameraDistance, 2.6, t);
+      
+      // Obniżenie kąta patrzenia (patrzy bardziej z poziomu drogi na leżącą postać)
+      const pitch = THREE.MathUtils.lerp(this.cameraPitch, 0.22, t);
+      
+      // Powolna rotacja kamery wokół postaci dla dramatyzmu
+      const yaw = this.cameraYaw + t * 1.6;
+      
+      const cp = Math.cos(pitch);
+      const sp = Math.sin(pitch);
+      
+      const x = this.pos.x + Math.sin(yaw) * r * cp;
+      const z = this.pos.z + Math.cos(yaw) * r * cp;
+      const y = this.pos.y + 0.3 + r * sp; // kamera podąża za wysokością postaci (lot/odbicie)
+      
+      camera.position.set(x, y, z);
+      
+      // Cel celownika kamery (śledzi 3D pozycję gracza z lekkim przesunięciem)
+      camera.lookAt(this.pos.x, this.pos.y + 0.25, this.pos.z);
+      return;
+    }
+
     if (this.cameraMode === 'firstperson') {
       // Obliczanie kierunku kołysania na boki (prostopadle do kierunku patrzenia)
       const sy = Math.sin(this.cameraYaw);

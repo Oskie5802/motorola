@@ -553,6 +553,60 @@ export class AudioSystem {
     bg.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
     boom.connect(bg).connect(this.sfxGain);
     boom.start(t); boom.stop(t + 0.4);
+
+    // Kreskówkowy "Boing" (sprężyna) przy uderzeniu
+    const boing = this.ctx.createOscillator();
+    const boingGain = this.ctx.createGain();
+    boing.type = 'triangle';
+    boing.frequency.setValueAtTime(100, t);
+    boing.frequency.exponentialRampToValueAtTime(450, t + 0.18);
+    boingGain.gain.setValueAtTime(0.12, t);
+    boingGain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    boing.connect(boingGain).connect(this.sfxGain);
+    boing.start(t);
+    boing.stop(t + 0.25);
+
+    // Smutny puzon (Sad Trombone: WAH WAH WAH WAAAAAH) po zderzeniu
+    const tromboneNotes = [349.23, 329.63, 311.13, 293.66]; // F4, E4, Eb4, D4
+    const noteDuration = 0.24;
+    tromboneNotes.forEach((f, i) => {
+      const o = this.ctx.createOscillator();
+      const tg = this.ctx.createGain();
+      o.type = 'sawtooth';
+
+      const startTime = t + 0.25 + i * 0.22;
+      const duration = i === 3 ? 0.65 : noteDuration;
+
+      o.frequency.setValueAtTime(f, startTime);
+
+      if (i === 3) {
+        // Ostatnia nuta ma zjeżdżający w dół pitch (wobble)
+        o.frequency.linearRampToValueAtTime(f * 0.7, startTime + duration);
+
+        // Dodatkowe lekkie vibrato dla komizmu
+        const vibrato = this.ctx.createOscillator();
+        const vibratoGain = this.ctx.createGain();
+        vibrato.frequency.value = 8.5; // Hz
+        vibratoGain.gain.value = 12; // głębokość vibrato w Hz
+        vibrato.connect(vibratoGain).connect(o.frequency);
+        vibrato.start(startTime);
+        vibrato.stop(startTime + duration);
+      }
+
+      // Filtr nadający dźwiękowi charakter instrumentu dętego blaszanego (puzon)
+      const tFilt = this.ctx.createBiquadFilter();
+      tFilt.type = 'lowpass';
+      tFilt.frequency.setValueAtTime(1200, startTime);
+      tFilt.frequency.linearRampToValueAtTime(320, startTime + duration);
+
+      tg.gain.setValueAtTime(0.001, startTime);
+      tg.gain.linearRampToValueAtTime(0.09, startTime + 0.03);
+      tg.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+      o.connect(tFilt).connect(tg).connect(this.sfxGain);
+      o.start(startTime);
+      o.stop(startTime + duration);
+    });
   }
 
   // Odblokowanie radia
