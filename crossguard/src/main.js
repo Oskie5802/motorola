@@ -271,9 +271,10 @@ function initSettingsUI() {
       // city textures, traffic lights, and all quality-dependent elements
       const zone = currentSession.zone;
       const wasCinematic = currentSession.cinematic;
+      const wasFPP = currentSession.player && currentSession.player.cameraMode === 'firstperson';
       isPaused = false;
       endSession();
-      await startGame(zone, { cinematic: wasCinematic });
+      await startGame(zone, { cinematic: wasCinematic, startFPP: wasFPP });
     } else if (settingsOrigin === 'pause') {
       $('pause').classList.remove('hidden');
       applySettingsDynamically();
@@ -368,21 +369,30 @@ window.addEventListener('keydown', (e) => {
 
     isPaused = !isPaused;
     $('pause').classList.toggle('hidden', !isPaused);
-    if (isPaused) audio.pauseIn();
-    else audio.pauseOut();
+    if (isPaused) {
+      audio.pauseIn();
+    } else {
+      audio.pauseOut();
+      requestGamePointerLock();
+    }
   }
 });
 
 // Automatyczne pauzowanie gry przy utracie Pointer Locka w trybie FPP
+let wasPointerLocked = false;
 document.addEventListener('pointerlockchange', () => {
+  const canvas = $('game');
+  const isLocked = document.pointerLockElement === canvas;
+  
   if (currentSession && currentSession.player && currentSession.player.cameraMode === 'firstperson') {
-    const canvas = $('game');
-    if (document.pointerLockElement !== canvas && !isPaused && currentSession.game.state === 'playing') {
+    if (!isLocked && wasPointerLocked && !isPaused && currentSession.game.state === 'playing') {
       isPaused = true;
       $('pause').classList.remove('hidden');
       audio.pauseIn();
     }
   }
+  
+  wasPointerLocked = isLocked;
 });
 $('resumeBtn').onclick = () => { 
   isPaused = false; 
@@ -534,6 +544,17 @@ async function startGame(zone, opts = {}) {
     // Gracz w jakims dziwnym miejscu
   const spawn = city.spawnPoints[Math.floor(Math.random() * city.spawnPoints.length)];
   const player = new Player(scene, spawn, cachedCharacter);
+  const startFPP = !!opts.startFPP;
+  if (startFPP) {
+    player.cameraMode = 'firstperson';
+    if (player._model) player._model.visible = false;
+    if (player._fallbackBody) player._fallbackBody.visible = false;
+    if (player._fallbackHead) player._fallbackHead.visible = false;
+    const cameraTextEl = $('hudCameraText');
+    if (cameraTextEl) {
+      cameraTextEl.textContent = 'FPP [V]';
+    }
+  }
   if (!cinematic) player.setupInput(canvas);
   else { player.keys = {}; } // disable input; cinematic drives the player
 
