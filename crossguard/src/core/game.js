@@ -56,6 +56,9 @@ export class GameLogic {
     this._cameraAlertTimer = 6 + Math.random() * 8;
     this._eventMul = evMul;
 
+    // Inicjalizacja czasu dla losowego włączania telefonu (4-8 sekund)
+    this._phoneDistractionTimer = 4 + Math.random() * 4;
+
         // Ostatnia misja
     const missionLabel = zone.id === 'highway'
       ? MISSION_LABELS[MISSION_LABELS.length - 1]
@@ -388,6 +391,33 @@ export class GameLogic {
       return;
     }
 
+    // Losowe włączanie telefonu jako rozproszenie
+    if (this.player.onPhone) {
+      // Jeśli telefon jest już włączony, resetujemy timer odnowienia (6-12 sekund)
+      this._phoneDistractionTimer = 6 + Math.random() * 6;
+    } else if (pos) {
+      this._phoneDistractionTimer -= dt;
+      if (this._phoneDistractionTimer <= 0) {
+        // Telefon może włączyć się tylko gdy gracz jest bezpieczny na chodniku (onSidewalk)
+        // i nie znajduje się na przejściu dla pieszych (onCrossing) ani na jezdni (onRoad)
+        if (onSidewalk && !onCrossing && !onRoad) {
+          this.player.onPhone = true;
+          const overlay = document.getElementById('phoneOverlay');
+          if (overlay) overlay.classList.remove('hidden');
+          this.audio.warn(); // Dźwięk powiadomienia (podwójny sygnał)
+          this.hud.alert('📱 Nowa wiadomość! Telefon Cię rozprasza.', 'warn');
+          
+          this._setRandomPhoneMessage();
+          
+          // Ustawienie kolejnego losowego włączenia za 6-12s
+          this._phoneDistractionTimer = 6 + Math.random() * 6;
+        } else {
+          // Jeśli gracz jest w niebezpiecznej strefie, przesuwamy próbę włączenia o 1.5s
+          this._phoneDistractionTimer = 1.5;
+        }
+      }
+    }
+
 
         // Randomowe dziwne sytuacje na mapie
     this._eventTimer -= dt;
@@ -667,5 +697,58 @@ export class GameLogic {
       zone: this.zone,
     };
     if (this.onComplete) this.onComplete(result);
+  }
+
+  _setRandomPhoneMessage() {
+    const chatContainer = document.getElementById('phoneChatContent');
+    if (!chatContainer) return;
+
+    const chats = [
+      [
+        { sender: 'Kumpel', text: 'Siema, idziesz już? 🏃‍♂️', time: '14:36', type: 'incoming' },
+        { sender: 'Kumpel', text: 'Uważaj na drodze, straszny tu ruch dzisiaj! 🚗💨', time: '14:37', type: 'incoming' },
+        { text: 'Idę, już prawie jestem!', time: '14:37', type: 'outgoing' }
+      ],
+      [
+        { sender: 'Mama', text: 'Kochanie, kup chleb i masło po drodze. 🛒', time: '15:10', type: 'incoming' },
+        { sender: 'Mama', text: 'Tylko nie patrz w telefon przechodząc przez ulicę! ⚠️', time: '15:11', type: 'incoming' },
+        { text: 'Dobrze mamo, schowam go.', time: '15:12', type: 'outgoing' }
+      ],
+      [
+        { sender: 'Grupa Klasowa', text: 'Ej, co było zadane z fizyki?', time: '16:02', type: 'incoming' },
+        { sender: 'Ania', text: 'Chyba zadanie 3 i 4 ze strony 120 📝', time: '16:03', type: 'incoming' },
+        { sender: 'Bartek', text: 'Dzięki! Uratowałaś mi życie.', time: '16:04', type: 'incoming' }
+      ],
+      [
+        { sender: 'Motorola System', text: '🔥 Wykryto wysokie natężenie ruchu w strefie szkolnej.', time: 'Teraz', type: 'incoming' },
+        { sender: '⚠️ Alert Bezpieczeństwa', text: 'Zasłonięto ekran! Odłóż telefon [P] lub kliknij przycisk poniżej przed wejściem na przejście.', time: 'Teraz', type: 'alert-bubble' }
+      ]
+    ];
+
+    const randomChat = chats[Math.floor(Math.random() * chats.length)];
+    
+    chatContainer.innerHTML = '';
+    randomChat.forEach(msg => {
+      const bubble = document.createElement('div');
+      if (msg.type === 'alert-bubble') {
+        bubble.className = 'phone-chat-bubble alert-bubble';
+        bubble.innerHTML = `
+          <span class="phone-chat-sender">${msg.sender}</span>
+          <span class="phone-chat-text">${msg.text}</span>
+          <span class="phone-chat-time">${msg.time}</span>
+        `;
+      } else {
+        bubble.className = `phone-chat-bubble ${msg.type}`;
+        bubble.innerHTML = `
+          ${msg.sender ? `<span class="phone-chat-sender">${msg.sender}</span>` : ''}
+          <span class="phone-chat-text">${msg.text}</span>
+          <span class="phone-chat-time">${msg.time}</span>
+        `;
+      }
+      chatContainer.appendChild(bubble);
+    });
+
+    // Przewiń na dół
+    chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 }

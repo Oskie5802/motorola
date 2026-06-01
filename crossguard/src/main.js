@@ -541,9 +541,11 @@ async function startGame(zone, opts = {}) {
   const city = new City(scene, zone, env.isNight, models);
   city.scene = scene; // for goal marker access
 
-    // Gracz w jakims dziwnym miejscu
+  // Gracz w jakims dziwnym miejscu
   const spawn = city.spawnPoints[Math.floor(Math.random() * city.spawnPoints.length)];
   const player = new Player(scene, spawn, cachedCharacter);
+  player.onPhone = false;
+  $('phoneOverlay').classList.add('hidden');
   const startFPP = !!opts.startFPP;
   if (startFPP) {
     player.cameraMode = 'firstperson';
@@ -668,6 +670,7 @@ function endSession() {
     currentSession = null;
   }
   $('hud').classList.add('hidden');
+  $('phoneOverlay').classList.add('hidden');
 }
 
 // Widok punktow

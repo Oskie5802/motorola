@@ -905,40 +905,221 @@ kbd {
   clip-path: none;
 }
 
-/* Zamazanie ekranu jak zgapiasz sie w komorke */
+/* Styl dla nowoczesnego smartfona zajmującego pół ekranu */
 #phoneOverlay {
   position: fixed;
-  bottom: 80px;
-  right: 20px;
-  z-index: 60;
-  pointer-events: none;
+  top: 0;
+  right: 0;
+  width: 100vw;
+  min-width: 100vw;
+  max-width: 500px;
+  height: 100vh;
+  z-index: 100;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 14, 28, 0.65);
+  backdrop-filter: blur(8px);
+  border-left: 3px solid var(--moto-cyan);
+  box-shadow: -15px 0 35px rgba(0, 0, 0, 0.85);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
 }
+
+.phone-container {
+  width: 85%;
+  max-width: 320px;
+  height: 80vh;
+  min-height: 520px;
+  background: #0d131a;
+  border: 12px solid #1a222d;
+  border-radius: 36px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), inset 0 0 10px rgba(0, 163, 224, 0.2);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Głośnik i notch u góry */
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 110px;
+  height: 22px;
+  background: #1a222d;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  z-index: 10;
+}
+
+.phone-speaker {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 3px;
+  background: #444;
+  border-radius: 2px;
+  z-index: 11;
+}
+
 .phone-screen {
-  width: 180px;
-  background: rgba(20, 20, 30, 0.92);
-  border: 2px solid #444;
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #080c10;
+  padding: 24px 14px 16px;
+  overflow: hidden;
+  position: relative;
+  border: none;
+  width: auto;
+  box-shadow: none;
 }
+
+.phone-status-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 14px;
+  font-size: 10px;
+  color: #8899a6;
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+}
+
+.phone-status-icons {
+  display: flex;
+  gap: 6px;
+}
+
 .phone-header {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--moto-cyan);
-  margin-bottom: 8px;
-  border-bottom: 1px solid #333;
-  padding-bottom: 6px;
+  padding: 10px 4px;
+  border-bottom: 1px solid #1a222d;
+  margin-bottom: 10px;
+  text-align: center;
+  letter-spacing: 1px;
 }
-.phone-msg {
+
+.phone-content-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+/* Stylizowany scrollbar dla wiadomości */
+.phone-content-area::-webkit-scrollbar {
+  width: 4px;
+}
+.phone-content-area::-webkit-scrollbar-thumb {
+  background: #1a222d;
+  border-radius: 2px;
+}
+
+.phone-chat-bubble {
+  padding: 8px 12px;
+  border-radius: 12px;
+  max-width: 85%;
   font-size: 11px;
-  color: #ccc;
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  line-height: 1.4;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  animation: messageSlideIn 0.3s ease-out;
 }
+
+@keyframes messageSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.phone-chat-bubble.incoming {
+  background: #1f2a38;
+  color: #e1e8ed;
+  align-self: flex-start;
+  border-bottom-left-radius: 3px;
+}
+
+.phone-chat-bubble.outgoing {
+  background: var(--moto-blue);
+  color: #ffffff;
+  align-self: flex-end;
+  border-bottom-right-radius: 3px;
+}
+
+.phone-chat-bubble.alert-bubble {
+  background: rgba(230, 57, 70, 0.15);
+  border: 1px solid rgba(230, 57, 70, 0.4);
+  color: #ff7185;
+  align-self: center;
+  max-width: 95%;
+  text-align: center;
+  border-radius: 8px;
+}
+
+.phone-chat-sender {
+  font-size: 9px;
+  font-weight: bold;
+  color: var(--moto-cyan);
+  margin-bottom: 2px;
+}
+
+.phone-chat-text {
+  word-break: break-word;
+}
+
+.phone-chat-time {
+  font-size: 8px;
+  color: #657786;
+  align-self: flex-end;
+  margin-top: 4px;
+}
+
+.phone-footer {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  border-top: 1px solid #1a222d;
+  padding-top: 10px;
+}
+
+.phone-close-btn {
+  width: 100%;
+  background: var(--moto-cyan);
+  border: none;
+  color: #000d24;
+  padding: 10px 0;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+}
+
+.phone-close-btn:hover {
+  background: #008cc2;
+  box-shadow: 0 0 10px rgba(0, 163, 224, 0.4);
+}
+
 .phone-hint {
   font-size: 10px;
   color: var(--moto-amber);
-  margin-top: 8px;
   text-align: center;
 }
 

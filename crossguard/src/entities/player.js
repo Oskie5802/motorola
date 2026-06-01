@@ -271,6 +271,16 @@ export class Player {
         }
       }
     });
+
+    // Obsługa kliknięcia przycisku wyłączenia telefonu w nakładce
+    const phoneCloseBtn = document.getElementById('phoneCloseBtn');
+    if (phoneCloseBtn) {
+      phoneCloseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.onPhone = false;
+        document.getElementById('phoneOverlay').classList.add('hidden');
+      });
+    }
   }
 
   update(dt, city, traffic) {
@@ -368,7 +378,7 @@ export class Player {
     const running = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
     const stopping = this.keys['Space'];
     const fastDev = this.devMode && this.keys['KeyC'];
-    const speed = stopping ? 0 : (fastDev ? 50.0 : (running ? this.runSpeed : this.walkSpeed) * (this.onPhone ? 0.85 : 1));
+    const speed = stopping ? 0 : (fastDev ? 50.0 : (running ? this.runSpeed : this.walkSpeed) * (this.onPhone ? 0.70 : 1));
 
     let dx = 0, dz = 0;
     if (this.keys['KeyW'] || this.keys['ArrowUp']) dz -= 1;

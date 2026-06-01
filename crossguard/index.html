@@ -168,12 +168,33 @@
 
     <!-- Ekran zamazuje się jak gapisz się w komórkę na przejściu (karny jeżyk) -->
     <div id="phoneOverlay" class="hidden">
-      <div class="phone-screen">
-        <div class="phone-header">📱 Wiadomości</div>
-        <div class="phone-msg">Hej, jesteś w drodze? 😊</div>
-        <div class="phone-msg">Kiedy będziesz?</div>
-        <div class="phone-msg">Zdjęcie z wczoraj 🔥</div>
-        <div class="phone-hint">[P] odłóż telefon</div>
+      <div class="phone-container">
+        <!-- Notching / głośnik telefonu -->
+        <div class="phone-notch"></div>
+        <div class="phone-speaker"></div>
+        
+        <div class="phone-screen">
+          <div class="phone-status-bar">
+            <span>14:38</span>
+            <div class="phone-status-icons">
+              <span>📶</span>
+              <span>🔋 84%</span>
+            </div>
+          </div>
+          
+          <div class="phone-header">
+            📱 MotoMessage
+          </div>
+          
+          <div class="phone-content-area" id="phoneChatContent">
+            <!-- Wiadomości generowane dynamicznie w JS -->
+          </div>
+          
+          <div class="phone-footer">
+            <button id="phoneCloseBtn" class="phone-close-btn">ODŁÓŻ TELEFON</button>
+            <div class="phone-hint">[P] schowaj telefon</div>
+          </div>
+        </div>
       </div>
     </div>
 
