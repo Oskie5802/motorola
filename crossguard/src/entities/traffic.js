@@ -828,33 +828,65 @@ export class TrafficSystem {
       }
     }
 
-        // 2) Pieszy na zebrze przed nami — ale TYLKO jezeli jeszcze nie wjechalismy
-        // na skrzyzowanie. Jak juz jestesmy w srodku, lepiej przejechac niz stanac na pasach.
     const pdx = playerPos.x - v.pos.x;
     const pdz = playerPos.z - v.pos.z;
     const palong = v.vx * pdx + v.vz * pdz;
     const pperp  = Math.abs(v.vx * pdz - v.vz * pdx);
-    const playerOnCrossing = this.city.isOnCrossing(playerPos.x, playerPos.z);
-    if (playerOnCrossing && palong > 0 && pperp < 4) {
-      let bestAlong = Infinity;
-      for (const inter of this.city.intersections) {
-        const idx = inter.x - v.pos.x;
-        const idz = inter.z - v.pos.z;
-        const ialong = v.vx * idx + v.vz * idz;
-        const iperp  = Math.abs(v.vx * idz - v.vz * idx);
-        if (iperp >= 3 || ialong <= 0) continue;
-        const pdInter = Math.hypot(playerPos.x - inter.x, playerPos.z - inter.z);
-        if (pdInter < 10 && ialong < bestAlong) bestAlong = ialong;
+
+    // 2) Pieszy na zebrze przed nami lub stojący przy przejściu — ale TYLKO dla kierowców przestrzegających przepisów.
+    // Piraci drogowi (runsRed === true) oraz pojazdy uprzywilejowane (isEmergency === true) się nie zatrzymują!
+    if (!v.runsRed && !v.isEmergency) {
+      const playerOnCrossing = this.city.isOnCrossing(playerPos.x, playerPos.z);
+      let playerWaitingAtCrossing = false;
+
+      if (!playerOnCrossing) {
+        // Sprawdź, czy gracz stoi w strefie wejścia na najbliższe przejście dla pieszych
+        for (const c of this.city.crossings) {
+          // Oblicz dystans wzdłuż drogi do przejścia
+          const cdx = c.x - v.pos.x;
+          const cdz = c.z - v.pos.z;
+          const calong = v.vx * cdx + v.vz * cdz;
+          const cperp = Math.abs(v.vx * cdz - v.vz * cdx);
+
+          // Jeśli auto zbliża się do tego przejścia
+          if (calong > 0 && calong < 30 && cperp < 3.5) {
+            // Dystans pieszego do boków przejścia (prostokąta zebra)
+            const pCrossingDx = Math.max(0, c.x1 - playerPos.x, playerPos.x - c.x2);
+            const pCrossingDz = Math.max(0, c.z1 - playerPos.z, playerPos.z - c.z2);
+            const distToCrossing = Math.hypot(pCrossingDx, pCrossingDz);
+            
+            // Jeśli gracz stoi blisko przejścia (np. na chodniku w odległości < 3.0m)
+            if (distToCrossing < 3.0 && this.city.isOnSafeGround(playerPos.x, playerPos.z)) {
+              playerWaitingAtCrossing = true;
+              break;
+            }
+          }
+        }
       }
-      if (bestAlong !== Infinity) {
-        const d = bestAlong - STOP_AHEAD;
-                // d > 0 znaczy ze linia stopu wciaz przed nami — hamujemy
-                // d < 0 znaczy ze juz wjechalismy — odpuszczamy, przejedzmy szybko
-        if (d > 0 && d < distToStop) distToStop = d;
+
+      if (playerOnCrossing || playerWaitingAtCrossing) {
+        let bestAlong = Infinity;
+        for (const inter of this.city.intersections) {
+          const idx = inter.x - v.pos.x;
+          const idz = inter.z - v.pos.z;
+          const ialong = v.vx * idx + v.vz * idz;
+          const iperp  = Math.abs(v.vx * idz - v.vz * idx);
+          if (iperp >= 3 || ialong <= 0) continue;
+          const pdInter = Math.hypot(playerPos.x - inter.x, playerPos.z - inter.z);
+          // Jeśli gracz jest na tym skrzyżowaniu (lub przy nim)
+          if (pdInter < 12 && ialong < bestAlong) bestAlong = ialong;
+        }
+        if (bestAlong !== Infinity) {
+          const d = bestAlong - STOP_AHEAD;
+          // d > 0 znaczy ze linia stopu wciaz przed nami — hamujemy
+          // d < 0 znaczy ze juz wjechalismy — odpuszczamy, przejedzmy szybko
+          if (d > -0.3 && d < distToStop) distToStop = d;
+        }
       }
     }
-        // Awaryjne hamowanie: pieszy DOSLOWNIE przed maska, w naszym pasie.
-        // Wask, zeby nie hamowac przy pieszym ktory tylko mija pas obok.
+
+    // Awaryjne hamowanie: pieszy DOSLOWNIE przed maska, w naszym pasie (niezależnie czy to pirat czy nie)
+    // Failsafe zapobiegający klinowaniu się modeli 3D, ale nadal bardzo niebezpieczny dla gracza
     if (palong > 0 && palong < v.d / 2 + 2.5 && pperp < 0.9) {
       const d = palong - v.d / 2 - 0.6;
       if (d < distToStop) distToStop = d;
