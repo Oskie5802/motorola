@@ -1,6 +1,7 @@
 // Gracz = Alex
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { interpolateAngle } from '../core/mathUtils.js';
 
 const MODEL_SCALE = 0.006; // Kenney FBX units → game world scale (fits building door height)
 
@@ -416,10 +417,7 @@ export class Player {
     } else {
       if (len > 0) {
         const target = Math.atan2(wx, wz);
-        let diff = target - this.facing;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        this.facing += diff * Math.min(1, dt * 12);
+        this.facing = interpolateAngle(this.facing, target, Math.min(1, dt * 12));
       }
     }
 

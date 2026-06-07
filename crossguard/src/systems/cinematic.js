@@ -7,6 +7,7 @@
 // dla kinowego efektu. Na koniec mozaika z innymi strefami.
 
 import * as THREE from 'three';
+import { interpolateAngle } from '../core/mathUtils.js';
 
 // Utilities
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -39,10 +40,7 @@ function steerPlayer(player, city, dt, target, runSpeed = false) {
   if (!city.collidesBuilding(nx, player.pos.z)) player.pos.x = nx;
   if (!city.collidesBuilding(player.pos.x, nz)) player.pos.z = nz;
   const targetFacing = Math.atan2(dx, dz);
-  let diff = targetFacing - player.facing;
-  while (diff > Math.PI) diff -= Math.PI * 2;
-  while (diff < -Math.PI) diff += Math.PI * 2;
-  player.facing += diff * Math.min(1, dt * 10);
+  player.facing = interpolateAngle(player.facing, targetFacing, Math.min(1, dt * 10));
   if (player.mixer) {
     const tgt = runSpeed ? 1.0 : 0.5;
     player._blendFraction = THREE.MathUtils.lerp(player._blendFraction, tgt, Math.min(1, dt * 6));

@@ -842,6 +842,9 @@ export class TrafficSystem {
       if (!playerOnCrossing) {
         // Sprawdź, czy gracz stoi w strefie wejścia na najbliższe przejście dla pieszych
         for (const c of this.city.crossings) {
+          // Jeśli przejście ma sygnalizację świetlną, piesi stojący przy przejściu nie zatrzymują pojazdów
+          if (c.light) continue;
+
           // Oblicz dystans wzdłuż drogi do przejścia
           const cdx = c.x - v.pos.x;
           const cdz = c.z - v.pos.z;
