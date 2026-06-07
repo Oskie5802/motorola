@@ -300,7 +300,12 @@ export class Player {
   }
 
   setupTouch(canvas) {
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    // Pokazujemy sterowanie dotykowe TYLKO na urządzeniach z dotykiem jako głównym
+    // sterowaniem (telefony/tablety). Laptopy z myszką - nawet z ekranem dotykowym -
+    // mają wskaźnik "fine", więc gamepad się tam nie pojawi.
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const coarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const isTouch = hasTouch && coarsePointer;
     if (!isTouch) return;
     this.isTouch = true;
 
