@@ -31,6 +31,7 @@ html, body {
   width: 100vw;
   height: 100vh;
   outline: none;
+  touch-action: none; /* brak scrolla/zoomu przeglądarki podczas sterowania kamerą */
 }
 
 .hidden { display: none !important; }
@@ -1626,5 +1627,94 @@ kbd {
 @keyframes fadeInResults {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* ===== Sterowanie dotykowe (mobile) ===== */
+#mobileControls {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none; /* tła nie blokujemy, tylko aktywne elementy */
+  touch-action: none;
+}
+#mobileControls.hidden { display: none; }
+
+#joystick {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: max(28px, env(safe-area-inset-bottom));
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#joystickRing {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(0, 163, 224, 0.10), rgba(0, 13, 36, 0.45));
+  border: 2px solid rgba(0, 163, 224, 0.55);
+  box-shadow: 0 0 22px rgba(0, 163, 224, 0.25), inset 0 0 18px rgba(0, 13, 36, 0.6);
+}
+#joystickKnob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #2fc4ff, var(--moto-cyan) 55%, #0077a8);
+  border: 2px solid rgba(232, 243, 255, 0.85);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 16px rgba(0, 163, 224, 0.5);
+  transition: transform 0.04s linear;
+}
+
+#touchButtons {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(28px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+  pointer-events: none;
+}
+.touch-btn {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--moto-light);
+  background: rgba(0, 13, 36, 0.55);
+  border: 2px solid rgba(0, 163, 224, 0.55);
+  box-shadow: 0 0 16px rgba(0, 163, 224, 0.2), inset 0 0 12px rgba(0, 13, 36, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.touch-btn-big {
+  width: 84px;
+  height: 84px;
+  font-size: 15px;
+}
+.touch-btn.active {
+  background: rgba(0, 163, 224, 0.85);
+  color: #fff;
+  border-color: #fff;
+  box-shadow: 0 0 22px rgba(0, 163, 224, 0.7);
+  transform: scale(0.95);
 }
 

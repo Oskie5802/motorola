@@ -196,35 +196,7 @@ export class Player {
         document.getElementById('phoneOverlay').classList.toggle('hidden', !this.onPhone);
       }
       if (e.code === 'KeyV') {
-        const isMenuOpen = !document.getElementById('menu').classList.contains('hidden') || 
-                           !document.getElementById('pause').classList.contains('hidden') || 
-                           !document.getElementById('settings').classList.contains('hidden') || 
-                           !document.getElementById('tutorial').classList.contains('hidden') || 
-                           !document.getElementById('results').classList.contains('hidden');
-        if (isMenuOpen) return;
-
-        this.cameraMode = this.cameraMode === 'thirdperson' ? 'firstperson' : 'thirdperson';
-        const isFPP = this.cameraMode === 'firstperson';
-
-        // Update model visibility
-        if (this._model) this._model.visible = !isFPP;
-        if (this._fallbackBody) this._fallbackBody.visible = !isFPP;
-        if (this._fallbackHead) this._fallbackHead.visible = !isFPP;
-
-        // Update HUD text
-        const cameraTextEl = document.getElementById('hudCameraText');
-        if (cameraTextEl) {
-          cameraTextEl.textContent = isFPP ? 'FPP [V]' : 'TPP [V]';
-        }
-
-        // Handle Pointer Lock
-        if (isFPP) {
-          canvas.requestPointerLock();
-        } else {
-          if (document.pointerLockElement === canvas) {
-            document.exitPointerLock();
-          }
-        }
+        this.toggleCamera(canvas);
       }
     });
     window.addEventListener('keyup', (e) => {
@@ -261,11 +233,11 @@ export class Player {
 
     // Request pointer lock again on click if in FPP
     canvas.addEventListener('click', () => {
-      if (this.cameraMode === 'firstperson') {
-        const isMenuOpen = !document.getElementById('menu').classList.contains('hidden') || 
-                           !document.getElementById('pause').classList.contains('hidden') || 
-                           !document.getElementById('settings').classList.contains('hidden') || 
-                           !document.getElementById('tutorial').classList.contains('hidden') || 
+      if (this.cameraMode === 'firstperson' && !this.isTouch) {
+        const isMenuOpen = !document.getElementById('menu').classList.contains('hidden') ||
+                           !document.getElementById('pause').classList.contains('hidden') ||
+                           !document.getElementById('settings').classList.contains('hidden') ||
+                           !document.getElementById('tutorial').classList.contains('hidden') ||
                            !document.getElementById('results').classList.contains('hidden');
         if (!isMenuOpen) {
           canvas.requestPointerLock();
@@ -281,6 +253,168 @@ export class Player {
         this.onPhone = false;
         document.getElementById('phoneOverlay').classList.add('hidden');
       });
+    }
+
+    this.setupTouch(canvas);
+  }
+
+  _menuOpen() {
+    return !document.getElementById('menu').classList.contains('hidden') ||
+           !document.getElementById('pause').classList.contains('hidden') ||
+           !document.getElementById('settings').classList.contains('hidden') ||
+           !document.getElementById('tutorial').classList.contains('hidden') ||
+           !document.getElementById('results').classList.contains('hidden');
+  }
+
+  toggleCamera(canvas) {
+    if (this._menuOpen()) return;
+
+    this.cameraMode = this.cameraMode === 'thirdperson' ? 'firstperson' : 'thirdperson';
+    const isFPP = this.cameraMode === 'firstperson';
+
+    // Widoczność modelu
+    if (this._model) this._model.visible = !isFPP;
+    if (this._fallbackBody) this._fallbackBody.visible = !isFPP;
+    if (this._fallbackHead) this._fallbackHead.visible = !isFPP;
+
+    // Tekst HUD
+    const cameraTextEl = document.getElementById('hudCameraText');
+    if (cameraTextEl) cameraTextEl.textContent = isFPP ? 'FPP [V]' : 'TPP [V]';
+
+    // Przycisk dotykowy
+    const btnCam = document.getElementById('btnCam');
+    if (btnCam) btnCam.textContent = isFPP ? 'TPP' : 'FPP';
+
+    // Pointer Lock tylko na desktopie (na dotyku kamerą sterujemy palcem)
+    if (!this.isTouch) {
+      if (isFPP) canvas.requestPointerLock();
+      else if (document.pointerLockElement === canvas) document.exitPointerLock();
+    }
+  }
+
+  togglePhone() {
+    this.onPhone = !this.onPhone;
+    document.getElementById('phoneOverlay').classList.toggle('hidden', !this.onPhone);
+    const btnPhone = document.getElementById('btnPhone');
+    if (btnPhone) btnPhone.classList.toggle('active', this.onPhone);
+  }
+
+  setupTouch(canvas) {
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (!isTouch) return;
+    this.isTouch = true;
+
+    // Analogowy wektor ruchu z joysticka (-1..1) i flaga biegu
+    this.touchMove = { x: 0, z: 0 };
+    this.touchRun = false;
+
+    const controls = document.getElementById('mobileControls');
+    if (controls) controls.classList.remove('hidden');
+
+    // --- Wirtualny joystick (lewy dolny róg) ---
+    const joy = document.getElementById('joystick');
+    const knob = document.getElementById('joystickKnob');
+    if (joy && knob) {
+      let joyId = null;
+      const maxR = 46; // promień wychylenia gałki w px
+
+      const setKnob = (dx, dz) => { knob.style.transform = `translate(${dx}px, ${dz}px)`; };
+      const resetJoy = () => {
+        joyId = null;
+        this.touchMove.x = 0;
+        this.touchMove.z = 0;
+        setKnob(0, 0);
+      };
+      const handle = (t, rect) => {
+        let dx = t.clientX - (rect.left + rect.width / 2);
+        let dz = t.clientY - (rect.top + rect.height / 2);
+        const dist = Math.hypot(dx, dz);
+        if (dist > maxR) { dx = dx / dist * maxR; dz = dz / dist * maxR; }
+        setKnob(dx, dz);
+        this.touchMove.x = dx / maxR;
+        this.touchMove.z = dz / maxR;
+      };
+
+      joy.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        joyId = t.identifier;
+        handle(t, joy.getBoundingClientRect());
+      }, { passive: false });
+      joy.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const rect = joy.getBoundingClientRect();
+        for (const t of e.changedTouches) {
+          if (t.identifier === joyId) handle(t, rect);
+        }
+      }, { passive: false });
+      const onJoyEnd = (e) => {
+        for (const t of e.changedTouches) {
+          if (t.identifier === joyId) { resetJoy(); break; }
+        }
+      };
+      joy.addEventListener('touchend', onJoyEnd);
+      joy.addEventListener('touchcancel', onJoyEnd);
+    }
+
+    // --- Sterowanie kamerą: przeciąganie palcem po canvasie ---
+    let camId = null, lastX = 0, lastY = 0;
+    canvas.addEventListener('touchstart', (e) => {
+      if (this._menuOpen()) return;
+      const t = e.changedTouches[0];
+      camId = t.identifier;
+      lastX = t.clientX;
+      lastY = t.clientY;
+    }, { passive: true });
+    canvas.addEventListener('touchmove', (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier !== camId) continue;
+        const mx = t.clientX - lastX;
+        const my = t.clientY - lastY;
+        lastX = t.clientX;
+        lastY = t.clientY;
+        if (this.cameraMode === 'firstperson') {
+          this.cameraYaw -= mx * 0.005;
+          this.cameraPitchFPP = Math.max(-0.9, Math.min(0.9, this.cameraPitchFPP - my * 0.005));
+        } else {
+          this.cameraYaw -= mx * 0.008;
+          this.cameraPitch = Math.max(0.2, Math.min(1.2, this.cameraPitch - my * 0.005));
+        }
+      }
+    }, { passive: true });
+    const onCamEnd = (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === camId) { camId = null; break; }
+      }
+    };
+    canvas.addEventListener('touchend', onCamEnd, { passive: true });
+    canvas.addEventListener('touchcancel', onCamEnd, { passive: true });
+
+    // --- Przyciski akcji ---
+    const btnRun = document.getElementById('btnRun');
+    if (btnRun) {
+      const press = (e) => { e.preventDefault(); this.touchRun = true; btnRun.classList.add('active'); };
+      const release = (e) => { e.preventDefault(); this.touchRun = false; btnRun.classList.remove('active'); };
+      btnRun.addEventListener('touchstart', press, { passive: false });
+      btnRun.addEventListener('touchend', release, { passive: false });
+      btnRun.addEventListener('touchcancel', release, { passive: false });
+    }
+
+    const btnPhone = document.getElementById('btnPhone');
+    if (btnPhone) {
+      btnPhone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (this._menuOpen()) return;
+        this.togglePhone();
+      }, { passive: false });
+    }
+
+    const btnCam = document.getElementById('btnCam');
+    if (btnCam) {
+      btnCam.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        this.toggleCamera(canvas);
+      }, { passive: false });
     }
   }
 
@@ -376,7 +510,7 @@ export class Player {
     }
 
     if (!this.keys) return;
-    const running = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
+    const running = this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.touchRun;
     const stopping = this.keys['Space'];
     const fastDev = this.devMode && this.keys['KeyC'];
     const speed = stopping ? 0 : (fastDev ? 50.0 : (running ? this.runSpeed : this.walkSpeed) * (this.onPhone ? 0.70 : 1));
@@ -386,8 +520,14 @@ export class Player {
     if (this.keys['KeyS'] || this.keys['ArrowDown']) dz += 1;
     if (this.keys['KeyA'] || this.keys['ArrowLeft']) dx -= 1;
     if (this.keys['KeyD'] || this.keys['ArrowRight']) dx += 1;
+    // Analogowy joystick dotykowy (zachowuje wychylenie = prędkość)
+    if (this.touchMove && (this.touchMove.x || this.touchMove.z)) {
+      dx += this.touchMove.x;
+      dz += this.touchMove.z;
+    }
     const len = Math.hypot(dx, dz);
-    if (len > 0) { dx /= len; dz /= len; }
+    // Normalizujemy tylko gdy przekroczono 1 (klawiatura/diagonale), analog <1 zostawiamy
+    if (len > 1) { dx /= len; dz /= len; }
 
     const sy = Math.sin(this.cameraYaw);
     const cy = Math.cos(this.cameraYaw);

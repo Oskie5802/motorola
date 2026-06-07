@@ -83,6 +83,7 @@
           <p><kbd>V</kbd> - kamera FPP / TPP</p>
           <p><kbd>M</kbd> - mini-mapa pełna</p>
           <p><kbd>Esc</kbd> - pauza / menu</p>
+          <p style="margin-top:8px;opacity:.85">📱 <b>Telefon:</b> lewy joystick - ruch, przeciągnij ekran - kamera, przyciski po prawej - bieg / telefon / widok.</p>
         </div>
         <div class="howto-card">
           <h3>CEL</h3>
@@ -239,6 +240,19 @@
         <span id="devLOD">-</span>
       </div>
       <div class="dev-footer">TRZYMAJ [C] ABY PRZENIKAĆ I BIEGAĆ</div>
+    </div>
+
+    <!-- Sterowanie dotykowe na telefonie -->
+    <div id="mobileControls" class="hidden">
+      <div id="joystick">
+        <div id="joystickRing"></div>
+        <div id="joystickKnob"></div>
+      </div>
+      <div id="touchButtons">
+        <button id="btnRun" class="touch-btn touch-btn-big">BIEG</button>
+        <button id="btnPhone" class="touch-btn">📱</button>
+        <button id="btnCam" class="touch-btn">FPP</button>
+      </div>
     </div>
 
     <!-- Elementy trzymane luzem do referencji w hud.js (brzydki hack, ale działa) -->
