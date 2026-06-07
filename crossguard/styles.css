@@ -1150,6 +1150,33 @@ kbd {
   #assist { width: 220px; top: 64px; left: 8px; }
   .menu-content h1 { font-size: 32px; }
   .results-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Telefon: dopasowanie do ekranu komórki (bez sztywnej min-height) */
+  .phone-container {
+    width: 88%;
+    max-width: 300px;
+    height: 78vh;
+    min-height: 0;
+    border-width: 8px;
+    border-radius: 28px;
+  }
+}
+
+/* Niskie ekrany (telefon w poziomie) - telefon nie może wyjść poza widok */
+@media (max-height: 560px) {
+  .phone-container {
+    width: auto;
+    max-width: 280px;
+    height: 90vh;
+    min-height: 0;
+    border-width: 6px;
+    border-radius: 22px;
+  }
+  .phone-screen { padding: 16px 10px 10px; }
+  .phone-notch { width: 88px; height: 16px; }
+  .phone-header { font-size: 12px; padding: 6px 4px; margin-bottom: 6px; }
+  .phone-footer { margin-top: 6px; padding-top: 6px; }
+  .phone-close-btn { padding: 7px 0; }
 }
 
 /* =========================================================
@@ -1678,7 +1705,7 @@ kbd {
   right: max(24px, env(safe-area-inset-right));
   bottom: max(28px, env(safe-area-inset-bottom));
   display: flex;
-  flex-direction: column;
+  flex-direction: row-reverse; /* poziomo, BIEG po prawej pod kciukiem - nie zasłania mapy */
   align-items: flex-end;
   gap: 14px;
   pointer-events: none;
