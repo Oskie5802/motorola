@@ -7,33 +7,21 @@
   <title>CrossGuard | Motorola Solutions</title>
   <meta name="theme-color" content="#020e1c" />
 
-  <!-- Generator kodu QR (kazuhikoarase) - sami rysujemy moduły na canvasie, żeby pasowały do stylu -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
   <style>
-    :root {
-      --moto-blue: #003DA5;
-      --moto-cyan: #00A3E0;
-      --moto-dark: #001a47;
-      --moto-darker: #000d24;
-      --moto-light: #e8f3ff;
-      --bg: #050d1f;
-      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: var(--bg);
-      font-family: var(--font);
-      color: var(--moto-white);
+      background: #051028;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: #ffffff;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Tło: ciemny granat + subtelna siatka jak w command center */
     .stage {
       position: fixed;
       inset: 0;
@@ -41,237 +29,81 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: clamp(32px, 6vh, 80px);
       text-align: center;
-      padding: clamp(24px, 5vh, 80px);
-      background:
-        radial-gradient(120% 90% at 50% 0%, #0a1c3f 0%, var(--bg) 55%, #030914 100%);
+      padding: clamp(32px, 6vh, 90px);
     }
-
-    .grid {
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(0, 163, 224, 0.06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 163, 224, 0.06) 1px, transparent 1px);
-      background-size: 64px 64px;
-      mask-image: radial-gradient(110% 90% at 50% 40%, #000 35%, transparent 85%);
-      pointer-events: none;
-    }
-
-    .glow {
-      position: fixed;
-      width: 70vmin;
-      height: 70vmin;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.45;
-      pointer-events: none;
-    }
-    .glow.cyan { background: var(--moto-cyan); top: -20vmin; right: -10vmin; }
-    .glow.blue { background: var(--moto-blue); bottom: -25vmin; left: -10vmin; opacity: 0.6; }
-
-    /* Narożniki HUD */
-    .corner {
-      position: fixed;
-      width: 48px;
-      height: 48px;
-      border: 3px solid var(--moto-cyan);
-      opacity: 0.5;
-    }
-    .corner.tl { top: 28px; left: 28px; border-right: 0; border-bottom: 0; }
-    .corner.tr { top: 28px; right: 28px; border-left: 0; border-bottom: 0; }
-    .corner.bl { bottom: 28px; left: 28px; border-right: 0; border-top: 0; }
-    .corner.br { bottom: 28px; right: 28px; border-left: 0; border-top: 0; }
-
-    .content {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: clamp(18px, 3vh, 40px);
-      max-width: 1100px;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      font-size: clamp(13px, 1.6vh, 20px);
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: var(--moto-cyan);
-      font-weight: 700;
-    }
-    .eyebrow::before,
-    .eyebrow::after {
-      content: '';
-      width: clamp(24px, 4vw, 60px);
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--moto-cyan));
-    }
-    .eyebrow::after { background: linear-gradient(90deg, var(--moto-cyan), transparent); }
 
     h1 {
-      font-size: clamp(40px, 8.5vh, 120px);
-      line-height: 0.98;
+      font-size: clamp(48px, 11vh, 150px);
+      line-height: 0.95;
       font-weight: 900;
       letter-spacing: -0.01em;
       text-transform: uppercase;
-      text-shadow: 0 0 60px rgba(0, 163, 224, 0.35);
-    }
-    h1 .accent {
-      color: var(--moto-cyan);
-    }
-
-    .sub {
-      font-size: clamp(16px, 2.6vh, 30px);
-      font-weight: 500;
-      color: rgba(232, 243, 255, 0.82);
-      max-width: 22ch;
     }
 
     .qr-wrap {
-      position: relative;
-      padding: clamp(16px, 2.4vh, 28px);
-      border-radius: 22px;
-      background: rgba(232, 243, 255, 0.03);
-      border: 2px solid rgba(0, 163, 224, 0.45);
-      box-shadow:
-        0 0 0 6px rgba(5, 13, 31, 0.6),
-        0 30px 80px rgba(0, 0, 0, 0.55),
-        0 0 60px rgba(0, 163, 224, 0.25);
-    }
-    .qr-wrap::before {
-      content: 'SKANUJ';
-      position: absolute;
-      top: -12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--moto-cyan);
-      color: var(--moto-darker);
-      font-size: clamp(11px, 1.3vh, 16px);
-      font-weight: 800;
-      letter-spacing: 0.3em;
-      padding: 4px 14px;
-      border-radius: 99px;
+      padding: clamp(14px, 2vh, 26px);
+      border: 4px solid #00A3E0;
+      border-radius: 24px;
     }
     #qr {
       display: block;
-      width: clamp(220px, 34vh, 420px);
-      height: clamp(220px, 34vh, 420px);
+      width: clamp(240px, 38vh, 460px);
+      height: clamp(240px, 38vh, 460px);
       image-rendering: pixelated;
     }
 
     .url {
-      font-size: clamp(34px, 6.5vh, 92px);
+      font-size: clamp(40px, 9vh, 130px);
       font-weight: 900;
-      letter-spacing: 0.02em;
-      color: var(--moto-cyan);
-      text-shadow: 0 0 40px rgba(0, 163, 224, 0.5);
-    }
-
-    .footer {
-      position: fixed;
-      bottom: clamp(20px, 4vh, 48px);
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 2;
-      font-size: clamp(12px, 1.5vh, 18px);
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(232, 243, 255, 0.55);
-      font-weight: 600;
-    }
-    .footer b { color: var(--moto-light); }
-
-    @media (orientation: portrait) {
-      .eyebrow::before, .eyebrow::after { width: 24px; }
+      letter-spacing: 0.01em;
+      color: #00A3E0;
     }
   </style>
 </head>
 
 <body>
   <div class="stage">
-    <div class="grid" aria-hidden="true"></div>
-    <div class="glow cyan" aria-hidden="true"></div>
-    <div class="glow blue" aria-hidden="true"></div>
-
-    <div class="corner tl"></div>
-    <div class="corner tr"></div>
-    <div class="corner bl"></div>
-    <div class="corner br"></div>
-
-    <div class="content">
-      <span class="eyebrow">CrossGuard · Symulator Pieszego</span>
-
-      <h1>ZAGRAJ <span class="accent">W GRĘ</span></h1>
-
-      <div class="qr-wrap">
-        <canvas id="qr"></canvas>
-      </div>
-
-      <div class="url">CROSSGUARD.PL</div>
+    <h1>ZAGRAJ W GRĘ</h1>
+    <div class="qr-wrap">
+      <canvas id="qr"></canvas>
     </div>
-
-    <div class="footer">Powered by <b>Motorola Solutions</b> · Science Cup 2026</div>
+    <div class="url">CROSSGUARD.PL</div>
   </div>
 
   <script>
-    // Cel skanowania
     const TARGET_URL = 'https://crossguard.pl';
 
     function drawQR() {
       const canvas = document.getElementById('qr');
       const ctx = canvas.getContext('2d');
 
-      // qrcode-generator: typeNumber 0 = auto, korekcja błędów 'M' (czytelny + odporny)
       const qr = qrcode(0, 'M');
       qr.addData(TARGET_URL);
       qr.make();
 
       const count = qr.getModuleCount();
-      const quiet = 2;                 // margines (quiet zone) w modułach — wymagany do skanowania
-      const total = count + quiet * 2;
-      const scale = 16;                // px na moduł (ostry render, potem skalujemy CSS-em)
-      const size = total * scale;
-
+      const scale = 16;
+      const size = count * scale;
       canvas.width = size;
       canvas.height = size;
 
-      // Tło białe — najlepszy kontrast dla skanerów (kolorowe tło bywa zawodne na TV)
-      ctx.fillStyle = '#ffffff';
+      // Tło dopasowane do strony, moduły w kolorze Motoroli
+      ctx.fillStyle = '#051028';
       ctx.fillRect(0, 0, size, size);
-
-      // Moduły w kolorze Motoroli
-      ctx.fillStyle = '#003DA5';
-      const r = scale * 0.18; // delikatne zaokrąglenie
+      ctx.fillStyle = '#00A3E0';
       for (let row = 0; row < count; row++) {
         for (let col = 0; col < count; col++) {
-          if (!qr.isDark(row, col)) continue;
-          const x = (col + quiet) * scale;
-          const y = (row + quiet) * scale;
-          roundRect(ctx, x, y, scale, scale, r);
-          ctx.fill();
+          if (qr.isDark(row, col)) {
+            ctx.fillRect(col * scale, row * scale, scale, scale);
+          }
         }
       }
     }
 
-    function roundRect(ctx, x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
-
-    if (window.qrcode) {
-      drawQR();
-    } else {
-      window.addEventListener('load', drawQR);
-    }
+    if (window.qrcode) drawQR();
+    else window.addEventListener('load', drawQR);
   </script>
 </body>
 
