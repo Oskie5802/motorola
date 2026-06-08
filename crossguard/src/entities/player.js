@@ -309,9 +309,10 @@ export class Player {
     const cameraTextEl = document.getElementById('hudCameraText');
     if (cameraTextEl) cameraTextEl.textContent = isFPP ? 'FPP [V]' : 'TPP [V]';
 
-    // Przycisk dotykowy
+    // Przycisk dotykowy (ikona oka) - podświetlamy gdy aktywny widok FPP,
+    // NIE nadpisujemy zawartości, żeby nie skasować ikony SVG.
     const btnCam = document.getElementById('btnCam');
-    if (btnCam) btnCam.textContent = isFPP ? 'TPP' : 'FPP';
+    if (btnCam) btnCam.classList.toggle('active', isFPP);
 
     // Pointer Lock tylko na desktopie (na dotyku kamerą sterujemy palcem)
     if (!this.isTouch) {

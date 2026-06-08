@@ -1331,16 +1331,16 @@ kbd {
   #touchButtons {
     right: max(16px, env(safe-area-inset-right));
     bottom: max(16px, env(safe-area-inset-bottom));
-    gap: 10px;
+    gap: 12px;
   }
-  .touch-btn {
-    width: 52px;
-    height: 52px;
-    font-size: 11px;
-  }
+  .touch-secondary { gap: 10px; }
+  .touch-btn { width: 54px; height: 54px; font-size: 11px; }
+  .touch-btn svg { width: 26px; height: 26px; }
+  .touch-icon-btn { width: 44px; height: 44px; }
+  .touch-icon-btn svg { width: 22px; height: 22px; }
   .touch-btn-big {
-    width: 70px;
-    height: 70px;
+    width: 72px;
+    height: 72px;
     font-size: 13px;
   }
 }
@@ -1591,16 +1591,16 @@ kbd {
   #touchButtons {
     right: max(12px, env(safe-area-inset-right));
     bottom: max(12px, env(safe-area-inset-bottom));
-    gap: 10px;
+    gap: 12px;
   }
-  .touch-btn {
-    width: 52px;
-    height: 52px;
-    font-size: 11px;
-  }
+  .touch-secondary { gap: 10px; }
+  .touch-btn { width: 54px; height: 54px; font-size: 11px; }
+  .touch-btn svg { width: 26px; height: 26px; }
+  .touch-icon-btn { width: 44px; height: 44px; }
+  .touch-icon-btn svg { width: 22px; height: 22px; }
   .touch-btn-big {
-    width: 70px;
-    height: 70px;
+    width: 72px;
+    height: 72px;
     font-size: 13px;
   }
 
@@ -2202,9 +2202,16 @@ kbd {
   right: max(24px, env(safe-area-inset-right));
   bottom: max(28px, env(safe-area-inset-bottom));
   display: flex;
-  flex-direction: row-reverse; /* poziomo, BIEG po prawej pod kciukiem - nie zasłania mapy */
+  flex-direction: row;       /* [kolumna: widok+telefon] [BIEG]  - BIEG po prawej pod kciukiem */
   align-items: flex-end;
   gap: 14px;
+  pointer-events: none;
+}
+/* Pomocnicze akcje (widok / telefon) - mała kolumna obok BIEG */
+.touch-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   pointer-events: none;
 }
 .touch-btn {
@@ -2213,8 +2220,8 @@ kbd {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  width: 62px;
-  height: 62px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   font-family: var(--font);
   font-size: 13px;
@@ -2229,10 +2236,17 @@ kbd {
   justify-content: center;
   cursor: pointer;
 }
+/* Monochromatyczne ikony SVG (zamiast kolorowych emoji) */
+.touch-btn svg, .touch-icon-btn svg {
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
+  display: block;
+}
 .touch-btn-big {
-  width: 84px;
-  height: 84px;
-  font-size: 15px;
+  width: 86px;
+  height: 86px;
+  font-size: 16px;
 }
 .touch-btn.active {
   background: rgba(0, 163, 224, 0.85);
@@ -2240,6 +2254,44 @@ kbd {
   border-color: #fff;
   box-shadow: 0 0 22px rgba(0, 163, 224, 0.7);
   transform: scale(0.95);
+}
+
+/* Przycisk pauzy / ustawień - lewy górny róg, osobno od kciuków */
+.touch-icon-btn {
+  position: absolute;
+  top: max(10px, calc(env(safe-area-inset-top) + 6px));
+  left: max(14px, env(safe-area-inset-left));
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  color: var(--moto-light);
+  background: rgba(0, 13, 36, 0.6);
+  border: 2px solid rgba(0, 163, 224, 0.55);
+  box-shadow: 0 0 16px rgba(0, 163, 224, 0.2), inset 0 0 12px rgba(0, 13, 36, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.touch-icon-btn:active {
+  background: rgba(0, 163, 224, 0.85);
+  border-color: #fff;
+  transform: scale(0.94);
+}
+.touch-icon-btn svg { width: 24px; height: 24px; }
+
+/* Na urządzeniach dotykowych: chowamy wskaźnik WIDOK [V] z paska (klawisz V nieużywany),
+   robiąc miejsce w lewym górnym rogu na przycisk pauzy. Panel Assist AI spychamy
+   niżej, żeby nie wchodził pod przycisk pauzy. */
+@media (pointer: coarse) {
+  #hudCameraBlock { display: none; }
+  #assist {
+    top: calc(max(10px, env(safe-area-inset-top) + 6px) + 56px);
+    left: max(14px, env(safe-area-inset-left));
+  }
 }
 
 /* ===== Prośba o obrót do poziomu (mobile) ===== */
