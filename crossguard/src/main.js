@@ -414,6 +414,22 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// Otwarcie pauzy z przycisku dotykowego (telefon nie ma klawisza Esc).
+// Stąd dostępny jest też przycisk USTAWIENIA.
+function openPauseFromTouch() {
+  if (!currentSession || currentSession.cinematic || isPaused) return;
+  if (!$('settings').classList.contains('hidden')) return;
+  isPaused = true;
+  $('pause').classList.remove('hidden');
+  audio.pauseIn();
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+const btnPause = $('btnPause');
+if (btnPause) {
+  btnPause.addEventListener('touchstart', (e) => { e.preventDefault(); openPauseFromTouch(); }, { passive: false });
+  btnPause.addEventListener('click', openPauseFromTouch);
+}
+
 // Automatyczne pauzowanie gry przy utracie Pointer Locka w trybie FPP
 let wasPointerLocked = false;
 document.addEventListener('pointerlockchange', () => {

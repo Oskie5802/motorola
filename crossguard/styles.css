@@ -1476,6 +1476,13 @@ kbd {
   #hudTopBar .hud-block {
     gap: 2px;
   }
+  /* Środkowy blok (MISJA / DO CELU) jest wysoki - wycentrowany na cienkim pasku
+     wystawał ponad górę ekranu i się ucinał. Kotwiczymy go do GÓRY z safe-area. */
+  #hudTopBar .hud-block.center {
+    top: max(4px, env(safe-area-inset-top));
+    transform: translateX(-50%);
+    gap: 0;
+  }
   .hud-label {
     font-size: 8px;
     letter-spacing: 1.2px;
