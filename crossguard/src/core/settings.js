@@ -1,6 +1,17 @@
 // Zarządzanie ustawieniami i optymalizacjami graficznymi (LOD)
 const SETTINGS_KEY = 'crossguard_graphics_settings_v1';
 
+// Wykrycie telefonu/tabletu (dotyk jako główny wskaźnik). Na takim sprzęcie
+// startujemy z lżejszym profilem i mniejszym zasięgiem renderowania, żeby gra
+// płynnie chodziła "na wszystkim".
+export const isMobile = (() => {
+  try {
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    return coarse && touch;
+  } catch { return false; }
+})();
+
 const DEFAULT_SETTINGS = {
   quality: 'high', // 'low', 'medium', 'high'
   shadows: true,
@@ -8,6 +19,16 @@ const DEFAULT_SETTINGS = {
   particles: true,
   pixelRatioLimit: 2.0,
   chunkLimit: 200 // Domyślna odległość renderowania chunków w metrach
+};
+
+// Profil startowy dla telefonu: średnia jakość, krótszy zasięg, mniej pikseli.
+const MOBILE_DEFAULT_SETTINGS = {
+  quality: 'medium',
+  shadows: false,
+  lod: true,
+  particles: false,
+  pixelRatioLimit: 1.5,
+  chunkLimit: 110
 };
 
 class SettingsManager {
@@ -24,7 +45,8 @@ class SettingsManager {
     } catch (e) {
       console.warn('Failed to load graphics settings:', e);
     }
-    return { ...DEFAULT_SETTINGS };
+    // Brak zapisanych ustawień - pierwszy raz. Na telefonie dajemy lżejszy profil.
+    return isMobile ? { ...MOBILE_DEFAULT_SETTINGS } : { ...DEFAULT_SETTINGS };
   }
 
   save() {

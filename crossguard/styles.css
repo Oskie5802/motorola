@@ -1377,6 +1377,10 @@ kbd {
 
 /* Niskie ekrany (telefon w poziomie) - telefon nie może wyjść poza widok */
 @media (max-height: 560px) {
+  /* Wyrównanie do góry + scroll: gdy treść (ustawienia/raport) jest wyższa
+     niż ekran, centrowanie flexem ucinałoby górę bez możliwości przewinięcia. */
+  .screen:not(.menu-screen) { align-items: flex-start; }
+
   /* EKRAN MENU STARTOWEGO */
   .menu-topbar {
     height: 26px;
@@ -1462,9 +1466,9 @@ kbd {
     font-size: 8px;
   }
 
-  /* HUD W GRZE - GÓRNY PASEK */
+  /* HUD W GRZE - GÓRNY PASEK (z marginesem safe-area, żeby nie był ucinany pod notch/status bar) */
   #hudTopBar {
-    padding: 6px 12px;
+    padding: max(6px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
   }
   #hudTopBar .hud-block {
     gap: 2px;
@@ -1485,6 +1489,20 @@ kbd {
   }
   #hudTopBar .hud-block.right {
     gap: 16px;
+  }
+
+  /* POWIADOMIENIA / TOASTY - mniejsze, żeby nie zasłaniały ekranu na telefonie */
+  #alerts {
+    top: 46px;
+    gap: 5px;
+    max-width: 70vw;
+  }
+  .alert {
+    padding: 5px 12px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    border-left-width: 3px;
+    border-radius: 3px;
   }
 
   /* ASYSTENT AI */
@@ -1627,6 +1645,19 @@ kbd {
   .phone-header { font-size: 12px; padding: 6px 4px; margin-bottom: 6px; }
   .phone-footer { margin-top: 6px; padding-top: 6px; }
   .phone-close-btn { padding: 7px 0; }
+
+  /* RAPORT MISJI - kompaktowo na telefonie w poziomie, żeby mieścił się bez ścinania */
+  .menu-content { padding: 16px 20px; }
+  .results { max-width: 560px; }
+  .grade-box { margin: 8px auto 12px; padding: 8px 22px; border-radius: 8px; }
+  .grade-label { font-size: 9px; }
+  #gradeLetter { font-size: 48px; margin-top: 0; }
+  .results-grid { gap: 8px; margin: 10px 0 12px; }
+  .results-grid > div { padding: 7px 9px; gap: 2px; }
+  .results-grid > div span:last-child { font-size: 14px; }
+  .results-grid .hud-label { font-size: 8px; }
+  .lesson { font-size: 11px; line-height: 1.45; padding: 9px 12px; margin: 10px 0; }
+  .results .primary-btn, .results .ghost-btn { padding: 10px 14px; font-size: 11px; }
 }
 
 /* =========================================================

@@ -572,7 +572,7 @@ async function startGame(zone, opts = {}) {
   scene.environment = envTex;
 
     // Kamera glowna
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 600);
+  const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 600);
   camera.position.set(0, 14, 14);
 
   const env = new Environment(scene, zone);
