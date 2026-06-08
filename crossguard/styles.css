@@ -1378,8 +1378,11 @@ kbd {
 /* Niskie ekrany (telefon w poziomie) - telefon nie może wyjść poza widok */
 @media (max-height: 560px) {
   /* Wyrównanie do góry + scroll: gdy treść (ustawienia/raport) jest wyższa
-     niż ekran, centrowanie flexem ucinałoby górę bez możliwości przewinięcia. */
+     niż ekran, centrowanie flexem ucinałoby górę bez możliwości przewinięcia.
+     margin:auto na .menu-content też centruje w pionie - zerujemy je, inaczej
+     przycisk POWRÓT/NASTĘPNA MISJA wypada poza ekran i nie da się doscrollować. */
   .screen:not(.menu-screen) { align-items: flex-start; }
+  .screen:not(.menu-screen) .menu-content { margin: 0 auto; }
 
   /* EKRAN MENU STARTOWEGO */
   .menu-topbar {
@@ -1503,6 +1506,12 @@ kbd {
     letter-spacing: 0.5px;
     border-left-width: 3px;
     border-radius: 3px;
+  }
+  /* Pływające punkty (+10 / -20) nad postacią - mniejsze na telefonie */
+  .floater {
+    font-size: 13px;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
   }
 
   /* ASYSTENT AI */
