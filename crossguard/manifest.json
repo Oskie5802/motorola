@@ -1,0 +1,22 @@
+{
+  "name": "CrossGuard - Symulator Pieszego",
+  "short_name": "CrossGuard",
+  "description": "Edukacyjny symulator pieszego w inteligentnym mieście - Motorola Solutions Science Cup 2026.",
+  "lang": "pl",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#020e1c",
+  "theme_color": "#020e1c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

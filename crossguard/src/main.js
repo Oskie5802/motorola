@@ -153,6 +153,19 @@ function tryLockLandscape() {
   }
 }
 
+// iOS Safari ignoruje user-scalable=no - ręcznie blokujemy zoom gestem (pinch)
+// i podwójnym tknięciem, żeby nie psuło sterowania kamerą/joystickiem podczas gry.
+['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) =>
+  document.addEventListener(ev, (e) => { if (document.body.classList.contains('in-game')) e.preventDefault(); }, { passive: false })
+);
+let _lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  if (!document.body.classList.contains('in-game')) return;
+  const now = Date.now();
+  if (now - _lastTouchEnd < 300) e.preventDefault(); // double-tap zoom
+  _lastTouchEnd = now;
+}, { passive: false });
+
 async function ensureModels() {
   const isLow = settings.current.quality === 'low';
   if (cachedCharacter && (isLow || (cachedModels && cachedCars && Object.keys(cachedCars).length > 0))) {
@@ -622,6 +635,9 @@ async function startGame(zone, opts = {}) {
     renderer.setSize(window.innerWidth, window.innerHeight);
   };
   window.addEventListener('resize', onResize);
+  // Po obrocie telefonu iOS przez chwilę zgłasza stare wymiary - dopasowujemy jeszcze raz z opóźnieniem.
+  const onOrient = () => { onResize(); setTimeout(onResize, 250); setTimeout(onResize, 600); };
+  window.addEventListener('orientationchange', onOrient);
 
     // Glowna pętla
   const clock = new THREE.Clock();
@@ -666,6 +682,7 @@ async function startGame(zone, opts = {}) {
     cleanup: () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onOrient);
       renderer.dispose();
             // Posprzątaj RAM po levelu
       scene.traverse(obj => {

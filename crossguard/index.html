@@ -3,8 +3,22 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- viewport-fit=cover: pozwala treści wejść pod notch i WŁĄCZA env(safe-area-inset-*) w CSS.
+       maximum-scale + user-scalable=no: blokuje przypadkowy zoom dwuklikiem/szczypaniem podczas gry. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>CrossGuard - Symulator Pieszego | Motorola Solutions</title>
+
+  <!-- PWA / tryb aplikacji: po dodaniu do ekranu głównego gra startuje na PEŁNYM ekranie,
+       bez paska adresu przeglądarki (Android: Chrome → "Dodaj do ekranu głównego";
+       iOS: Safari → Udostępnij → "Do ekranu początkowego"). -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#020e1c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CrossGuard" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+
   <link rel="stylesheet" href="styles.css" />
   <script type="importmap">
     {
