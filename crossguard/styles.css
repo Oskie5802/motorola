@@ -48,6 +48,9 @@ html, body {
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  padding: 24px 12px;
+  -webkit-overflow-scrolling: touch;
 }
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(1.01); }
@@ -347,6 +350,7 @@ html, body {
 
 /* Boxy wspolne na podstrony */
 .menu-content {
+  margin: auto;
   max-width: 900px;
   width: 92%;
   padding: 36px;
@@ -1282,32 +1286,77 @@ kbd {
   .menu-layout { flex-direction: column; }
   .menu-brand {
     flex: 0 0 auto;
-    padding: 32px 28px 20px;
+    padding: 20px 20px 14px;
     border-right: none;
     border-bottom: 1px solid rgba(0,163,224,0.12);
   }
-  .logo-cross, .logo-guard { font-size: 56px; }
-  .menu-logo { margin-bottom: 14px; }
+  .logo-cross, .logo-guard { font-size: 44px; }
+  .menu-logo { margin-bottom: 8px; }
+  .brand-eyebrow { margin-bottom: 8px; font-size: 9px; letter-spacing: 2px; }
+  .menu-rule { margin-bottom: 12px; height: 1.5px; }
   .menu-tagline { display: none; }
-  .brand-credit { position: static; margin-top: 8px; font-size: 8px; }
-  .menu-zones-col { padding: 20px 28px; }
-  .menu-ctas { flex-direction: row; max-width: none; }
-  .menu-ctas .primary-btn, .menu-ctas .ghost-btn { width: auto; flex: 1; }
+  .brand-credit { position: static; margin-top: 6px; font-size: 8px; }
+  .menu-zones-col { padding: 16px 20px; }
+  .menu-ctas {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    max-width: none;
+  }
+  .menu-ctas #startBtn {
+    grid-column: span 2;
+  }
+  .menu-ctas .primary-btn, .menu-ctas .ghost-btn {
+    width: 100%;
+    margin: 0;
+    text-align: center;
+    padding: 12px 16px;
+  }
+  
+  /* Zmniejszenie sterowania mobilnego na mniejszych ekranach */
+  #joystick {
+    width: 110px;
+    height: 110px;
+    left: max(16px, env(safe-area-inset-left));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  #joystickKnob {
+    width: 48px;
+    height: 48px;
+    margin: -24px 0 0 -24px;
+  }
+  #touchButtons {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  .touch-btn {
+    width: 52px;
+    height: 52px;
+    font-size: 11px;
+  }
+  .touch-btn-big {
+    width: 70px;
+    height: 70px;
+    font-size: 13px;
+  }
 }
 @media (max-width: 720px) {
   #minimap { top: 64px; right: 8px; }
-  .minimap-wrap { width: 150px; height: 150px; }
-  #minimapCanvas { width: 150px; height: 150px; }
-  .minimap-wrap::after { -webkit-mask: radial-gradient(transparent 70px, black 72px); mask: radial-gradient(transparent 70px, black 72px); }
+  .minimap-wrap { width: 130px; height: 130px; }
+  #minimapCanvas { width: 130px; height: 130px; }
+  .minimap-wrap::after { -webkit-mask: radial-gradient(transparent 61px, black 63px); mask: radial-gradient(transparent 61px, black 63px); }
   .minimap-label { font-size: 7px; top: -17px; }
-  #assist { width: 220px; top: 64px; left: 8px; }
-  .menu-content h1 { font-size: 32px; }
+  #assist { width: 200px; top: 64px; left: 8px; padding: 8px 10px; }
+  #assistMsg { font-size: 11px; min-height: 0; }
+  .menu-content h1 { font-size: 28px; }
+  .menu-content h2 { font-size: 11px; margin-bottom: 16px; }
   .results-grid { grid-template-columns: 1fr 1fr; }
 
   /* Telefon: dopasowanie do ekranu komórki (bez sztywnej min-height) */
   .phone-container {
-    width: 88%;
-    max-width: 300px;
+    width: 280px;
+    max-width: 280px;
     height: 78vh;
     min-height: 0;
     border-width: 8px;
@@ -1325,16 +1374,245 @@ kbd {
 
 /* Niskie ekrany (telefon w poziomie) - telefon nie może wyjść poza widok */
 @media (max-height: 560px) {
+  /* EKRAN MENU STARTOWEGO */
+  .menu-topbar {
+    height: 26px;
+    padding: 0 16px;
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
+  .menu-brand {
+    flex: 0 0 38%;
+    padding: 16px 20px;
+  }
+  .brand-eyebrow {
+    font-size: 8px;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+  .logo-cross, .logo-guard {
+    font-size: 34px;
+  }
+  .menu-logo {
+    margin-bottom: 6px;
+  }
+  .menu-rule {
+    margin-bottom: 10px;
+    height: 1.5px;
+    width: 36px;
+  }
+  .menu-tagline {
+    display: none;
+  }
+  .menu-ctas {
+    gap: 6px;
+    max-width: 260px;
+  }
+  .menu-ctas .primary-btn, .menu-ctas .ghost-btn {
+    padding: 10px 14px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+  }
+  .brand-credit {
+    position: static;
+    margin-top: 10px;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+  .brand-team {
+    font-size: 9px;
+    letter-spacing: 2px;
+  }
+  .menu-zones-col {
+    padding: 16px 24px;
+  }
+  .zones-col-hdr {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+  }
+  .zones-col-title {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
+  .zone-card {
+    padding: 8px 12px;
+    gap: 12px;
+  }
+  .znum {
+    font-size: 20px;
+    min-width: 28px;
+  }
+  .zname {
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .zdesc {
+    font-size: 10px;
+    line-height: 1.3;
+  }
+  .zbest {
+    font-size: 9px;
+    margin-top: 4px;
+  }
+  .zlock {
+    font-size: 8px;
+  }
+
+  /* HUD W GRZE - GÓRNY PASEK */
+  #hudTopBar {
+    padding: 6px 12px;
+  }
+  #hudTopBar .hud-block {
+    gap: 2px;
+  }
+  .hud-label {
+    font-size: 8px;
+    letter-spacing: 1.2px;
+    margin-bottom: 1px;
+  }
+  .hud-status {
+    font-size: 10px;
+  }
+  .hud-mission {
+    font-size: 11px;
+  }
+  #timerText, #scoreText {
+    font-size: 16px !important;
+  }
+  #hudTopBar .hud-block.right {
+    gap: 16px;
+  }
+
+  /* ASYSTENT AI */
+  #assist {
+    top: 52px;
+    left: max(12px, env(safe-area-inset-left));
+    width: 230px;
+    padding: 8px 10px;
+    border-radius: 6px;
+  }
+  .assist-header {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  .ai-icon {
+    width: 14px;
+    height: 14px;
+    line-height: 14px;
+    font-size: 9px;
+  }
+  #assistMsg {
+    font-size: 11px;
+    line-height: 1.4;
+    min-height: 0;
+  }
+
+  /* RADAR / MINIMAPA (PRZENIESIENIE W PRAWY GÓRNY RÓG) */
+  #minimap {
+    top: 52px;
+    right: max(12px, env(safe-area-inset-right));
+  }
+  .minimap-wrap {
+    width: 130px;
+    height: 130px;
+  }
+  #minimapCanvas {
+    width: 130px;
+    height: 130px;
+    box-shadow: 0 0 0 1.5px rgba(0,163,224,0.5), inset 0 0 10px rgba(0,0,0,0.5);
+  }
+  .minimap-wrap::after {
+    -webkit-mask: radial-gradient(transparent 61px, black 63px);
+    mask: radial-gradient(transparent 61px, black 63px);
+  }
+  .minimap-label {
+    font-size: 6px;
+    top: -15px;
+    letter-spacing: 2px;
+  }
+  .minimap-compass {
+    font-size: 8px;
+  }
+  .minimap-compass .cn { top: 3px; }
+  .minimap-compass .cs { bottom: 3px; }
+  .minimap-compass .cw { left: 5px; }
+  .minimap-compass .ce { right: 5px; }
+
+  /* STEROWANIE DOTYKOWE */
+  #joystick {
+    width: 110px;
+    height: 110px;
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  #joystickKnob {
+    width: 48px;
+    height: 48px;
+    margin: -24px 0 0 -24px;
+  }
+  #touchButtons {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  .touch-btn {
+    width: 52px;
+    height: 52px;
+    font-size: 11px;
+  }
+  .touch-btn-big {
+    width: 70px;
+    height: 70px;
+    font-size: 13px;
+  }
+
+  /* DIALOGI / KARTY W GRACH */
+  .menu-content h1 {
+    font-size: 24px;
+  }
+  .menu-content h2 {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .settings-grid {
+    margin: 12px 0;
+    gap: 10px;
+  }
+  .settings-card {
+    padding: 12px 16px;
+  }
+  .settings-card h3 {
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+  }
+  .howto-grid {
+    margin: 12px 0;
+    gap: 8px;
+  }
+  .howto-card {
+    padding: 10px 12px;
+  }
+  .howto-card h3 {
+    margin-bottom: 4px;
+  }
+  .howto-card p {
+    font-size: 11px;
+    line-height: 1.4;
+    margin: 4px 0;
+  }
+
+  /* TELEFON / SMARTFON */
   #phoneOverlay {
     justify-content: center;
     padding-right: 0;
     padding-bottom: 0;
   }
   #phoneOverlay.state-peeking .phone-container {
-    transform: translateY(calc(100% - 195px)); /* Peeks 3x more in landscape */
+    transform: translateY(calc(100% - 195px));
   }
   .phone-container {
-    width: auto;
+    width: 280px;
     max-width: 280px;
     height: 90vh;
     min-height: 0;

@@ -398,7 +398,13 @@ export class Player {
     const knob = document.getElementById('joystickKnob');
     if (joy && knob) {
       let joyId = null;
-      const maxR = 46; // promień wychylenia gałki w px
+      let maxR = 46; // promień wychylenia gałki w px (fallback)
+
+      const updateMaxR = () => {
+        if (joy.clientWidth && knob.clientWidth) {
+          maxR = (joy.clientWidth - knob.clientWidth) / 2 + 6;
+        }
+      };
 
       const setKnob = (dx, dz) => { knob.style.transform = `translate(${dx}px, ${dz}px)`; };
       const resetJoy = () => {
@@ -419,6 +425,7 @@ export class Player {
 
       joy.addEventListener('touchstart', (e) => {
         e.preventDefault();
+        updateMaxR();
         const t = e.changedTouches[0];
         joyId = t.identifier;
         handle(t, joy.getBoundingClientRect());
