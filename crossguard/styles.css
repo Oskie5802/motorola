@@ -2192,3 +2192,46 @@ kbd {
   transform: scale(0.95);
 }
 
+/* ===== Prośba o obrót do poziomu (mobile) ===== */
+#rotateNotice {
+  display: none; /* domyślnie ukryte - pokazywane tylko na mobile w pionie podczas gry */
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: radial-gradient(circle at 50% 40%, #001a47, #000d24 70%);
+  color: var(--moto-light);
+  text-align: center;
+  padding: 24px;
+  align-items: center;
+  justify-content: center;
+}
+/* Pokazujemy tylko gdy: urządzenie dotykowe + pion + trwa gra */
+@media (pointer: coarse) and (orientation: portrait) {
+  body.in-game #rotateNotice { display: flex; }
+}
+.rotate-inner { max-width: 340px; }
+.rotate-phone {
+  font-size: 64px;
+  line-height: 1;
+  margin-bottom: 18px;
+  animation: rotateHint 1.8s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes rotateHint {
+  0%, 40%   { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(-90deg); }
+}
+.rotate-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--moto-cyan);
+  margin-bottom: 12px;
+}
+.rotate-sub {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #b9d4ef;
+  margin: 0;
+}
+

@@ -126,9 +126,32 @@ window.addEventListener('load', () => {
 // Nasluchiwacze na buttony
 $('startBtn').onclick = () => {
   audio.resume();
+  tryLockLandscape();
   $('menu').classList.add('hidden');
   startGame(ZONES.find(z => z.id === selectedZoneId));
 };
+
+// Próba wymuszenia orientacji poziomej na telefonie (działa gł. na Androidzie
+// w trybie pełnoekranowym). Na iOS przeglądarka to ignoruje - tam ratuje nas
+// nakładka #rotateNotice "OBRÓĆ TELEFON".
+function tryLockLandscape() {
+  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  if (!coarse) return;
+  const lock = () => {
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+      }
+    } catch {}
+  };
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req && !document.fullscreenElement) {
+    Promise.resolve(req.call(el)).then(lock).catch(lock);
+  } else {
+    lock();
+  }
+}
 
 async function ensureModels() {
   const isLow = settings.current.quality === 'low';
@@ -512,6 +535,8 @@ function requestGamePointerLock() {
 // Inicjalizacja swiata
 async function startGame(zone, opts = {}) {
   const cinematic = !!opts.cinematic;
+  // Tryb gry - aktywuje nakładkę "obróć telefon" na mobile w pionie
+  if (!cinematic) document.body.classList.add('in-game');
   const models = await ensureModels();
 
     // Scena
@@ -673,6 +698,7 @@ function endSession() {
   if (phoneOverlay) {
     phoneOverlay.className = 'hidden';
   }
+  document.body.classList.remove('in-game');
 }
 
 // Widok punktow
