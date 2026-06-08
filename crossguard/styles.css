@@ -912,19 +912,30 @@ kbd {
   top: 0;
   right: 0;
   width: 100vw;
-  min-width: 100vw;
-  max-width: 500px;
   height: 100vh;
   z-index: 100;
-  pointer-events: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding-bottom: 20px;
+  padding-right: 40px;
+  box-sizing: border-box;
+  background: rgba(2, 14, 28, 0);
+  backdrop-filter: blur(0px);
+  pointer-events: none;
+  transition: background 0.4s ease, backdrop-filter 0.4s ease;
+}
+
+#phoneOverlay.state-expanded {
   background: rgba(2, 14, 28, 0.65);
   backdrop-filter: blur(8px);
-  border-left: 3px solid var(--moto-cyan);
-  box-shadow: -15px 0 35px rgba(0, 0, 0, 0.85);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  pointer-events: auto;
+}
+
+#phoneOverlay.state-peeking {
+  background: rgba(2, 14, 28, 0);
+  backdrop-filter: none;
+  pointer-events: none;
 }
 
 .phone-container {
@@ -941,6 +952,148 @@ kbd {
   flex-direction: column;
   overflow: hidden;
   font-family: 'Inter', system-ui, sans-serif;
+  pointer-events: auto;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  transform: translateY(110%); /* Hidden by default */
+}
+
+#phoneOverlay.state-peeking .phone-container {
+  transform: translateY(calc(100% - 270px)); /* Peeks 3x more (270px) */
+  box-shadow: 0 -5px 25px rgba(0, 163, 224, 0.5), 0 20px 50px rgba(0, 0, 0, 0.9);
+  cursor: pointer;
+  animation: phonePulse 2.5s infinite ease-in-out;
+}
+
+#phoneOverlay.state-expanded .phone-container {
+  transform: translateY(0);
+}
+
+@keyframes phonePulse {
+  0%, 100% { box-shadow: 0 -5px 15px rgba(0, 163, 224, 0.4), 0 20px 50px rgba(0, 0, 0, 0.9); }
+  50% { box-shadow: 0 -5px 30px rgba(0, 163, 224, 0.8), 0 20px 50px rgba(0, 0, 0, 0.9); }
+}
+
+/* Banner powiadomień na ekranie telefonu */
+.phone-notification-banner {
+  position: absolute;
+  top: 36px;
+  left: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, rgba(20, 30, 45, 0.96), rgba(8, 14, 24, 0.96));
+  border: 1.5px solid var(--moto-cyan);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 15;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.75), inset 0 0 8px rgba(0, 163, 224, 0.3);
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  opacity: 0;
+  transform: translateY(-30px) scale(0.9);
+  pointer-events: none;
+}
+
+.phone-notification-banner.active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  animation: bannerPulse 3s infinite ease-in-out;
+}
+
+@keyframes bannerPulse {
+  0%, 100% { border-color: var(--moto-cyan); box-shadow: 0 8px 20px rgba(0, 163, 224, 0.25); }
+  50% { border-color: var(--moto-amber); box-shadow: 0 8px 25px rgba(255, 184, 0, 0.25); }
+}
+
+.phone-notification-banner .bell-icon {
+  font-size: 18px;
+  animation: wiggle 1.2s ease infinite;
+  display: inline-block;
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(-18deg); }
+  30% { transform: rotate(18deg); }
+  45% { transform: rotate(-12deg); }
+  60% { transform: rotate(12deg); }
+  75% { transform: rotate(0); }
+}
+
+.phone-notification-banner .banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.phone-notification-banner .banner-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--moto-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Banner powiadomień na ekranie telefonu */
+.phone-notification-banner .banner-desc {
+  font-size: 10px;
+  color: #e1e8ed;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  text-align: left;
+}
+
+.phone-quick-close-btn {
+  background: #ff4d6d;
+  border: none;
+  color: #020e1c;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease, transform 0.1s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(255, 77, 109, 0.3);
+}
+
+.phone-quick-close-btn:hover {
+  background: #ff7185;
+  box-shadow: 0 2px 10px rgba(255, 77, 109, 0.6);
+  transform: translateY(-1px);
+}
+
+.phone-quick-close-btn:active {
+  transform: translateY(0);
+}
+
+/* Kiedy telefon tylko wystaje, zdejmujemy ostrość z normalnego czatu pod spodem */
+#phoneOverlay.state-peeking .phone-header,
+#phoneOverlay.state-peeking .phone-footer,
+#phoneOverlay.state-peeking .phone-content-area {
+  opacity: 0.12;
+  filter: blur(3px);
+  pointer-events: none;
+}
+
+/* Gdy telefon jest otwarty w pełni, chowany jest banner powiadomienia */
+#phoneOverlay.state-expanded .phone-notification-banner {
+  opacity: 0;
+  transform: translateY(-30px) scale(0.9);
+  pointer-events: none;
+}
+
+.phone-header,
+.phone-footer,
+.phone-content-area {
+  transition: opacity 0.3s ease, filter 0.3s ease;
 }
 
 /* Głośnik i notch u góry */
@@ -1160,10 +1313,26 @@ kbd {
     border-width: 8px;
     border-radius: 28px;
   }
+  #phoneOverlay {
+    justify-content: center;
+    padding-right: 0;
+    padding-bottom: 0;
+  }
+  #phoneOverlay.state-peeking .phone-container {
+    transform: translateY(calc(100% - 225px)); /* Peeks 3x more on mobile */
+  }
 }
 
 /* Niskie ekrany (telefon w poziomie) - telefon nie może wyjść poza widok */
 @media (max-height: 560px) {
+  #phoneOverlay {
+    justify-content: center;
+    padding-right: 0;
+    padding-bottom: 0;
+  }
+  #phoneOverlay.state-peeking .phone-container {
+    transform: translateY(calc(100% - 195px)); /* Peeks 3x more in landscape */
+  }
   .phone-container {
     width: auto;
     max-width: 280px;

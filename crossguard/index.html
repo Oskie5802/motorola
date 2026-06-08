@@ -175,6 +175,16 @@
         <div class="phone-speaker"></div>
         
         <div class="phone-screen">
+          <!-- Banner powiadomienia (widoczny przy peeking) -->
+          <div id="phoneNotificationBanner" class="phone-notification-banner">
+            <span class="bell-icon">🔔</span>
+            <div class="banner-text">
+              <div class="banner-title">Nowa wiadomość</div>
+              <div class="banner-desc" id="phoneNotificationPreview">...</div>
+            </div>
+            <button id="phoneQuickCloseBtn" class="phone-quick-close-btn">[O] SCHOWAJ</button>
+          </div>
+
           <div class="phone-status-bar">
             <span>14:38</span>
             <div class="phone-status-icons">
@@ -193,7 +203,7 @@
           
           <div class="phone-footer">
             <button id="phoneCloseBtn" class="phone-close-btn">ODŁÓŻ TELEFON</button>
-            <div class="phone-hint">[P] schowaj telefon</div>
+            <div class="phone-hint">[P] / [O] schowaj telefon</div>
           </div>
         </div>
       </div>

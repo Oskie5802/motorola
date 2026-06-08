@@ -56,8 +56,8 @@ export class GameLogic {
     this._cameraAlertTimer = 6 + Math.random() * 8;
     this._eventMul = evMul;
 
-    // Inicjalizacja czasu dla losowego włączania telefonu (4-8 sekund)
-    this._phoneDistractionTimer = 4 + Math.random() * 4;
+    // Inicjalizacja czasu dla losowego włączania telefonu (powiadomienie po 12-22s)
+    this._phoneDistractionTimer = 12 + Math.random() * 10;
 
         // Ostatnia misja
     const missionLabel = zone.id === 'highway'
@@ -262,7 +262,7 @@ export class GameLogic {
 
       if (pedState === 'green' && !alreadyDone) {
         this.addScore(SCORE.USE_CROSSING, 'Korzystasz z przejścia');
-        if (this.player.onPhone) {
+        if (this.player.onPhone || this.player.phoneState === 'peeking') {
           this.addScore(SCORE.PHONE_CROSS, '⚠ Telefon na przejściu', 'warn');
           this.usedPhone = true;
         }
@@ -391,28 +391,38 @@ export class GameLogic {
       return;
     }
 
-    // Losowe włączanie telefonu jako rozproszenie
-    if (this.player.onPhone) {
-      // Jeśli telefon jest już włączony, resetujemy timer odnowienia (6-12 sekund)
-      this._phoneDistractionTimer = 6 + Math.random() * 6;
+    // Losowe włączanie telefonu jako rozproszenie (powiadomienie)
+    if (this.player.phoneState === 'expanded' || this.player.phoneState === 'peeking') {
+      // Jeśli powiadomienie jest aktywne lub telefon otwarty, resetujemy timer odnowienia (18-30 sekund)
+      this._phoneDistractionTimer = 18 + Math.random() * 12;
     } else if (pos) {
       this._phoneDistractionTimer -= dt;
       if (this._phoneDistractionTimer <= 0) {
+        // Sprawdzamy czy gracz jest w pobliżu jakiegokolwiek przejścia dla pieszych (w promieniu 4.0 metrów)
+        let nearAnyCrossing = false;
+        for (const c of this.city.crossings) {
+          const dx = Math.max(0, c.x1 - pos.x, pos.x - c.x2);
+          const dz = Math.max(0, c.z1 - pos.z, pos.z - c.z2);
+          const dist = Math.hypot(dx, dz);
+          if (dist < 4.0) {
+            nearAnyCrossing = true;
+            break;
+          }
+        }
+
         // Telefon może włączyć się tylko gdy gracz jest bezpieczny na chodniku (onSidewalk)
-        // i nie znajduje się na przejściu dla pieszych (onCrossing) ani na jezdni (onRoad)
-        if (onSidewalk && !onCrossing && !onRoad) {
-          this.player.onPhone = true;
-          const overlay = document.getElementById('phoneOverlay');
-          if (overlay) overlay.classList.remove('hidden');
+        // i nie znajduje się na przejściu dla pieszych (onCrossing), na jezdni (onRoad) ani w pobliżu przejścia (nearAnyCrossing)
+        if (onSidewalk && !onCrossing && !onRoad && !nearAnyCrossing) {
+          this.player.setPhoneState('peeking');
           this.audio.warn(); // Dźwięk powiadomienia (podwójny sygnał)
-          this.hud.alert('📱 Nowa wiadomość! Telefon Cię rozprasza.', 'warn');
+          this.hud.alert('📱 Nowe powiadomienie na telefonie!', 'warn');
           
           this._setRandomPhoneMessage();
           
-          // Ustawienie kolejnego losowego włączenia za 6-12s
-          this._phoneDistractionTimer = 6 + Math.random() * 6;
+          // Ustawienie kolejnego losowego włączenia za 18-30s
+          this._phoneDistractionTimer = 18 + Math.random() * 12;
         } else {
-          // Jeśli gracz jest w niebezpiecznej strefie, przesuwamy próbę włączenia o 1.5s
+          // Jeśli gracz jest w niebezpiecznej strefie lub blisko przejścia, przesuwamy próbę włączenia o 1.5s
           this._phoneDistractionTimer = 1.5;
         }
       }
@@ -747,6 +757,16 @@ export class GameLogic {
       }
       chatContainer.appendChild(bubble);
     });
+
+    // Ustawienie tekstu podglądu powiadomienia na wysuwanym pasku
+    const incomingMsgs = randomChat.filter(msg => msg.type === 'incoming' || msg.type === 'alert-bubble');
+    if (incomingMsgs.length > 0) {
+      const lastIncoming = incomingMsgs[incomingMsgs.length - 1];
+      const previewEl = document.getElementById('phoneNotificationPreview');
+      if (previewEl) {
+        previewEl.textContent = `${lastIncoming.sender ? lastIncoming.sender + ': ' : ''}${lastIncoming.text}`;
+      }
+    }
 
     // Przewiń na dół
     chatContainer.scrollTop = chatContainer.scrollHeight;

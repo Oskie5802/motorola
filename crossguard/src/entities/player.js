@@ -53,6 +53,7 @@ export class Player {
     this.stopped = false;
 
     this.onPhone = false;
+    this.phoneState = 'hidden'; // 'hidden' | 'peeking' | 'expanded'
     this.lastCrossingId = null;
     this.devMode = false;
     this.isDead = false;
@@ -192,8 +193,16 @@ export class Player {
       }
       this.keys[e.code] = true;
       if (e.code === 'KeyP') {
-        this.onPhone = !this.onPhone;
-        document.getElementById('phoneOverlay').classList.toggle('hidden', !this.onPhone);
+        if (this.phoneState === 'expanded') {
+          this.setPhoneState('hidden');
+        } else {
+          this.setPhoneState('expanded');
+        }
+      }
+      if (e.code === 'KeyO') {
+        if (this.phoneState === 'expanded' || this.phoneState === 'peeking') {
+          this.setPhoneState('hidden');
+        }
       }
       if (e.code === 'KeyV') {
         this.toggleCamera(canvas);
@@ -250,8 +259,27 @@ export class Player {
     if (phoneCloseBtn) {
       phoneCloseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.onPhone = false;
-        document.getElementById('phoneOverlay').classList.add('hidden');
+        this.setPhoneState('hidden');
+      });
+    }
+
+    // Obsługa szybkiego wyłączenia telefonu w bannerze powiadomienia (z stopPropagation)
+    const phoneQuickCloseBtn = document.getElementById('phoneQuickCloseBtn');
+    if (phoneQuickCloseBtn) {
+      phoneQuickCloseBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Zapobiega rozwinięciu telefonu przy kliknięciu "SCHOWAJ"
+        this.setPhoneState('hidden');
+      });
+    }
+
+    // Kliknięcie w wystający telefon rozwija go do góry
+    const phoneContainer = document.querySelector('.phone-container');
+    if (phoneContainer) {
+      phoneContainer.addEventListener('click', (e) => {
+        if (this.phoneState === 'peeking') {
+          e.stopPropagation();
+          this.setPhoneState('expanded');
+        }
       });
     }
 
@@ -292,11 +320,60 @@ export class Player {
     }
   }
 
-  togglePhone() {
-    this.onPhone = !this.onPhone;
-    document.getElementById('phoneOverlay').classList.toggle('hidden', !this.onPhone);
+  setPhoneState(state) {
+    this.phoneState = state; // 'hidden' | 'peeking' | 'expanded'
+    
+    const overlay = document.getElementById('phoneOverlay');
     const btnPhone = document.getElementById('btnPhone');
-    if (btnPhone) btnPhone.classList.toggle('active', this.onPhone);
+    const banner = document.getElementById('phoneNotificationBanner');
+    
+    if (overlay) {
+      // Wyczyszczenie oczekującego timera ukrywania
+      if (this._phoneHideTimeout) {
+        clearTimeout(this._phoneHideTimeout);
+        this._phoneHideTimeout = null;
+      }
+      
+      // Jeśli pokazujemy telefon, usuwamy klasę display: none ('hidden') natychmiast
+      if (state !== 'hidden') {
+        overlay.classList.remove('hidden');
+      }
+      
+      overlay.classList.remove('state-hidden', 'state-peeking', 'state-expanded');
+      
+      if (state === 'hidden') {
+        overlay.classList.add('state-hidden');
+        this.onPhone = false;
+        if (btnPhone) btnPhone.classList.remove('active');
+        if (banner) banner.classList.remove('active');
+        
+        // Czekamy na animację wysunięcia w dół (0.4s) zanim dodamy display: none (hidden)
+        this._phoneHideTimeout = setTimeout(() => {
+          if (this.phoneState === 'hidden') {
+            overlay.classList.add('hidden');
+          }
+          this._phoneHideTimeout = null;
+        }, 400);
+      } else if (state === 'peeking') {
+        overlay.classList.add('state-peeking');
+        this.onPhone = false;
+        if (btnPhone) btnPhone.classList.remove('active');
+        if (banner) banner.classList.add('active');
+      } else if (state === 'expanded') {
+        overlay.classList.add('state-expanded');
+        this.onPhone = true;
+        if (btnPhone) btnPhone.classList.add('active');
+        if (banner) banner.classList.remove('active');
+      }
+    }
+  }
+
+  togglePhone() {
+    if (this.phoneState === 'expanded') {
+      this.setPhoneState('hidden');
+    } else {
+      this.setPhoneState('expanded');
+    }
   }
 
   setupTouch(canvas) {
