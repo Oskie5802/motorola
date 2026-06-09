@@ -106,12 +106,6 @@ export class GameLogic {
     cone.rotation.x = Math.PI / 2; // point along +Z
     cone.position.z = 0.3;
     arrowGroup.add(cone);
-    const ring2 = new THREE.Mesh(
-      new THREE.TorusGeometry(0.55, 0.07, 6, 18),
-      new THREE.MeshBasicMaterial({ color: 0xffb800, transparent: true, opacity: 0.7 })
-    );
-    ring2.rotation.x = Math.PI / 2;
-    arrowGroup.add(ring2);
     this.city.scene.add(arrowGroup);
     this._navArrow = arrowGroup;
   }
